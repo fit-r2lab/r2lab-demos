@@ -170,7 +170,7 @@ def main():
     parser.add_argument("-d", "--storage-dir", default=".",
                         help="specify a directory for storing all results")
     # select how many packets, and how often they are sent
-    parser.add_argument("-a", "--packets", type=int, default=10000,
+    parser.add_argument("-p", "--packets", type=int, default=10000,
                         help="nb of packets to send")
     parser.add_argument("-i", "--size", type=int, default=100,
                         help="packet size in bytes")
