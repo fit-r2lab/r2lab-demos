@@ -91,8 +91,9 @@ def one_run(gwhost, gwuser, keys, sendername, receivername, packets, size, perio
     # dataname = os.path.join("csi-{}-{}-{}-{}-{}"
     #                        .format(receivername, sendername, packets, size, period))
     #
-    # we reuse the shell script from the NEPI version as-is
-    auxiliary_script = "../nepi-angle-measure/angle-measure.sh"
+
+    # we have reused the shell script from the NEPI version as-is
+    auxiliary_script = "./angle-measure.sh"
 
     # the proxy to enter faraday
     r2lab_gateway = SshNode(
