@@ -196,11 +196,6 @@ function run-sender () {
     echo unloading intel drivers
     modprobe -r iwlwifi mac80211 cfg80211
 
-    # for extra safety
-    t=10
-    >&2 echo "Waiting an artificial extra ${t}s"
-    sleep $t
-
 }
 
 
@@ -221,7 +216,7 @@ function run-receiver () {
     # compute min of period and minimum
     actual_period=$(( $period <= $minimum ? $minimum : $period))
     duration=$(( $packets * $actual_period / 1000000))
-    safety=20
+    safety=10
     # then add another extra delay for safety
     total=$(( $duration + $safety))
     echo "Recording CSI data for $total = $duration + $safety seconds"
@@ -233,7 +228,9 @@ function run-receiver () {
     # record its pid
     pid=$!
     # wait for the estimated duration
-    sleep $total
+    sleep $duration
+    echo "Waiting extra safety ${safety}s"
+    sleep $safety
     # kill the recording job
     echo "it's time to leave after ${total}s"
     kill $pid

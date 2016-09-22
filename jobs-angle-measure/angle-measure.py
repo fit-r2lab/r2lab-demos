@@ -40,7 +40,7 @@ from argparse import ArgumentParser
 from asynciojobs.engine import Engine
 
 # we use only ssh-oriented jobs in this script
-from apssh.jobs.sshjobs import SshNode, SshJob, SshJobScript
+from apssh.jobs.sshjobs import SshNode, SshJob, SshJobScript, SshJobCollector
 
 # output formats
 from apssh.formatters import TimeColonFormatter, SubdirFormatter
@@ -77,7 +77,9 @@ def r2lab_nodes(parser_args):
     return nodenames
 
 #################### one experiment
-def one_run(gwhost, gwuser, keys, sendername, receivername, packets, size, period, formatter, debug=False):
+def one_run(gwhost, gwuser, keys,
+            sendername, receivername, packets, size, period,
+            formatter, verbose=False, debug=False):
     """
     gwhost, gwuser, keys: where to reach the testbed gateway
     sendername, receivername : hostnames for the test nodes
@@ -88,9 +90,8 @@ def one_run(gwhost, gwuser, keys, sendername, receivername, packets, size, perio
     # we keep all 'environment' data for one run in a dedicated subdir
     # using this name scheme to store results locally
     # xxx inherited from the NEPI version - unused for now
-    # dataname = os.path.join("csi-{}-{}-{}-{}-{}"
-    #                        .format(receivername, sendername, packets, size, period))
-    #
+    dataname = os.path.join("csi-{}-{}-{}-{}-{}"
+                            .format(receivername, sendername, packets, size, period))
 
     # we have reused the shell script from the NEPI version as-is
     auxiliary_script = "./angle-measure.sh"
@@ -158,15 +159,23 @@ def one_run(gwhost, gwuser, keys, sendername, receivername, packets, size, perio
     # ditto
     run_receiver.requires(init_sender, init_receiver)
 
+    collector = SshJobCollector(
+        node = receiver,
+        remotepaths = 'rawdata',
+        localpath = dataname,
+        label = "collector")
+    collector.requires(run_receiver)
+
     # print a one-liner for that receiver, sender couple
-    summary = "{} ==> {} {}x{} each {}us"\
+    summary = "{} ==> {} - {} packets of {} bytes, each {}us"\
         .format(sendername, receivername, packets, size, period)
-    print(10*'-', summary, 'Managing radio traffic')
+    print(10*'-', summary)
 
     # create an Engine object that will orchestrate this scenario
     e = Engine(init_sender, init_receiver,
                run_sender, run_receiver,
-               verbose = True,
+               collector,
+               verbose = verbose,
                debug = debug)
 
     if  e.orchestrate(timeout = 3*60):
@@ -261,8 +270,9 @@ def main():
                 keys = load_agent_keys()
                 #for key in keys:
                 #    print("loading from agent: {}".format(key))
-                one_run(gwhost, gwslice, keys, sendername, receivername,
-                        packets, size, period, formatter, debug)
+                one_run(gwhost, gwslice, keys,
+                        sendername, receivername, packets, size, period,
+                        formatter, verbose, debug)
 
 if __name__ == '__main__':
     main()
