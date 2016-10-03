@@ -1,8 +1,11 @@
 ![](oai-nodes.001.png)
 
-**WARNING** 
 
-**USE node 19 for enb for now**
+# Ubuntu 16 vs 14
+
+Images are available for ubuntu 16 for now; they are named `oai16-gw-base` and `oai16-enb-base`.
+
+I'm working on redoing the same for ubuntu14, the names will of course be `oaiu14*` when they are ready
 
 # prep infra
 
@@ -10,7 +13,7 @@
 
 ```
 n 23
-rload -i oai-gw-builds5 23 16
+rload -i oai16-gw-base 23 16
 rwait -t 120
 ss
 refresh
@@ -30,8 +33,7 @@ demo
 
 ```
 n 19
-#rload -i oai-enb-builds-uhd394-oscillo 
-rload -i oai-enb-builds2
+rload -i oai16-enb-base 
 rwait -t 300
 ss
 refresh
@@ -92,7 +94,9 @@ select imsi, imei, access_restriction,  mmeidentity_idmmeidentity from users whe
 select * from mmeidentity where mmerealm='r2lab.fr' ;
 ```
 
-# NOTES on generic kernel
+## NOTES on generic kernel
+
+***this section now obsolete, for u16 at least***
 
 * tried to rebuild from scratch (14.04)
 * created `oai-epc-kgen-builds` (skipped the base step)
