@@ -54,8 +54,8 @@ n 11
 rload -i oai-scrambler
 rwait
 ss
-demo
 refresh
+demo
 ```
 
 # Run it
@@ -63,8 +63,10 @@ refresh
 ## common scenario for the 3 boxes
 
 ```
-o prepare
+o init
+o configure
 o start
+
 o logs
 ```
 
