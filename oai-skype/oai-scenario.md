@@ -13,7 +13,7 @@ I'm working on redoing the same for ubuntu14, the names will of course be `oaiu1
 
 ```
 n 23
-rload -i oai16-gw-base 23 16
+rload -i u16-oai-gw 23 16
 rwait -t 120
 ss
 refresh
@@ -33,7 +33,7 @@ demo
 
 ```
 n 19
-rload -i oai16-enb-base 
+rload -i u16-oai-enb 19 
 rwait -t 300
 ss
 refresh
