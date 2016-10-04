@@ -37,16 +37,14 @@ import logging
 from argparse import ArgumentParser
 
 # the Engine object is the core of asynciojobs
-from asynciojobs.engine import Engine
+from asynciojobs import Engine
 
 # we use only ssh-oriented jobs in this script
-from apssh.jobs.sshjobs import SshNode, SshJob, SshJobScript, SshJobCollector
+from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
+from apssh import load_agent_keys
 
 # output formats
 from apssh.formatters import TimeColonFormatter, SubdirFormatter
-
-# simple keys policy : use ssh-agent only for now
-from apssh.keys import load_agent_keys
 
 # using external shell script like e.g.:
 # angle-measure.sh init-sender channel bandwidth
@@ -100,7 +98,7 @@ def one_run(gwhost, gwuser, keys,
     r2lab_gateway = SshNode(
         hostname = gwhost,
         username = gwuser,
-        client_keys = keys,
+        keys = keys,
         formatter = formatter,
         debug = debug,
     )
@@ -266,7 +264,7 @@ def main():
                       " every {period} micro-seconds"
                       .format(**locals()))
             else:
-                # not used for now
+                # simplest keys policy : use ssh-agent only for now
                 keys = load_agent_keys()
                 #for key in keys:
                 #    print("loading from agent: {}".format(key))
