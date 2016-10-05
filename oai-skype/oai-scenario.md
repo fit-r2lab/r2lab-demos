@@ -20,6 +20,14 @@ help
 phone status
 ```
 
+# All-in-one
+
+* requirements `sudo pip3 install [--upgrade] apssh asynciojobs`
+* where `cd r2lab/demos/oai-skype`
+* run **with image loading** `/oai-scenario.py --load`
+* or just **restart** it all `/oai-scenario.py`
+
+
 # Note on base images - ubuntu 16 vs 14
 
 Images are available for ubuntu 16 for now; they are named `oai16-gw-base` and `oai16-enb-base`.

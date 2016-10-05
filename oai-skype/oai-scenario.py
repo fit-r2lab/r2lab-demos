@@ -111,15 +111,27 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
         print("OK")
 
 def main():
+
+    default_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
+    def_hss, def_epc, def_enb = 23, 16, 19
+    
+
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("-l", "--load", dest='do_load', action='store_true', default=False,
                         help='load images as well')
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-d", "--debug", action='store_true', default=False)
+    parser.add_argument("-s", "--slice", default=default_slice,
+                        help="defaults to {}".format(default_slice))
+
+    parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
+    parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
+    parser.add_argument("--enb", default=def_enb, help="defaults to {}".format(def_enb))
+
     args = parser.parse_args()
     
-    run("root@faraday.inria.fr", hss = 23, epc = 16, enb = 19,
+    run(args.slice, hss = args.hss, epc = args.epc, enb = args.enb,
         do_load = args.do_load,
         verbose = args.verbose, debug = args.debug)
 
