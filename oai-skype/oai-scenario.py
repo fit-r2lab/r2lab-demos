@@ -4,12 +4,12 @@ import os.path
 
 from asynciojobs import Engine, Job, Sequence
 
-from apssh import SshNode, SshJob, SshJobScript
+from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
 from apssh.formatters import ColonFormatter
 
 def r2lab_hostname(x):
     """
-    Return a hostname from a name like either
+    Return a valid hostname from a name like either
     1 (int), 1(str), 01, fit1 or fit01 ...
     """
     return "fit{:02d}".format(int(str(x).replace('fit','')))
@@ -20,28 +20,32 @@ def script(s):
     """
     return os.path.join(os.path.expanduser("~/git/r2lab/infra/user-env/"), s)
 
-# include the same set of utility scripts
-includes = [ script(x) for x in [ "r2labutils.sh", "nodes.sh", "oai-common.sh"] ]
 
-def run(gateway, hss, epc, enb, do_load, verbose, debug):
+# include the same set of utility scripts
+includes = [ script(x) for x in [
+    "r2labutils.sh", "nodes.sh", "oai-common.sh",
+] ]
+
+def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
     """
     expects e.g.
-    * gateway : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
+    * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
     * hss : 23
     * epc : 16
     * enb : 19
     """
-    
-    gwuser, gwhost = gateway.split('@')
-    gwnode = SshNode(hostname = gwhost, username = gwuser,
-                     formatter = ColonFormatter(), debug=debug)
 
-    hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
+    # what the argparse knows as a slice actually is a gateway (user + host)
+    gwuser, gwhost = slice.split('@')
+    gwnode = SshNode(hostname = gwhost, username = gwuser,
+                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+
+    hostnames = hssname, epcname, enbname, scrname = [ r2lab_hostname(x) for x in (hss, epc, enb, scr) ]
     
-    hssnode, epcnode, enbnode = [
+    hssnode, epcnode, enbnode, scrnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
-                formatter = ColonFormatter(), debug=debug)
-        for hostname in (hssname, epcname, enbname)
+                formatter = ColonFormatter(verbose=verbose), debug=debug)
+        for hostname in hostnames
     ]
 
     load_infra = SshJob(
@@ -56,16 +60,18 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
     load_enb = SshJob(
         node = gwnode,
         commands = [
-            [ "rhubarbe", "load", "-i", "u16-oai-enb", enbname ],
-            [ "rhubarbe", "wait", "-t", 120, enbname ],
+            [ "rhubarbe", "load", "-i", "u16-oai-enb", enbname, scrname ],
+            [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
         ],
-        label = "load and wait ENB",
+        label = "load and wait ENB and SCR",
     )
 
     loaded = [load_infra, load_enb]
-    
+
+# actually run this in the gateway, not on the mac
+# the ssh keys are stored in the gateway and I haven't yet figured how to leverage such remote keys
 #    macphone = SshNode(gateway = gwnode, hostname = 'macphone', username = 'tester',
-#                       formatter = ColonFormatter(), debug = debug)
+#                       formatter = ColonFormatter(verbose=verbose), debug = debug)
     stop_phone = SshJobScript(
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
@@ -107,18 +113,71 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
     e.sanitize(verbose=False)
     
     print(40*'*', 'do_load=', do_load)
-    e.list()
-
+    if verbose:
+        e.list()
     if not e.orchestrate():
         print("KO")
         e.debrief()
     else:
         print("OK")
 
+# nothing to collect on the scrambler
+def collect(run_name, slice, hss, epc, enb, scr, do_load, verbose, debug):
+
+    gwuser, gwhost = slice.split('@')
+    gwnode = SshNode(hostname = gwhost, username = gwuser,
+                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+
+    functions = "hss", "epc", "enb"
+
+    hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
+    
+    nodes = hssnode, epcnode, enbnode = [
+        SshNode(gateway = gwnode, hostname = hostname, username = 'root',
+                formatter = ColonFormatter(verbose=verbose), debug=debug)
+        for hostname in hostnames
+    ]
+
+    # first run a 'capture' function remotely to gather all the relevant
+    # info into a single tar named <run_name>.tgz
+
+    capturers = [
+        SshJobScript(
+            node = node,
+            command = [ script("oai-common.sh"), "capture-{}".format(function), run_name ],
+            label = "capturer on {}".format(function),
+            # capture-enb will run oai-as-enb and thus requires oai-enb.sh
+            includes = [script("oai-{}.sh".format(function))],
+        )
+        for (node, function) in zip(nodes, functions) ]
+        
+    collectors = [
+        SshJobCollector(
+            node = node,
+            remotepaths = [ "{}-{}.tgz".format(run_name, function) ],
+            localpath = ".",
+            label = "collector on {}".format(function),
+            required = capturer,
+        )
+        for (node, function, capturer) in zip(nodes, functions, capturers) ]
+
+    e = Engine(verbose=verbose, debug=debug)
+    e.update(capturers)
+    e.update(collectors)
+    
+    if verbose:
+        e.list()
+
+    if not e.orchestrate():
+        print("KO")
+        e.debrief()
+    else:
+        print("OK")
+        
 def main():
 
     default_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
-    def_hss, def_epc, def_enb = 23, 16, 19
+    def_hss, def_epc, def_enb, def_scr = 23, 16, 19, 11
     
 
     from argparse import ArgumentParser
@@ -133,11 +192,23 @@ def main():
     parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
     parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
     parser.add_argument("--enb", default=def_enb, help="defaults to {}".format(def_enb))
+    parser.add_argument("--scr", default=def_scr, help="defaults to {}".format(def_scr))
 
     args = parser.parse_args()
-    
-    run(args.slice, hss = args.hss, epc = args.epc, enb = args.enb,
-        do_load = args.do_load,
-        verbose = args.verbose, debug = args.debug)
 
+    # build a dictionary with all the values in the args
+    kwds = args.__dict__.copy()
+
+    # actually run it
+    run(**kwds)
+
+    # then prompt for when we're ready to collect
+    try:
+        run_name = input("type capture name when ready : ")
+        collect(run_name, **kwds)
+    except Exception as e:
+        print(e)
+    
+
+    
 main()
