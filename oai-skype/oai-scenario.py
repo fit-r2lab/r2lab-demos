@@ -33,19 +33,14 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
     """
     
     gwuser, gwhost = gateway.split('@')
-    gwnode = SshNode(hostname = gwhost,
-                     username = gwuser,
-                     formatter = ColonFormatter(),
-                     debug=debug)
+    gwnode = SshNode(hostname = gwhost, username = gwuser,
+                     formatter = ColonFormatter(), debug=debug)
 
     hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
     
     hssnode, epcnode, enbnode = [
-        SshNode(gateway = gwnode,
-                hostname = hostname,
-                username = 'root',
-                formatter = ColonFormatter(),
-                debug=debug)
+        SshNode(gateway = gwnode, hostname = hostname, username = 'root',
+                formatter = ColonFormatter(), debug=debug)
         for hostname in (hssname, epcname, enbname)
     ]
 
@@ -69,12 +64,22 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
 
     loaded = [load_infra, load_enb]
     
+#    macphone = SshNode(gateway = gwnode, hostname = 'macphone', username = 'tester',
+#                       formatter = ColonFormatter(), debug = debug)
+    stop_phone = SshJobScript(
+        node = gwnode,
+        command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
+        includes = includes,
+        label = "Stopping phone",
+        # stop it at the beginning of the scenario, so no required
+    )
+
     run_hss = SshJobScript(
         node = hssnode,
         command = [ script("oai-gw.sh"), "run-hss", epc ],
         includes = includes,
         label = "run HSS",
-        required = loaded,
+        required = (loaded, stop_phone),
     )
 
     run_epc = SshJobScript(
@@ -82,7 +87,7 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
         command = [ script("oai-gw.sh"), "run-epc", hss ],
         includes = includes,
         label = "run EPC",
-        required = loaded,
+        required = (loaded, stop_phone),
     )
 
     run_enb = SshJobScript(
@@ -91,15 +96,15 @@ def run(gateway, hss, epc, enb, do_load, verbose, debug):
         command = [ script("oai-enb.sh"), "run-enb", epc ],
         includes = includes,
         label = "run softmodem on ENB",
-        required = loaded,
+        required = (loaded, stop_phone),
     )
 
     # schedule the load phases only if required
-    e = Engine(run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
+    e = Engine(stop_phone, run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
     if do_load:
         e.update(loaded)
     # remove requirements to the load phase if not added
-    e.sanitize()
+    e.sanitize(verbose=False)
     
     print(40*'*', 'do_load=', do_load)
     e.list()
