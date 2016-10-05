@@ -1,7 +1,26 @@
 ![](oai-nodes.001.png)
 
 
-# Ubuntu 16 vs 14
+# Access to the MAC controlling the phone
+
+## from another mac using *Screen sharing*
+
+Use target `faraday.inria.fr` -> `tester/tester++`
+
+## from faraday
+
+```
+macphone
+```
+
+## in both cases
+
+```
+help
+phone status
+```
+
+# Note on base images - ubuntu 16 vs 14
 
 Images are available for ubuntu 16 for now; they are named `oai16-gw-base` and `oai16-enb-base`.
 
@@ -40,15 +59,6 @@ refresh
 demo
 ```
 
-## MAC controlling the phone
-
-*Screen sharing* -> faraday.inria.fr -> tester/tester++
-
-```
-phone status
-```
-
-
 ## the scrambler box
 
 ```
@@ -65,17 +75,17 @@ demo
 ## common scenario for the 3 boxes
 
 ```
-o init
-o configure
-o start
+init
+configure
+start
 
-o logs
+logs
 ```
 
 ## the scrambler
 
 ```
-o scrambler [-blast]
+scrambler [-blast]
 ```
 
 *****
@@ -93,19 +103,3 @@ select imsi, imei, access_restriction,  mmeidentity_idmmeidentity from users whe
 
 select * from mmeidentity where mmerealm='r2lab.fr' ;
 ```
-
-## NOTES on generic kernel
-
-***this section now obsolete, for u16 at least***
-
-* tried to rebuild from scratch (14.04)
-* created `oai-epc-kgen-builds` (skipped the base step)
-* that turned out to have 4.2, so
-* created `oai-epc-k319-builds` 
-* however this turned out to have a broken build for freediameter (no network or something - see build_epc-i.log)
-* so now that I know how to switch kernels:
-  * restarted from `oai-gw-builds3`
-  * reinstalled `3.19.0-58-generic`
-  * set `DEFAULT="1>2"` in `/etc/default/grub`
-  * applied `grub-update`
-  * and produced `oai-gw-kgen-builds3`
