@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os.path
+import asyncio
 
 from asynciojobs import Engine, Job, Sequence
 
@@ -48,6 +49,13 @@ def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
         for hostname in hostnames
     ]
 
+    prepare = SshJob(
+        node = gwnode,
+        # switch off all nodes but the ones we use
+        command = [ "rhubarbe", "off", "1-37", "~{},~{},~{},~{}".format(hss,  epc, enb, scr)],
+        label = "turn off unused nodes",
+    )
+
     load_infra = SshJob(
         node = gwnode,
         commands = [
@@ -66,7 +74,7 @@ def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
         label = "load and wait ENB and SCR",
     )
 
-    loaded = [load_infra, load_enb]
+    loaded = [prepare, load_infra, load_enb]
 
 # actually run this in the gateway, not on the mac
 # the ssh keys are stored in the gateway and I haven't yet figured how to leverage such remote keys
