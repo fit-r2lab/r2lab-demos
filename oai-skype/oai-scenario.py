@@ -27,7 +27,7 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
+def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
     """
     expects e.g.
     * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
@@ -49,29 +49,38 @@ def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
         for hostname in hostnames
     ]
 
+    check_for_lease = SshJob(
+        node = gwnode,
+        command = [ "rhubarbe", "leases", "--check" ],
+        label = "check we have a current lease",
+    )
+
     prepare = SshJob(
         node = gwnode,
         # switch off all nodes but the ones we use
         command = [ "rhubarbe", "off", "1-37", "~{},~{},~{},~{}".format(hss,  epc, enb, scr)],
         label = "turn off unused nodes",
+        required = check_for_lease,
     )
 
     load_infra = SshJob(
         node = gwnode,
         commands = [
-            [ "rhubarbe", "load", "-i", "u16-oai-gw", hssname, epcname ],
+            [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
             [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
         ],
         label = "load and wait HSS and EPC nodes",
+        required = check_for_lease,
     )
 
     load_enb = SshJob(
         node = gwnode,
         commands = [
-            [ "rhubarbe", "load", "-i", "u16-oai-enb", enbname, scrname ],
+            [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
             [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
         ],
         label = "load and wait ENB and SCR",
+        required = check_for_lease,
     )
 
     loaded = [prepare, load_infra, load_enb]
@@ -85,6 +94,7 @@ def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
         includes = includes,
         label = "Stopping phone",
+        required = check_for_lease,
         # stop it at the beginning of the scenario, so no required
     )
 
@@ -114,23 +124,25 @@ def run(slice, hss, epc, enb, scr, do_load, verbose, debug):
     )
 
     # schedule the load phases only if required
-    e = Engine(stop_phone, run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
+    e = Engine(check_for_lease, stop_phone, run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
     if do_load:
         e.update(loaded)
     # remove requirements to the load phase if not added
     e.sanitize(verbose=False)
     
-    print(40*'*', 'do_load=', do_load)
+    print(40*"*", "ubuntu = {}, do_load = {}".format(ubuntu, do_load))
     if verbose:
         e.list()
     if not e.orchestrate():
-        print("KO")
+        print("RUN KO : {}".format(e.why()))
         e.debrief()
+        return False
     else:
-        print("OK")
+        print("RUN OK")
+        return True
 
 # nothing to collect on the scrambler
-def collect(run_name, slice, hss, epc, enb, scr, do_load, verbose, debug):
+def collect(run_name, slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
 
     gwuser, gwhost = slice.split('@')
     gwnode = SshNode(hostname = gwhost, username = gwuser,
@@ -196,6 +208,8 @@ def main():
     parser.add_argument("-d", "--debug", action='store_true', default=False)
     parser.add_argument("-s", "--slice", default=default_slice,
                         help="defaults to {}".format(default_slice))
+    parser.add_argument("-u", "--ubuntu", default="16", choices = ("16", "14"),
+                        help="specify using images based on ubuntu 14.04 or 16.04")
 
     parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
     parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
@@ -204,18 +218,21 @@ def main():
 
     args = parser.parse_args()
 
+    # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
 
     # actually run it
-    run(**kwds)
+    if not run(**kwds):
+        print("exiting")
+        return
 
     # then prompt for when we're ready to collect
     try:
         run_name = input("type capture name when ready : ")
         collect(run_name, **kwds)
-    except Exception as e:
-        print(e)
+    except KeyboardInterrupt as e:
+        print("OK, skipped collection, bye")
     
 
     
