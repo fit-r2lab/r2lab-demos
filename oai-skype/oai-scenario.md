@@ -41,9 +41,9 @@ We have a script that sets up the experiment background completely in one run. A
   * kill, init, configure and start
   * on all 3 nodes (except scrambler for now)
 * at that point the **5G setup is complete** and you can do what your experiment is about: **play with the phone**, place calls, etc..
-* all this time the script is prompting you for an experiment name; **once you enter one*, it will:
-   * all 3 nodes the relevant nodes are captured (put in tar remotely)
-   * and then collected in the current directory
+* all this time the script is prompting you for an experiment name; **once you enter one**, it will:
+   * capture relevant data from all 3 nodes (i.e. put in tar remotely)
+   * and these tar files are collected in the current directory.
 
 Typically if you enter `redeux` as the name for the experiment you will find 
 
@@ -58,7 +58,10 @@ Typically if you enter `redeux` as the name for the experiment you will find
 
 * install requirements `sudo pip3 install apssh asynciojobs`
 * or update requirements `sudo pip3 install --upgrade apssh asynciojobs`
-* where `cd r2lab/demos/oai-skype`
+
+Then from your git `r2lab` repo:
+* `cd demos/oai-skype`
+* `git pull`
 * run **with image loading** `./oai-scenario.py --load`
 * or just **restart** it all `./oai-scenario.py`
 * run with `--help` to see list of available options (like: select other nodes)

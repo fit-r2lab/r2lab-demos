@@ -208,7 +208,7 @@ def main():
     parser.add_argument("-d", "--debug", action='store_true', default=False)
     parser.add_argument("-s", "--slice", default=default_slice,
                         help="defaults to {}".format(default_slice))
-    parser.add_argument("-u", "--ubuntu", default="16", choices = ("16", "14"),
+    parser.add_argument("-u", "--ubuntu", default="16.47", choices = ("16.48", "16.47", "14.48"),
                         help="specify using images based on ubuntu 14.04 or 16.04")
 
     parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
