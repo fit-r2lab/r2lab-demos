@@ -21,6 +21,8 @@ def script(s):
     """
     return os.path.join(os.path.expanduser("~/git/r2lab/infra/user-env/"), s)
 
+def image(x):
+    return "/var/lib/rhubarbe-images/{}.ndz".format(x)
 
 # include the same set of utility scripts
 includes = [ script(x) for x in [
@@ -66,7 +68,7 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
     load_infra = SshJob(
         node = gwnode,
         commands = [
-            [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
+            [ "rhubarbe", "load", "-i", image("u{}-oai-gw".format(ubuntu)), hssname, epcname ],
             [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
         ],
         label = "load and wait HSS and EPC nodes",
@@ -76,7 +78,7 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
     load_enb = SshJob(
         node = gwnode,
         commands = [
-            [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
+            [ "rhubarbe", "load", "-i", image("u{}-oai-enb".format(ubuntu)), enbname, scrname ],
             [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
         ],
         label = "load and wait ENB and SCR",
