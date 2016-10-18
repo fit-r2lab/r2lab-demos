@@ -19,7 +19,14 @@ def script(s):
     """
     all the scripts are located in the same place
     """
-    return os.path.join(os.path.expanduser("~/git/r2lab/infra/user-env/"), s)
+    paths = [ "../../infra/user-env",
+              os.path.expanduser("~/git/r2lab/infra/user-env/"), 
+              os.path.expanduser("~/r2lab/infra/user-env/"),
+              ]
+    for path in paths:
+        candidate = os.path.join(path, s)
+        if os.path.exists(candidate):
+            return candidate
 
 def image(x):
     return "/var/lib/rhubarbe-images/{}.ndz".format(x)
@@ -204,6 +211,8 @@ def main():
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
+    # xxx faire une première phase de vérifications diverses (clés, scripts, etc..)
+    # xxx ajouter une option -k pour spécifier une clé ssh
     parser.add_argument("-l", "--load", dest='do_load', action='store_true', default=False,
                         help='load images as well')
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
