@@ -109,7 +109,7 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
 
     run_hss = SshJobScript(
         node = hssnode,
-        command = [ script("oai-gw.sh"), "run-hss", epc ],
+        command = [ script("oai-hss.sh"), "run-hss", epc ],
         includes = includes,
         label = "run HSS",
         required = (loaded, stop_phone),
@@ -117,7 +117,7 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
 
     run_epc = SshJobScript(
         node = epcnode,
-        command = [ script("oai-gw.sh"), "run-epc", hss ],
+        command = [ script("oai-epc.sh"), "run-epc", hss ],
         includes = includes,
         label = "run EPC",
         required = (loaded, stop_phone),
