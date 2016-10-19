@@ -36,13 +36,18 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
+def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
     """
     expects e.g.
     * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
     * hss : 23
     * epc : 16
     * enb : 19
+
+    Plus
+    * do_load: whether to load images or not (in which case ubuntu is used to find the image name)
+    * do_reset: if do_load is false and do_reset is true, the nodes are reset
+    * otherwise (both False): do nothing
     """
 
     # what the argparse knows as a slice actually is a gateway (user + host)
@@ -58,13 +63,14 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         for hostname in hostnames
     ]
 
+    # preparation
     check_for_lease = SshJob(
         node = gwnode,
         command = [ "rhubarbe", "leases", "--check" ],
         label = "check we have a current lease",
     )
 
-    prepare = SshJob(
+    off_nodes = SshJob(
         node = gwnode,
         # switch off all nodes but the ones we use
         command = [ "rhubarbe", "off", "1-37", "~{},~{},~{},~{}".format(hss,  epc, enb, scr)],
@@ -72,32 +78,6 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         required = check_for_lease,
     )
 
-    load_infra = SshJob(
-        node = gwnode,
-        commands = [
-            [ "rhubarbe", "load", "-i", image("u{}-oai-gw".format(ubuntu)), hssname, epcname ],
-            [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
-        ],
-        label = "load and wait HSS and EPC nodes",
-        required = check_for_lease,
-    )
-
-    load_enb = SshJob(
-        node = gwnode,
-        commands = [
-            [ "rhubarbe", "load", "-i", image("u{}-oai-enb".format(ubuntu)), enbname, scrname ],
-            [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
-        ],
-        label = "load and wait ENB and SCR",
-        required = check_for_lease,
-    )
-
-    loaded = [prepare, load_infra, load_enb]
-
-# actually run this in the gateway, not on the mac
-# the ssh keys are stored in the gateway and I haven't yet figured how to leverage such remote keys
-#    macphone = SshNode(gateway = gwnode, hostname = 'macphone', username = 'tester',
-#                       formatter = ColonFormatter(verbose=verbose), debug = debug)
     stop_phone = SshJobScript(
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
@@ -107,12 +87,63 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         # stop it at the beginning of the scenario, so no required
     )
 
+    prepares = (check_for_lease, off_nodes, stop_phone)
+
+    # 3 methods to get nodes ready
+    # (*) load images
+    # (*) reset nodes that are known to have the right image
+    # (*) do nothing, proceed to experiment
+    if do_load:
+        load_infra = SshJob(
+            node = gwnode,
+            commands = [
+                [ "rhubarbe", "load", "-i", image("u{}-oai-gw".format(ubuntu)), hssname, epcname ],
+                [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
+            ],
+            label = "load and wait HSS and EPC nodes",
+            required = prepares,
+        )
+
+        load_enb = SshJob(
+            node = gwnode,
+            commands = [
+                [ "rhubarbe", "load", "-i", image("u{}-oai-enb".format(ubuntu)), enbname, scrname ],
+                [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
+            ],
+            label = "load and wait ENB and SCR",
+            required = prepares,
+        )
+        
+        loads = [load_infra, load_enb]
+        
+    elif do_reset:
+        
+        reset_nodes = SshJob(
+            node = gwnode,
+            commands = [
+                [ "rhubarbe", "reset", hss, epc, enb, scr ],
+                [ "rhubarbe", "wait", "--timeout", 120, "--verbose", hss, epc, enb, scr ],
+            ],
+            label = "Reset all nodes",
+            required = prepares,
+        )
+
+        loads = [reset_nodes]
+
+    else:
+        loads = []
+
+# actually run this in the gateway, not on the mac
+# the ssh keys are stored in the gateway and I haven't yet figured how to leverage such remote keys
+#    macphone = SshNode(gateway = gwnode, hostname = 'macphone', username = 'tester',
+#                       formatter = ColonFormatter(verbose=verbose), debug = debug)
+
     run_hss = SshJobScript(
         node = hssnode,
         command = [ script("oai-hss.sh"), "run-hss", epc ],
         includes = includes,
         label = "run HSS",
-        required = (loaded, stop_phone),
+        required = (loads, prepares),
     )
 
     run_epc = SshJobScript(
@@ -120,7 +151,7 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         command = [ script("oai-epc.sh"), "run-epc", hss ],
         includes = includes,
         label = "run EPC",
-        required = (loaded, stop_phone),
+        required = (loads, prepares),
     )
 
     run_enb = SshJobScript(
@@ -129,17 +160,17 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         command = [ script("oai-enb.sh"), "run-enb", epc ],
         includes = includes,
         label = "run softmodem on ENB",
-        required = (loaded, stop_phone),
+        required = (loads, prepares),
     )
 
     # schedule the load phases only if required
-    e = Engine(check_for_lease, stop_phone, run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
-    if do_load:
-        e.update(loaded)
+    e = Engine(run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
+    e.update(prepares)
+    e.update(loads)
     # remove requirements to the load phase if not added
     e.sanitize(verbose=False)
     
-    print(40*"*", "ubuntu = {}, do_load = {}".format(ubuntu, do_load))
+    print(40*"*", "ubuntu = {}, do_load = {}, do_reset = {}".format(ubuntu, do_load, do_reset))
     if verbose:
         e.list()
     if not e.orchestrate():
@@ -151,7 +182,17 @@ def run(slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
         return True
 
 # nothing to collect on the scrambler
-def collect(run_name, slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug):
+def collect(run_name, slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
+    """
+    retrieves all relevant logs under a common name 
+    otherwise, same signature as run() for convenience
+
+    retrieved stuff will be 3 compressed tars named
+    <run_name>-(hss|epc|enb).tar.gz
+
+    xxx - todo - it would make sense to also unwrap them all 
+    in a single place locally, like what "logs.sh unwrap" does
+    """
 
     gwuser, gwhost = slice.split('@')
     gwnode = SshNode(hostname = gwhost, username = gwuser,
@@ -200,8 +241,17 @@ def collect(run_name, slice, hss, epc, enb, scr, do_load, ubuntu, verbose, debug
     if not e.orchestrate():
         print("KO")
         e.debrief()
-    else:
-        print("OK")
+        return
+    print("OK")
+    if os.path.exists(run_name):
+        print("local directory {} already exists = NOT UNWRAPPED !".format(run_name))
+        return
+    os.mkdir(run_name)
+    local_tars = [ "{run_name}-{ext}.tgz".format(run_name=run_name, ext=ext) for ext in ['hss', 'epc', 'enb']]
+    for tar in local_tars:
+        print("Untaring {} in {}".format(tar, run_name))
+        os.system("tar -C {} -xzf {}".format(run_name, tar))
+            
         
 def main():
 
@@ -215,6 +265,8 @@ def main():
     # xxx ajouter une option -k pour spécifier une clé ssh
     parser.add_argument("-l", "--load", dest='do_load', action='store_true', default=False,
                         help='load images as well')
+    parser.add_argument("-r", "--reset", dest='do_reset', action='store_true', default=False,
+                        help='reset nodes instead of loading images')
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-d", "--debug", action='store_true', default=False)
     parser.add_argument("-s", "--slice", default=default_slice,

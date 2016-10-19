@@ -1,14 +1,14 @@
 #!/bin/bash
 
-mod_params="xt_GTPUSP:mtu"
-nodes="fit16"
-for node in $nodes; do
-    for mod_param in $mod_params; do
-	module=$(cut -d: -f1 <<< $mod_param)
-	param=$(cut -d: -f2 <<< $mod_param)
-	echo ========== module $module on node $node has param $param = $(ssh root@$node cat /sys/module/$module/parameters/$param)
-    done
-done
+#mod_params="xt_GTPUSP:mtu"
+#nodes="fit16"
+#for node in $nodes; do
+#    for mod_param in $mod_params; do
+#	module=$(cut -d: -f1 <<< $mod_param)
+#	param=$(cut -d: -f2 <<< $mod_param)
+#	echo ========== module $module on node $node has param $param = $(ssh root@$node cat /sys/module/$module/parameters/$param)
+#    done
+#done
 
 node_ints="fit19:data fit16:data fit16:control faraday:control faraday:data"
 for node_int in $node_ints; do
@@ -25,5 +25,5 @@ for node_int in $node_ints; do
 	ssh root@$node ethtool -k $int | egrep 'tation-offload|receive-offload'
 done
 
-echo "========== git diff in SRC/SGW in openair-cn on fit16"
-ssh root@fit16 "(cd openair-cn/SRC/SGW; git diff)"
+#echo "========== git diff in SRC/SGW in openair-cn on fit16"
+#ssh root@fit16 "(cd openair-cn/SRC/SGW; git diff)"
