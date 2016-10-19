@@ -28,9 +28,6 @@ def script(s):
         if os.path.exists(candidate):
             return candidate
 
-def image(x):
-    return "/var/lib/rhubarbe-images/{}.ndz".format(x)
-
 # include the same set of utility scripts
 includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
@@ -50,7 +47,7 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
     * otherwise (both False): do nothing
     """
 
-    # what the argparse knows as a slice actually is a gateway (user + host)
+    # what argparse knows as a slice actually is a gateway (user + host)
     gwuser, gwhost = slice.split('@')
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=debug)
@@ -84,7 +81,6 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         includes = includes,
         label = "Stopping phone",
         required = check_for_lease,
-        # stop it at the beginning of the scenario, so no required
     )
 
     prepares = (check_for_lease, off_nodes, stop_phone)
@@ -97,7 +93,7 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         load_infra = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "load", "-i", image("u{}-oai-gw".format(ubuntu)), hssname, epcname ],
+                [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
                 [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
             ],
             label = "load and wait HSS and EPC nodes",
@@ -107,7 +103,7 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         load_enb = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "load", "-i", image("u{}-oai-enb".format(ubuntu)), enbname, scrname ],
+                [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
                 [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
             ],
             label = "load and wait ENB and SCR",
