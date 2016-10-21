@@ -23,19 +23,74 @@ while true; do
  done
 ```
 
+# Experimental accounts
+
+## used on the MAC
+
+* skype: `chamber r2lab`
+
+## used on the phone
+
+* gmail: `demodianainria@gmail.com` / `007ddi007`
+* skype: `demor2lab`
+
 # Phone(s)
 
-## android
+## common to all phones
 
-After an upgrade, make sure to check for these manually
+After an install/upgrade, make sure to check for these manually:
+
+### Basic & Convenience
 
 * In the **Settings ⟹ Developer Options** menu:
 * **USB debugging** must be *on* 
 * also make sure to turn *on* the **Stay awake** topic, because it's very hard to unlock the screen through the Screen Sharing utility
 
+### Cellular networks
+
+* In the **Settings ⟹ Cellular network settings** menu:
+* Access point names: r2lab, oai.ipv4 (not sure this is required actually...)
+
 ## Nexus 5
 
-### PIN code
+* SIM pin code is # `1234`
+* Android Device ID is `1D54D2632597731`
+* Google Service Framework (GSF) is `31700F125B218CD6` - useful for downloading apk files
 
-Nexus 5 has pin # `1234`
+## Nexus 6
+
+* pin code # `1234` 
+* This setting does not survive reboot**
+  * appli 4G switcher
+  * Set preferred network type -> LTE only
+* profil apn 
+  * Settings
+  * ... more
+  * Cellular networks (requires airplane mode OFF)
+  * Access point names
+  * Check that r2lab is selected 
+  * Details should be
+    * APN = oai.ipv4
+    * MCC = 208
+    * MNC = 95
+    * Bearer = LTE
+
+* NOTES
+  * after reboot, you need to restart the vysor application
+
+# google play
+
+## retrieving `.apk` files for installation through `adb install`
+
+I tried to get in a position where I could do installs remotely while 4G connection was broken; this did not work out..
+
+* I installed `Device ID` (from Evozi) that gave me the GSF ID for that device
+* I added a chrome extension on my own MAC named `Direct APK Downloader`
+* Once this extension is in place, when visiting google play store with that chrome, I get an additional button `Download APK`
+* Clicking this leads me to a login where I can give
+  * my gmail account
+  * its password
+  * the GSF ID
+* at that point the google play website whined because I had not been using that email to reach the google store from the phone itself (the GSF comes from the phone)
+
 

@@ -1,28 +1,17 @@
 #!/bin/bash
 
-#mod_params="xt_GTPUSP:mtu"
-#nodes="fit16"
-#for node in $nodes; do
-#    for mod_param in $mod_params; do
-#	module=$(cut -d: -f1 <<< $mod_param)
-#	param=$(cut -d: -f2 <<< $mod_param)
-#	echo ========== module $module on node $node has param $param = $(ssh root@$node cat /sys/module/$module/parameters/$param)
-#    done
-#done
-
-node_ints="fit19:data fit16:data fit16:control faraday:control faraday:data"
+#node_ints="fit19:data fit16:data fit16:control faraday:control faraday:data"
+node_ints="fit19:data fit16:data"
 for node_int in $node_ints; do
 	node=$(cut -d: -f1 <<< $node_int)
 	int=$(cut -d: -f2 <<< $node_int)
-	echo ========== interface $int on $node $(ssh root@$node ip link show $int | grep mtu | sed -e 's,qdisc.*,,' -e 's,\<.*\>,,')
-done
-
-node_ints="fit19:data fit16:data fit16:control faraday:control"
-for node_int in $node_ints; do
-	node=$(cut -d: -f1 <<< $node_int)
-	int=$(cut -d: -f2 <<< $node_int)
-	echo ========== interface $int on $node
-	ssh root@$node ethtool -k $int | egrep 'tation-offload|receive-offload'
+	echo "========== interface $int on $node"
+	echo "******** MTU"
+#	ssh root@$node ip link show $int | grep mtu | Sed -e 's,qdisc.*,,' -e 's,\<.*\>,,'
+	ssh root@$node ip link show $int | grep mtu | sed -e 's,qdisc.*,,' -e 's,\<.*\>,,'
+	echo "******** OFFLOAD"
+#	ssh root@$node ethtool -k $int
+	ssh root@$node ethtool -k $int | egrep '(tcp|udp|generic|large).*segmentation'
 done
 
 #echo "========== git diff in SRC/SGW in openair-cn on fit16"

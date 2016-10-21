@@ -28,12 +28,18 @@ def script(s):
         if os.path.exists(candidate):
             return candidate
 
+async def verbose_delay(duration, *args):
+    print(20*'*', "Waiting for {} s".format(duration), *args)
+    await asyncio.sleep(duration)
+    print("Done waiting for {} s".format(duration), *args)
+
 # include the same set of utility scripts
 includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
+def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
+        reset_usrp, verbose, debug):
     """
     expects e.g.
     * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
@@ -42,8 +48,9 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
     * enb : 19
 
     Plus
-    * do_load: whether to load images or not (in which case ubuntu is used to find the image name)
-    * do_reset: if do_load is false and do_reset is true, the nodes are reset
+    * load_nodes: whether to load images or not (in which case ubuntu is used to find the image name)
+    * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
+    * reset_usrp : if not False, the USRP board won't be reset - makes it all much
     * otherwise (both False): do nothing
     """
 
@@ -60,7 +67,7 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         for hostname in hostnames
     ]
 
-    # preparation
+    ########## preparation
     check_for_lease = SshJob(
         node = gwnode,
         command = [ "rhubarbe", "leases", "--check" ],
@@ -75,6 +82,9 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         required = check_for_lease,
     )
 
+    # actually run this in the gateway, not on the mac
+    # the ssh keys are stored in the gateway and we do not yet have
+    # the tools to leverage such remote keys
     stop_phone = SshJobScript(
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
@@ -85,11 +95,12 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
 
     prepares = (check_for_lease, off_nodes, stop_phone)
 
+    ##########
     # 3 methods to get nodes ready
     # (*) load images
     # (*) reset nodes that are known to have the right image
     # (*) do nothing, proceed to experiment
-    if do_load:
+    if load_nodes:
         load_infra = SshJob(
             node = gwnode,
             commands = [
@@ -112,7 +123,7 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         
         loads = [load_infra, load_enb]
         
-    elif do_reset:
+    elif reset_nodes:
         
         reset_nodes = SshJob(
             node = gwnode,
@@ -129,44 +140,92 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
     else:
         loads = []
 
-# actually run this in the gateway, not on the mac
-# the ssh keys are stored in the gateway and I haven't yet figured how to leverage such remote keys
-#    macphone = SshNode(gateway = gwnode, hostname = 'macphone', username = 'tester',
-#                       formatter = ColonFormatter(verbose=verbose), debug = debug)
-
-    run_hss = SshJobScript(
+    ########## start services
+    service_hss = SshJobScript(
         node = hssnode,
         command = [ script("oai-hss.sh"), "run-hss", epc ],
         includes = includes,
-        label = "run HSS",
-        required = (loads, prepares),
+        label = "start HSS service",
+        required = (prepares, loads),
     )
 
-    run_epc = SshJobScript(
+    msg = "Waiting for HSS to warm up"
+    service_epc = Sequence(
+        Job(
+            verbose_delay(2, msg),
+            label = msg,
+            ), 
+        SshJobScript(
+            node = epcnode,
+            command = [ script("oai-epc.sh"), "run-epc", hss ],
+            includes = includes,
+            label = "start EPC services",
+        ),
+        required = (prepares, loads, service_hss),
+    )
+
+    msg = "Waiting for EPC to warm up"
+    service_enb = Sequence(
+        Job(
+            verbose_delay(2, msg),
+            label = msg),
+        SshJobScript(
+            node = enbnode,
+            # run-enb expects the id of the epc as a parameter
+            command = [ script("oai-enb.sh"), "run-enb", epc, reset_usrp ],
+            includes = includes,
+            label = "start softmodem on ENB",
+            ),
+        required = (prepares, loads, service_hss, service_epc),
+    )
+
+    services = (service_hss, service_epc, service_enb)
+
+    ########## run experiment per se
+    # we need to wait for the USB firmware to be loaded
+    duration = 30 if reset_usrp is not False else 8
+    msg = "Waiting for {}s for 5G infrastructure to settle".format(duration)
+    delay = Job(
+        verbose_delay(duration, msg),
+        label = msg,
+        required = services
+    )
+
+    start_phone = SshJobScript(
+        node = gwnode,
+        command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
+        includes = includes,
+        label = "Starting phone",
+        required = delay,
+    )
+
+    ping_phone_from_epc = SshJob(
         node = epcnode,
-        command = [ script("oai-epc.sh"), "run-epc", hss ],
-        includes = includes,
-        label = "run EPC",
-        required = (loads, prepares),
+        commands = [
+            ["sleep 10"],
+            ["ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"],
+            ],
+        label = "pinging phone",
+        critical = False,
+        required = delay,
     )
 
-    run_enb = SshJobScript(
-        node = enbnode,
-        # run-enb expects the id of the epc as a parameter
-        command = [ script("oai-enb.sh"), "run-enb", epc ],
-        includes = includes,
-        label = "run softmodem on ENB",
-        required = (loads, prepares),
-    )
-
+    runs = (delay, start_phone, ping_phone_from_epc)
+    
     # schedule the load phases only if required
-    e = Engine(run_enb, run_epc, run_hss, verbose=verbose, debug=debug)
+    e = Engine(verbose=verbose, debug=debug)
+    # this is just a way to add a collection of jobs to the engine
     e.update(prepares)
+    # loads contents depends on the --load or --reset options; might as well be empty
     e.update(loads)
-    # remove requirements to the load phase if not added
+    # always start services and exp
+    e.update(services)
+    e.update(runs)
+    # remove dangling requirements - if any - should not be needed but won't hurt either
     e.sanitize(verbose=False)
     
-    print(40*"*", "ubuntu = {}, do_load = {}, do_reset = {}".format(ubuntu, do_load, do_reset))
+    print(40*"*", "ubuntu = {}, load_nodes = {}, reset_nodes = {}".format(ubuntu, load_nodes, reset_nodes))
+    e.rain_check()
     if verbose:
         e.list()
     if not e.orchestrate():
@@ -178,7 +237,8 @@ def run(slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
         return True
 
 # nothing to collect on the scrambler
-def collect(run_name, slice, hss, epc, enb, scr, do_load, do_reset, ubuntu, verbose, debug):
+def collect(run_name, slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
+            reset_usrp, verbose, debug):
     """
     retrieves all relevant logs under a common name 
     otherwise, same signature as run() for convenience
@@ -254,21 +314,24 @@ def main():
     default_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
     def_hss, def_epc, def_enb, def_scr = 23, 16, 19, 11
     
+    def_ubuntu = '14.48'
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
     # xxx faire une première phase de vérifications diverses (clés, scripts, etc..)
     # xxx ajouter une option -k pour spécifier une clé ssh
-    parser.add_argument("-l", "--load", dest='do_load', action='store_true', default=False,
+    parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
-    parser.add_argument("-r", "--reset", dest='do_reset', action='store_true', default=False,
+    parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
                         help='reset nodes instead of loading images')
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-d", "--debug", action='store_true', default=False)
     parser.add_argument("-s", "--slice", default=default_slice,
                         help="defaults to {}".format(default_slice))
-    parser.add_argument("-u", "--ubuntu", default="16.47", choices = ("16.48", "16.47", "14.48"),
+    parser.add_argument("-u", "--ubuntu", default=def_ubuntu, choices = ("16.48", "16.47", "14.48"),
                         help="specify using images based on ubuntu 14.04 or 16.04")
+
+    parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
 
     parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
     parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
@@ -289,6 +352,8 @@ def main():
     # then prompt for when we're ready to collect
     try:
         run_name = input("type capture name when ready : ")
+        if not run_name:
+            raise KeyboardInterrupt
         collect(run_name, **kwds)
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
