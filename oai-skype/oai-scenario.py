@@ -89,7 +89,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
         includes = includes,
-        label = "Stopping phone",
+        label = "stop phone",
         required = check_for_lease,
     )
 
@@ -131,7 +131,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
                 [ "rhubarbe", "reset", hss, epc, enb, scr ],
                 [ "rhubarbe", "wait", "--timeout", 120, "--verbose", hss, epc, enb, scr ],
             ],
-            label = "Reset all nodes",
+            label = "reset all nodes",
             required = prepares,
         )
 
@@ -149,7 +149,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         required = (prepares, loads),
     )
 
-    msg = "Waiting for HSS to warm up"
+    msg = "wait for HSS to warm up"
     service_epc = Sequence(
         Job(
             verbose_delay(2, msg),
@@ -164,7 +164,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         required = (prepares, loads, service_hss),
     )
 
-    msg = "Waiting for EPC to warm up"
+    msg = "wait for EPC to warm up"
     service_enb = Sequence(
         Job(
             verbose_delay(2, msg),
@@ -184,7 +184,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
     ########## run experiment per se
     # we need to wait for the USB firmware to be loaded
     duration = 30 if reset_usrp is not False else 8
-    msg = "Waiting for {}s for 5G infrastructure to settle".format(duration)
+    msg = "wait for {}s for 5G infrastructure to settle".format(duration)
     delay = Job(
         verbose_delay(duration, msg),
         label = msg,
@@ -195,7 +195,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
         includes = includes,
-        label = "Starting phone",
+        label = "start phone",
         required = delay,
     )
 
@@ -205,7 +205,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
             ["sleep 10"],
             ["ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"],
             ],
-        label = "pinging phone",
+        label = "ping phone from EPC",
         critical = False,
         required = delay,
     )
@@ -228,6 +228,12 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
     e.rain_check()
     if verbose:
         e.list()
+        name = "scenario-load" if load_nodes else \
+               "scenario-reset" if reset_nodes else \
+               "scenario"
+        e.store_as_dotfile("{}.dot".format(name))
+        os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
+
     if not e.orchestrate():
         print("RUN KO : {}".format(e.why()))
         e.debrief()
