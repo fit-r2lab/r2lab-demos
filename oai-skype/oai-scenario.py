@@ -104,7 +104,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         load_infra = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
+#                [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
+                [ "rhubarbe", "load", "-i", "u14.48-oai-gw".format(ubuntu), hssname, epcname ],
                 [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
             ],
             label = "load and wait HSS and EPC nodes",
@@ -114,7 +115,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         load_enb = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
+#                [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
+                [ "rhubarbe", "load", "-i", "u14.319-oai-enb".format(ubuntu), enbname, scrname ],
                 [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
             ],
             label = "load and wait ENB and SCR",
@@ -224,7 +226,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
     # remove dangling requirements - if any - should not be needed but won't hurt either
     e.sanitize(verbose=False)
     
-    print(40*"*", "ubuntu = {}, load_nodes = {}, reset_nodes = {}".format(ubuntu, load_nodes, reset_nodes))
+    print(40*"*", "ubuntu = {} (IGNORED), load_nodes = {}, reset_nodes = {}".format(ubuntu, load_nodes, reset_nodes))
     e.rain_check()
     if verbose:
         e.list()
@@ -334,8 +336,9 @@ def main():
     parser.add_argument("-d", "--debug", action='store_true', default=False)
     parser.add_argument("-s", "--slice", default=default_slice,
                         help="defaults to {}".format(default_slice))
+    # this one is ignored in the current version that uses hard-wired image names
     parser.add_argument("-u", "--ubuntu", default=def_ubuntu, choices = ("16.48", "16.47", "14.48"),
-                        help="specify using images based on ubuntu 14.04 or 16.04")
+                        help="specify using images based on ubuntu 14.04 or 16.04 -- IGNORED")
 
     parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
 
