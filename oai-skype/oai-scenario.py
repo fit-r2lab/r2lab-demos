@@ -38,8 +38,8 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
-        reset_usrp, verbose, debug):
+def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
+        reset_nodes, reset_usrp, verbose, debug):
     """
     expects e.g.
     * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
@@ -48,7 +48,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
     * enb : 19
 
     Plus
-    * load_nodes: whether to load images or not (in which case ubuntu is used to find the image name)
+    * load_nodes: whether to load images or not - in which case image_gw and image_enb
+                  are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
     * reset_usrp : if not False, the USRP board won't be reset - makes it all much
     * otherwise (both False): do nothing
@@ -104,8 +105,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         load_infra = SshJob(
             node = gwnode,
             commands = [
-#                [ "rhubarbe", "load", "-i", "u{}-oai-gw".format(ubuntu), hssname, epcname ],
-                [ "rhubarbe", "load", "-i", "u14.48-oai-gw".format(ubuntu), hssname, epcname ],
+                [ "rhubarbe", "load", "-i", image_gw, hssname, epcname ],
                 [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
             ],
             label = "load and wait HSS and EPC nodes",
@@ -115,8 +115,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         load_enb = SshJob(
             node = gwnode,
             commands = [
-#                [ "rhubarbe", "load", "-i", "u{}-oai-enb".format(ubuntu), enbname, scrname ],
-                [ "rhubarbe", "load", "-i", "u14.319-oai-enb".format(ubuntu), enbname, scrname ],
+                [ "rhubarbe", "load", "-i", image_enb, enbname, scrname ],
                 [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
             ],
             label = "load and wait ENB and SCR",
@@ -245,8 +244,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
         return True
 
 # nothing to collect on the scrambler
-def collect(run_name, slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes,
-            reset_usrp, verbose, debug):
+def collect(run_name, slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
+            reset_nodes, reset_usrp, verbose, debug):
     """
     retrieves all relevant logs under a common name 
     otherwise, same signature as run() for convenience
@@ -319,26 +318,29 @@ def collect(run_name, slice, hss, epc, enb, scr, load_nodes, ubuntu, reset_nodes
         
 def main():
 
-    default_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
+    def_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
     def_hss, def_epc, def_enb, def_scr = 23, 16, 19, 11
     
-    def_ubuntu = '14.48'
+    def_image_gw  = "u14.48-oai-gw"
+    def_image_enb = "u14.319-oai-enb"
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
     # xxx faire une première phase de vérifications diverses (clés, scripts, etc..)
     # xxx ajouter une option -k pour spécifier une clé ssh
+    parser.add_argument("-s", "--slice", default=def_slice,
+                        help="defaults to {}".format(def_slice))
+
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
     parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
                         help='reset nodes instead of loading images')
-    parser.add_argument("-v", "--verbose", action='store_true', default=False)
-    parser.add_argument("-d", "--debug", action='store_true', default=False)
-    parser.add_argument("-s", "--slice", default=default_slice,
-                        help="defaults to {}".format(default_slice))
-    # this one is ignored in the current version that uses hard-wired image names
-    parser.add_argument("-u", "--ubuntu", default=def_ubuntu, choices = ("16.48", "16.47", "14.48"),
-                        help="specify using images based on ubuntu 14.04 or 16.04 -- IGNORED")
+    parser.add_argument("-g", "--image-gw", default=def_image_gw,
+                        help="image to load in hss and epc nodes (default={})"
+                        .format(def_image_enb))
+    parser.add_argument("-e", "--image-enb", default=def_image_enb,
+                        help="image to load in enb and scrambler nodes (default={})"
+                        .format(def_image_enb))
 
     parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
 
@@ -346,6 +348,9 @@ def main():
     parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
     parser.add_argument("--enb", default=def_enb, help="defaults to {}".format(def_enb))
     parser.add_argument("--scr", default=def_scr, help="defaults to {}".format(def_scr))
+
+    parser.add_argument("-v", "--verbose", action='store_true', default=False)
+    parser.add_argument("-d", "--debug", action='store_true', default=False)
 
     args = parser.parse_args()
 
