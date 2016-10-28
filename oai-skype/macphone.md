@@ -33,6 +33,7 @@ while true; do
 
 * gmail: `demodianainria@gmail.com` / `007ddi007`
 * skype: `demor2lab`
+* this google account has a indefinite licence to use vysor pro - acquired on Oct. 28 2016
 
 # Phone(s)
 
