@@ -225,7 +225,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
     # remove dangling requirements - if any - should not be needed but won't hurt either
     e.sanitize(verbose=False)
     
-    print(40*"*", "ubuntu = {} (IGNORED), load_nodes = {}, reset_nodes = {}".format(ubuntu, load_nodes, reset_nodes))
+    print(40*"*", "load_nodes = {} (gw->{}, enb->{}), reset_nodes = {}"
+          .format(load_nodes, image_gw, image_enb, reset_nodes))
     e.rain_check()
     if verbose:
         e.list()
@@ -319,7 +320,7 @@ def collect(run_name, slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb
 def main():
 
     def_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
-    def_hss, def_epc, def_enb, def_scr = 23, 16, 19, 11
+    def_hss, def_epc, def_enb, def_scr = 37, 36, 19, 11
     
     def_image_gw  = "u14.48-oai-gw"
     def_image_enb = "u14.319-oai-enb"
@@ -337,7 +338,7 @@ def main():
                         help='reset nodes instead of loading images')
     parser.add_argument("-g", "--image-gw", default=def_image_gw,
                         help="image to load in hss and epc nodes (default={})"
-                        .format(def_image_enb))
+                        .format(def_image_gw))
     parser.add_argument("-e", "--image-enb", default=def_image_enb,
                         help="image to load in enb and scrambler nodes (default={})"
                         .format(def_image_enb))
