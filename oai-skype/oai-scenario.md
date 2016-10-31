@@ -1,4 +1,4 @@
-![](oai-nodes.001.png)
+![](oai-figures.002.png)
 
 
 # Access to `macphone` : the mac controlling the phone
@@ -35,17 +35,21 @@ You can in particular open a terminal, and also do things like `help` or `phone-
 
 We have a script that sets up the experiment background completely in one run. At this point, it does:
 
-* optionnally load correct images on all 4 nodes (including scrambler)
+* optionnally:
+  * `--load` : load correct images on all 4 nodes (including scrambler)
+  * `--reset` : or just reset (reboot) them
 * turn the phone off in all cases
-* and then 
-  * kill, init, configure and start
-  * on all 3 nodes (except scrambler for now)
-* at that point the **5G setup is complete** and you can do what your experiment is about: **play with the phone**, place calls, etc..
+* and then
+  * setup the infrastructure,
+  * start the eNode B
+  * start the phone
+  * finally, scrambler is left alone for now
+* at that point the **5G setup is complete** and you can do what your experiment is about: **deal with the phone manually**, run youtube or skype or chrome, etc..
 * all this time the script is prompting you for an experiment name; **once you enter one**, it will:
    * capture relevant data from all 3 nodes (i.e. put in tar remotely)
    * and these tar files are collected in the current directory.
 
-Typically if you enter `redeux` as the name for the experiment you will find 
+Typically if you enter `redeux` as the name for the experiment you will find 3 tar files as follows, which additionnally are all untared in `redeux`
 
 ```
 ~/git/r2lab/demos/oai-skype $ ls -l redeux*
@@ -60,6 +64,7 @@ Typically if you enter `redeux` as the name for the experiment you will find
 * or update requirements `sudo pip3 install --upgrade apssh asynciojobs`
 
 Then from your git `r2lab` repo:
+
 * `cd demos/oai-skype`
 * `git pull`
 * run **with image loading** `./oai-scenario.py --load`
@@ -67,7 +72,6 @@ Then from your git `r2lab` repo:
 * run with `--help` to see list of available options (like: select other nodes)
 
 # Manually
-
 
 ## Preparation
 
