@@ -199,9 +199,12 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
 
     start_phone = SshJobScript(
         node = gwnode,
-        command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
+        commands = [
+            [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
+            [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app" ],
+        ],
         includes = includes,
-        label = "start phone",
+        label = "start phone 4g and speedtest app",
         required = delay,
     )
 
