@@ -330,7 +330,7 @@ def main():
     def_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
 # to enable the scrambler by default:
 #    def_hss, def_epc, def_enb, def_scr = 37, 36, 19, 11
-    def_hss, def_epc, def_enb, def_scr = 37, 36, 19, 0
+    def_hss, def_epc, def_enb, def_scr = 37, 36, 23, 6
     
     def_image_gw  = "u14.48-oai-gw"
     def_image_enb = "u14.319-oai-enb"
@@ -355,10 +355,23 @@ def main():
 
     parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
 
-    parser.add_argument("--hss", default=def_hss, help="defaults to {}".format(def_hss))
-    parser.add_argument("--epc", default=def_epc, help="defaults to {}".format(def_epc))
-    parser.add_argument("--enb", default=def_enb, help="defaults to {}".format(def_enb))
-    parser.add_argument("--scr", default=def_scr, help="defaults to {} - 0 means no scrambler node"
+    parser.add_argument("--hss", default=def_hss,
+                        help="""id of the node that runs the HSS
+                        / defaults to {}"""
+                        .format(def_hss))
+    parser.add_argument("--epc", default=def_epc,
+                        help="""id of the node that runs the EPC
+                        / defaults to {}"""
+                        .format(def_epc))
+    parser.add_argument("--enb", default=def_enb,
+                        help="""id of the node that runs the eNodeB
+                        / requires a USRP b210 for now 
+                        / defaults to {}"""
+                        .format(def_enb))
+    parser.add_argument("--scr", default=def_scr,
+                        help="""id of an extra node for scrambling or observation;
+                        will be loaded with the eNodeB image, if defined
+                        / defaults to {} - 0 means no additional node is provisioned"""
                         .format(def_scr))
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
