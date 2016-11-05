@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os.path
+import time
 import asyncio
 
 from asynciojobs import Engine, Job, Sequence
@@ -401,10 +402,12 @@ def main():
     kwds = args.__dict__.copy()
 
     # actually run it
+    print("Experiment STARTING at {}".format(time.strftime("%H:%M:%S")))
     if not run(**kwds):
         print("exiting")
         return
 
+    print("Experiment READY at {}".format(time.strftime("%H:%M:%S")))
     # then prompt for when we're ready to collect
     try:
         run_name = input("type capture name when ready : ")
@@ -413,7 +416,5 @@ def main():
         collect(run_name, args.slice, args.hss, args.epc, args.enb, args.verbose, args.debug)
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
-    
-
     
 main()
