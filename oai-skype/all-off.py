@@ -48,6 +48,7 @@ def all_off(slice, verbose, debug):
         # switch off all nodes but the ones we use
         command = [ "rhubarbe", "off", "-a"],
         label = "turn off unused nodes",
+        critical = False,
         required = check_for_lease,
     )
 
@@ -56,6 +57,7 @@ def all_off(slice, verbose, debug):
         # switch off all nodes but the ones we use
         command = [ "rhubarbe", "usrpoff", "-a"],
         label = "turn off unused nodes",
+        critical = False,
         required = check_for_lease,
     )
 
@@ -67,6 +69,7 @@ def all_off(slice, verbose, debug):
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
         includes = includes,
         label = "stop phone",
+        critical = False,
         required = check_for_lease,
     )
 
