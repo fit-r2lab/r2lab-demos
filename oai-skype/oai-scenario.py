@@ -38,7 +38,7 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
+def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb,
         reset_nodes, reset_usrp, verbose, debug):
     """
     expects e.g.
@@ -46,7 +46,7 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
     * hss : 23
     * epc : 16
     * enb : 19
-    * scr : can be 0 in which case no node is loaded for scrambling
+    * extras : a list of ids that will be loaded with the gnuradio image
 
     Plus
     * load_nodes: whether to load images or not - in which case image_gw and image_enb
@@ -61,9 +61,10 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=debug)
 
-    hostnames = hssname, epcname, enbname, scrname = [ r2lab_hostname(x) for x in (hss, epc, enb, scr) ]
+    hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
+    extra_hostnames = [ r2lab_hostname(x) for x in extras ]
     
-    hssnode, epcnode, enbnode, scrnode = [
+    hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
                 formatter = ColonFormatter(verbose=verbose), debug=debug)
         for hostname in hostnames
@@ -76,10 +77,15 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
         label = "check we have a current lease",
     )
 
+    # turn off all nodes 
+    turn_off_command = [ "rhubarbe", "off", "-a"]
+    # except our 3 nodes and the optional extras
+    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras]
+
     off_nodes = SshJob(
         node = gwnode,
         # switch off all nodes but the ones we use
-        command = [ "rhubarbe", "off", "1-37", "~{},~{},~{},~{}".format(hss,  epc, enb, scr)],
+        command = turn_off_command,
         label = "turn off unused nodes",
         required = check_for_lease,
     )
@@ -113,29 +119,43 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
             required = prepares,
         )
 
-        # a simple way to turn off the scrambling thing
-        # hack: point scrname at enbname if scr == 0 - 
-        if scr == 0:
-            scrname = enbname
         load_enb = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "load", "-i", image_enb, enbname, scrname ],
-                [ "rhubarbe", "wait", "-t", 120, enbname, scrname ],
+                [ "rhubarbe", "load", "-i", image_enb, enbname ],
+                [ "rhubarbe", "wait", "-t", 120, enbname ],
             ],
-            label = "load and wait ENB and SCR",
+            label = "load and wait ENB",
             required = prepares,
         )
         
         loads = [load_infra, load_enb]
         
+        if extras:
+            # the image for this extra node is hard-wired for now
+            image_extras = "gnuradio" # it's an alias to gr
+            load_extras = SshJob(
+                node = gwnode,
+                commands = [
+                    [ "rhubarbe", "load", "-i", image_extras ] + extra_hostnames,
+                    [ "rhubarbe", "wait", "-t", 120 ] + extra_hostnames,
+                    [ "rhubarbe", "usrpoff"] + extra_hostnames,
+                    [ "rhubarbe", "usrpon"] + extra_hostnames,
+                ],
+                label = "load and wait extra nodes",
+                required = prepares,
+            )
+            loads.append(load_extras)
+            
+
+
     elif reset_nodes:
         
         reset_nodes = SshJob(
             node = gwnode,
             commands = [
-                [ "rhubarbe", "reset", hss, epc, enb, scr ],
-                [ "rhubarbe", "wait", "--timeout", 120, "--verbose", hss, epc, enb, scr ],
+                [ "rhubarbe", "reset", hss, epc, enb ],
+                [ "rhubarbe", "wait", "--timeout", 120, "--verbose", hss, epc, enb ],
             ],
             label = "reset all nodes",
             required = prepares,
@@ -252,9 +272,8 @@ def run(slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
         print("RUN OK")
         return True
 
-# nothing to collect on the scrambler
-def collect(run_name, slice, hss, epc, enb, scr, load_nodes, image_gw, image_enb,
-            reset_nodes, reset_usrp, verbose, debug):
+# use the same signature in addition to run_name by convenience
+def collect(run_name, slice, hss, epc, enb, verbose, debug):
     """
     retrieves all relevant logs under a common name 
     otherwise, same signature as run() for convenience
@@ -368,11 +387,9 @@ def main():
                         / requires a USRP b210 for now 
                         / defaults to {}"""
                         .format(def_enb))
-    parser.add_argument("--scr", default=def_scr,
-                        help="""id of an extra node for scrambling or observation;
-                        will be loaded with the eNodeB image, if defined
-                        / defaults to {} - 0 means no additional node is provisioned"""
-                        .format(def_scr))
+    parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
+                        help="""id of an extra node(s) for scrambling or observation;
+                        will be loaded with the gnuradio image""")
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-d", "--debug", action='store_true', default=False)
@@ -393,7 +410,7 @@ def main():
         run_name = input("type capture name when ready : ")
         if not run_name:
             raise KeyboardInterrupt
-        collect(run_name, **kwds)
+        collect(run_name, args.slice, args.hss, args.epc, args.enb, args.verbose, args.debug)
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
     
