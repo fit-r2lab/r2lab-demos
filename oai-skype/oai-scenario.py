@@ -39,7 +39,7 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
-def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb,
+def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra,
         reset_nodes, reset_usrp, verbose, debug):
     """
     expects e.g.
@@ -50,7 +50,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb,
     * extras : a list of ids that will be loaded with the gnuradio image
 
     Plus
-    * load_nodes: whether to load images or not - in which case image_gw and image_enb
+    * load_nodes: whether to load images or not - in which case
+                  image_gw, image_enb and image_extra
                   are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
     * reset_usrp : if not False, the USRP board won't be reset - makes it all much
@@ -134,11 +135,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb,
         
         if extras:
             # the image for this extra node is hard-wired for now
-            image_extras = "gnuradio" # it's an alias to gr
             load_extras = SshJob(
                 node = gwnode,
                 commands = [
-                    [ "rhubarbe", "load", "-i", image_extras ] + extra_hostnames,
+                    [ "rhubarbe", "load", "-i", image_extra ] + extra_hostnames,
                     [ "rhubarbe", "wait", "-t", 120 ] + extra_hostnames,
                     [ "rhubarbe", "usrpoff"] + extra_hostnames,
                     [ "rhubarbe", "usrpon"] + extra_hostnames,
@@ -254,9 +254,17 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb,
     # remove dangling requirements - if any - should not be needed but won't hurt either
     e.sanitize(verbose=False)
     
-    print(40*"*", "load_nodes = {} (gw->{}, enb->{}), reset_nodes = {}"
-          .format(load_nodes, image_gw, image_enb, reset_nodes))
+    print(40*"*")
+    if load_nodes:
+        print("LOADING IMAGES: (gw->{}, enb->{}, extras->{})"
+              .format(load_nodes, image_gw, image_enb, image_extra))
+    elif reset_nodes:
+        print("RESETTING NODES")
+    else:
+        print("SKIPPING PREPARATION")
+    
     e.rain_check()
+    # Update the .dot and .png file for illustration purposes
     if verbose:
         e.list()
         name = "scenario-load" if load_nodes else \
@@ -354,6 +362,7 @@ def main():
     
     def_image_gw  = "u14.48-oai-gw"
     def_image_enb = "u14.319-oai-enb"
+    def_image_extra = "gnuradio"
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -366,12 +375,15 @@ def main():
                         help='load images as well')
     parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
                         help='reset nodes instead of loading images')
-    parser.add_argument("-g", "--image-gw", default=def_image_gw,
+    parser.add_argument("--image-gw", default=def_image_gw,
                         help="image to load in hss and epc nodes (default={})"
                         .format(def_image_gw))
-    parser.add_argument("-e", "--image-enb", default=def_image_enb,
-                        help="image to load in enb and scrambler nodes (default={})"
+    parser.add_argument("--image-enb", default=def_image_enb,
+                        help="image to load in enb node (default={})"
                         .format(def_image_enb))
+    parser.add_argument("--image-extra", default=def_image_extra,
+                        help="image to load in extra nodes (default={})"
+                        .format(def_image_extra))
 
     parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
 
