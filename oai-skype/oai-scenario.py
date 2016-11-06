@@ -429,4 +429,7 @@ def main():
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
     
+    # this should maybe be taken care of in asynciojobs
+    asyncio.get_event_loop().close()
+
 main()
