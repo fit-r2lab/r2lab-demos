@@ -9,6 +9,9 @@ from asynciojobs import Engine, Job, Sequence
 from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
 from apssh.formatters import ColonFormatter
 
+# to be added to apssh
+#from localjob import LocalJob
+
 def r2lab_hostname(x):
     """
     Return a valid hostname from a name like either
@@ -240,7 +243,22 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         required = delay,
     )
 
-    runs = (delay, start_phone, ping_phone_from_epc)
+    # ssh -X not yet supported in apssh, so one option is to start them using
+    # a local process
+    # The following code kind of works, but it needs to be 
+    # turned off, because the process in question would be killed
+    # at the end of the Engine orchestration (at the end of the run function)
+    # which is the exact time where it would be useful :)
+    # however the code for LocalJob appears to work fine, it would be nice to
+    # move it around - maybe in apssh ?
+    extra_xterms = [
+#        LocalJob(command = "ssh -X {} ssh -X root@fit{} xterm".format(slice, extra),
+#                 label = "xterm on node {}".format(extra),
+#                 forever = True,
+#             ) for extra in extras
+    ]
+    
+    runs = [delay, start_phone, ping_phone_from_epc] + extra_xterms
     
     # schedule the load phases only if required
     e = Engine(verbose=verbose, debug=debug)
