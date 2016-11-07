@@ -10,7 +10,7 @@ from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
 from apssh.formatters import ColonFormatter
 
 # to be added to apssh
-#from localjob import LocalJob
+from localjob import LocalJob
 
 def r2lab_hostname(x):
     """
@@ -42,9 +42,16 @@ includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
+############################## first stage 
 def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra,
-        reset_nodes, reset_usrp, verbose, debug):
+        reset_nodes, reset_usrp, spawn_xterms, verbose, debug):
     """
+    ##########
+    # 3 methods to get nodes ready
+    # (*) load images
+    # (*) reset nodes that are known to have the right image
+    # (*) do nothing, proceed to experiment
+
     expects e.g.
     * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
     * hss : 23
@@ -57,8 +64,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                   image_gw, image_enb and image_extra
                   are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
-    * reset_usrp : if not False, the USRP board won't be reset - makes it all much
     * otherwise (both False): do nothing
+    * reset_usrp : if not False, the USRP board won't be reset - makes it all much
+    * spawn_xterms : if set, starts xterm on all extra nodes
+    * image_* : the name of the images to load on the various nodes
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
@@ -75,8 +84,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         for hostname in hostnames
     ]
 
+
     ########## preparation
-    check_for_lease = SshJob(
+    job_check_for_lease = SshJob(
         node = gwnode,
         command = [ "rhubarbe", "leases", "--check" ],
         label = "check we have a current lease",
@@ -87,102 +97,63 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # except our 3 nodes and the optional extras
     turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras]
 
-    off_nodes = SshJob(
+    job_off_nodes = SshJob(
         node = gwnode,
         # switch off all nodes but the ones we use
         command = turn_off_command,
         label = "turn off unused nodes",
-        required = check_for_lease,
+        required = job_check_for_lease,
     )
 
     # actually run this in the gateway, not on the mac
     # the ssh keys are stored in the gateway and we do not yet have
     # the tools to leverage such remote keys
-    stop_phone = SshJobScript(
+    job_stop_phone = SshJobScript(
         node = gwnode,
         command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
         includes = includes,
         label = "stop phone",
-        required = check_for_lease,
+        required = job_check_for_lease,
     )
 
-    prepares = (check_for_lease, off_nodes, stop_phone)
+    jobs_prepare = [job_check_for_lease, job_stop_phone]
+    # turn off nodes only when --load or --reset is set
+    if load_nodes or reset_nodes:
+        jobs_prepare.append(job_off_nodes)
 
-    ##########
-    # 3 methods to get nodes ready
-    # (*) load images
-    # (*) reset nodes that are known to have the right image
-    # (*) do nothing, proceed to experiment
+    ########## infra nodes hss + epc
+
+    # prepare nodes
+    
+    commands = []
     if load_nodes:
-        load_infra = SshJob(
-            node = gwnode,
-            commands = [
-                [ "rhubarbe", "load", "-i", image_gw, hssname, epcname ],
-                [ "rhubarbe", "wait", "-t",  120, hssname, epcname ],
-            ],
-            label = "load and wait HSS and EPC nodes",
-            required = prepares,
-        )
-
-        load_enb = SshJob(
-            node = gwnode,
-            commands = [
-                [ "rhubarbe", "load", "-i", image_enb, enbname ],
-                [ "rhubarbe", "wait", "-t", 120, enbname ],
-            ],
-            label = "load and wait ENB",
-            required = prepares,
-        )
-        
-        loads = [load_infra, load_enb]
-        
-        if extras:
-            # the image for this extra node is hard-wired for now
-            load_extras = SshJob(
-                node = gwnode,
-                commands = [
-                    [ "rhubarbe", "load", "-i", image_extra ] + extra_hostnames,
-                    [ "rhubarbe", "wait", "-t", 120 ] + extra_hostnames,
-                    [ "rhubarbe", "usrpoff"] + extra_hostnames,
-                    [ "rhubarbe", "usrpon"] + extra_hostnames,
-                ],
-                label = "load and wait extra nodes",
-                required = prepares,
-            )
-            loads.append(load_extras)
-            
-
-
+        commands.append([ "rhubarbe", "load", "-i", image_gw, hssname, epcname ])
     elif reset_nodes:
-        
-        reset_nodes = SshJob(
-            node = gwnode,
-            commands = [
-                [ "rhubarbe", "reset", hss, epc, enb ],
-                [ "rhubarbe", "wait", "--timeout", 120, "--verbose", hss, epc, enb ],
-            ],
-            label = "reset all nodes",
-            required = prepares,
-        )
+        commands.append([ "rhubarbe", "reset", hssname, epcname ])
+    # always do this
+    commands.append([ "rhubarbe", "wait", "-t",  120, hssname, epcname ])
+    job_load_infra = SshJob(
+        node = gwnode,
+        commands = commands,
+        label = "load and wait HSS and EPC nodes",
+        required = jobs_prepare,
+    )
 
-        loads = [reset_nodes]
-
-    else:
-        loads = []
-
-    ########## start services
-    service_hss = SshJobScript(
+    # start services
+    
+    job_service_hss = SshJobScript(
         node = hssnode,
         command = [ script("oai-hss.sh"), "run-hss", epc ],
         includes = includes,
         label = "start HSS service",
-        required = (prepares, loads),
+        required = job_load_infra,
     )
 
     msg = "wait for HSS to warm up"
-    service_epc = Sequence(
+    job_service_epc = Sequence(
+        # let 15 seconds to HSS 
         Job(
-            verbose_delay(2, msg),
+            verbose_delay(15, msg),
             label = msg,
             ), 
         SshJobScript(
@@ -191,13 +162,35 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             includes = includes,
             label = "start EPC services",
         ),
-        required = (prepares, loads, service_hss),
+        required = job_load_infra,
     )
 
+    jobs_infra = job_load_infra, job_service_hss, job_service_epc
+
+    ########## enodeb
+
+    # prepare node
+    
+    commands = []
+    if load_nodes:
+        commands.append(["rhubarbe", "load", "-i", image_enb, enb])
+    elif reset_nodes:
+        commands.append(["rhubarbe", "reset", enb])
+    commands.append(["rhubarbe", "wait", "-t", "120", enb])
+    
+    job_load_enb = SshJob(
+        node = gwnode,
+        commands = commands,
+        label = "load and wait ENB",
+        required = jobs_prepare,
+    )
+        
+    # start service
+    
     msg = "wait for EPC to warm up"
-    service_enb = Sequence(
+    job_service_enb = Sequence(
         Job(
-            verbose_delay(2, msg),
+            verbose_delay(15, msg),
             label = msg),
         SshJobScript(
             node = enbnode,
@@ -206,22 +199,23 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             includes = includes,
             label = "start softmodem on ENB",
             ),
-        required = (prepares, loads, service_hss, service_epc),
+        required = (job_load_enb, job_service_hss, job_service_epc),
     )
 
-    services = (service_hss, service_epc, service_enb)
+    jobs_enb = job_load_enb, job_service_enb
 
     ########## run experiment per se
+    
+    # the phone
     # we need to wait for the USB firmware to be loaded
     duration = 30 if reset_usrp is not False else 8
-    msg = "wait for {}s for 5G infrastructure to settle".format(duration)
-    delay = Job(
+    msg = "wait for enodeb firmware to load on USRP".format(duration)
+    job_wait_enb = Job(
         verbose_delay(duration, msg),
         label = msg,
-        required = services
-    )
-
-    start_phone = SshJobScript(
+        required = job_service_enb)
+    
+    job_start_phone = SshJobScript(
         node = gwnode,
         commands = [
             [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
@@ -229,10 +223,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         ],
         includes = includes,
         label = "start phone 4g and speedtest app",
-        required = delay,
+        required = job_wait_enb,
     )
 
-    ping_phone_from_epc = SshJob(
+    job_ping_phone_from_epc = SshJob(
         node = epcnode,
         commands = [
             ["sleep 10"],
@@ -240,35 +234,62 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             ],
         label = "ping phone from EPC",
         critical = False,
-        required = delay,
+        required = job_wait_enb,
     )
 
+    jobs_exp = job_wait_enb, job_start_phone, job_ping_phone_from_epc
+
+    ########## extra nodes
     # ssh -X not yet supported in apssh, so one option is to start them using
     # a local process
-    # The following code kind of works, but it needs to be 
+    # xxx to update: The following code kind of works, but it needs to be 
     # turned off, because the process in question would be killed
     # at the end of the Engine orchestration (at the end of the run function)
     # which is the exact time where it would be useful :)
     # however the code for LocalJob appears to work fine, it would be nice to
     # move it around - maybe in apssh ?
-    extra_xterms = [
-#        LocalJob(command = "ssh -X {} ssh -X root@fit{} xterm".format(slice, extra),
-#                 label = "xterm on node {}".format(extra),
-#                 forever = True,
-#             ) for extra in extras
-    ]
-    
-    runs = [delay, start_phone, ping_phone_from_epc] + extra_xterms
-    
+
+    commands = []
+    if not extras:
+        commands.append("echo no extra nodes specified - ignored")
+    else:
+        if load_nodes:
+            commands.append(["rhubarbe", "usrpoff"] + extra_hostnames)
+            commands.append([ "rhubarbe", "load", "-i", image_extra ] + extra_hostnames)
+            commands.append([ "rhubarbe", "wait", "-t", 120 ] + extra_hostnames)
+            commands.append([ "rhubarbe", "usrpon"] + extra_hostnames)
+        elif reset_nodes:
+            commands.append([ "rhubarbe", "reset"] + extra_hostnames)
+        commands.append([ "rhubarbe", "wait", "-t", "120" ] + extra_hostnames)
+    job_load_extras = SshJob(
+        node = gwnode,
+        commands = commands,
+        label = "load and wait extra nodes",
+        required = job_check_for_lease,
+    )
+                             
+    jobs_extras = [job_load_extras]
+
+    if spawn_xterms:
+        jobs_xterms_extras = [
+            LocalJob(command = "ssh -X {} ssh -X root@fit{} xterm".format(slice, extra),
+                     label = "xterm on node {}".format(extra),
+                     required = job_load_extras,
+                     forever = True,
+                     eternal = True,
+                 ) for extra in extras
+        ]
+        jobs_extras += jobs_xterms_extras
+    print("jobs_extras is {} long".format(len(jobs_extras)))
+
     # schedule the load phases only if required
     e = Engine(verbose=verbose, debug=debug)
     # this is just a way to add a collection of jobs to the engine
-    e.update(prepares)
-    # loads contents depends on the --load or --reset options; might as well be empty
-    e.update(loads)
-    # always start services and exp
-    e.update(services)
-    e.update(runs)
+    e.update(jobs_prepare)
+    e.update(jobs_infra)
+    e.update(jobs_enb)
+    e.update(jobs_exp)
+    e.update(jobs_extras)
     # remove dangling requirements - if any - should not be needed but won't hurt either
     e.sanitize(verbose=False)
     
@@ -279,7 +300,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     elif reset_nodes:
         print("RESETTING NODES")
     else:
-        print("SKIPPING PREPARATION")
+        print("NODES ARE USED AS S (no image loaded, no reset")
     
     e.rain_check()
     # Update the .dot and .png file for illustration purposes
@@ -421,6 +442,8 @@ def main():
     parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
                         help="""id of an extra node(s) for scrambling or observation;
                         will be loaded with the gnuradio image""")
+    parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
+                        help="if set, spawns xterm on all extra nodes")
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-d", "--debug", action='store_true', default=False)
