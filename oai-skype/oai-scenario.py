@@ -251,7 +251,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
 
     commands = []
     if not extras:
-        commands.append("echo no extra nodes specified - ignored")
+        commands.append(["echo no extra nodes specified - ignored; exit 0"])
     else:
         if load_nodes:
             commands.append(["rhubarbe", "usrpoff"] + extra_hostnames)
@@ -300,7 +300,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     elif reset_nodes:
         print("RESETTING NODES")
     else:
-        print("NODES ARE USED AS S (no image loaded, no reset")
+        print("NODES ARE USED AS IS (no image loaded, no reset)")
     
     e.rain_check()
     # Update the .dot and .png file for illustration purposes
