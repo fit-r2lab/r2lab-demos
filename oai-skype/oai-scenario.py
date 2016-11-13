@@ -280,7 +280,6 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                  ) for extra in extras
         ]
         jobs_extras += jobs_xterms_extras
-    print("jobs_extras is {} long".format(len(jobs_extras)))
 
     # schedule the load phases only if required
     e = Engine(verbose=verbose, debug=debug)
