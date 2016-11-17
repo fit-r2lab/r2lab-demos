@@ -40,7 +40,7 @@ from argparse import ArgumentParser
 from asynciojobs import Engine
 
 # we use only ssh-oriented jobs in this script
-from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
+from apssh import SshNode, SshJob, SshJobCollector, Command, LocalScript
 from apssh import load_agent_keys
 
 # output formats
@@ -77,7 +77,7 @@ def r2lab_nodes(parser_args):
 #################### one experiment
 def one_run(gwhost, gwuser, keys,
             sendername, receivername, packets, size, period,
-            formatter, verbose=False, debug=False):
+            formatter, verbose=False):
     """
     gwhost, gwuser, keys: where to reach the testbed gateway
     sendername, receivername : hostnames for the test nodes
@@ -100,7 +100,6 @@ def one_run(gwhost, gwuser, keys,
         username = gwuser,
         keys = keys,
         formatter = formatter,
-        debug = debug,
     )
 
     # the sender node
@@ -113,7 +112,6 @@ def one_run(gwhost, gwuser, keys,
         # from the gateway we enter the R2lab nodes as root
         username = 'root',
         formatter = formatter,
-        debug = debug,
     )
 
     # the receiver node - ditto
@@ -125,34 +123,34 @@ def one_run(gwhost, gwuser, keys,
     )
 
     # one initialization job per node
-    init_sender = SshJobScript(
+    init_sender = SshJob(
         # on what node to run the command
         node = sender,
         # the command to run; being a JobSshScript, the first item in this
         # list is expected to be a **LOCAL** script that gets puhed remotely
         # before being run
         # a simple JobSsh is more suitable to issue standard Unix commands for instance
-        command = [ auxiliary_script, "init-sender", 64, "HT20" ],
+        command = LocalScript( auxiliary_script, "init-sender", 64, "HT20" ),
         # for convenience purposes
         label = "init-sender")
 
-    init_receiver = SshJobScript(
+    init_receiver = SshJob(
         node = receiver,
-        command = [ auxiliary_script, "init-receiver", 64, "HT20" ],
+        command = LocalScript( auxiliary_script, "init-receiver", 64, "HT20" ),
         label = "init-receiver")
 
     # ditto for actually running the experiment
-    run_sender = SshJobScript(
+    run_sender = SshJob(
         node = sender,
-        command = [ auxiliary_script, "run-sender", packets, size, period ],
+        command = LocalScript( auxiliary_script, "run-sender", packets, size, period ),
         label = "run-sender")
 
     # run the sender only once both nodes are ready
     run_sender.requires(init_sender, init_receiver)
 
-    run_receiver = SshJobScript(
+    run_receiver = SshJob(
         node = receiver,
-        command = [ auxiliary_script, "run-receiver", packets, size, period ],
+        command = LocalScript( auxiliary_script, "run-receiver", packets, size, period ),
         label = "run-receiver")
     # ditto
     run_receiver.requires(init_sender, init_receiver)
@@ -174,8 +172,12 @@ def one_run(gwhost, gwuser, keys,
                run_sender, run_receiver,
                collector,
                verbose = verbose,
-               debug = debug)
+               )
 
+    print(20*'*', "before run")
+    e.list(details=verbose)
+    print(20*'*')
+    
     if  e.orchestrate(timeout = 3*60):
         print("========== experiment OK")
     else:
@@ -197,7 +199,7 @@ def one_run(gwhost, gwuser, keys,
 
 ####################
 # globals for now - could be add_argument'ed of course
-default_gateway = "onelab.inria.oai.oai_build@faraday.inria.fr"
+default_gateway = "onelab.inria.r2lab.tutorial@faraday.inria.fr"
 
 def main():
 
@@ -224,15 +226,12 @@ def main():
                         default=False, help="Show experiment context and exit - do nothing")
     parser.add_argument("-v", "--verbose", action='store_true',
                         default=False, help="Make it verbose")
-    parser.add_argument("-D", "--debug", action='store_true',
-                        default=False, help="Turn on debugging")
     args = parser.parse_args()
 
     packets = args.packets
     size = args.size
     period = args.period
     verbose = args.verbose
-    debug = args.debug
     
     # nodes to use
     if not args.receivers or not args.senders:
@@ -270,7 +269,7 @@ def main():
                 #    print("loading from agent: {}".format(key))
                 one_run(gwhost, gwslice, keys,
                         sendername, receivername, packets, size, period,
-                        formatter, verbose, debug)
+                        formatter, verbose)
 
 if __name__ == '__main__':
     main()
