@@ -44,7 +44,7 @@ includes = [ script(x) for x in [
 
 ############################## first stage 
 def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra,
-        reset_nodes, reset_usrp, spawn_xterms, verbose, debug):
+        reset_nodes, reset_usrp, spawn_xterms, verbose):
     """
     ##########
     # 3 methods to get nodes ready
@@ -73,14 +73,14 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # what argparse knows as a slice actually is a gateway (user + host)
     gwuser, gwhost = slice.split('@')
     gwnode = SshNode(hostname = gwhost, username = gwuser,
-                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+                     formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
     hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
     extra_hostnames = [ r2lab_hostname(x) for x in extras ]
     
     hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
-                formatter = ColonFormatter(verbose=verbose), debug=debug)
+                formatter = ColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 
@@ -282,7 +282,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         jobs_extras += jobs_xterms_extras
 
     # schedule the load phases only if required
-    e = Engine(verbose=verbose, debug=debug)
+    e = Engine(verbose=verbose)
     # this is just a way to add a collection of jobs to the engine
     e.update(jobs_prepare)
     e.update(jobs_infra)
@@ -290,7 +290,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     e.update(jobs_exp)
     e.update(jobs_extras)
     # remove dangling requirements - if any - should not be needed but won't hurt either
-    e.sanitize(verbose=False)
+    e.sanitize()
     
     print(40*"*")
     if load_nodes:
@@ -311,6 +311,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         e.store_as_dotfile("{}.dot".format(name))
         os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
 
+    e.list()
+    exit(0)
+
     if not e.orchestrate():
         print("RUN KO : {}".format(e.why()))
         e.debrief()
@@ -320,7 +323,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         return True
 
 # use the same signature in addition to run_name by convenience
-def collect(run_name, slice, hss, epc, enb, verbose, debug):
+def collect(run_name, slice, hss, epc, enb, verbose):
     """
     retrieves all relevant logs under a common name 
     otherwise, same signature as run() for convenience
@@ -334,7 +337,7 @@ def collect(run_name, slice, hss, epc, enb, verbose, debug):
 
     gwuser, gwhost = slice.split('@')
     gwnode = SshNode(hostname = gwhost, username = gwuser,
-                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+                     formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
     functions = "hss", "epc", "enb"
 
@@ -342,7 +345,7 @@ def collect(run_name, slice, hss, epc, enb, verbose, debug):
     
     nodes = hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
-                formatter = ColonFormatter(verbose=verbose), debug=debug)
+                formatter = ColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 
@@ -369,7 +372,7 @@ def collect(run_name, slice, hss, epc, enb, verbose, debug):
         )
         for (node, function, capturer) in zip(nodes, functions, capturers) ]
 
-    e = Engine(verbose=verbose, debug=debug)
+    e = Engine(verbose=verbose)
     e.update(capturers)
     e.update(collectors)
     
@@ -445,7 +448,6 @@ def main():
                         help="if set, spawns xterm on all extra nodes")
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
-    parser.add_argument("-d", "--debug", action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -465,7 +467,7 @@ def main():
         run_name = input("type capture name when ready : ")
         if not run_name:
             raise KeyboardInterrupt
-        collect(run_name, args.slice, args.hss, args.epc, args.enb, args.verbose, args.debug)
+        collect(run_name, args.slice, args.hss, args.epc, args.enb, args.verbose)
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
     
