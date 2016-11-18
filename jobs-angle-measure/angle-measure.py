@@ -2,7 +2,7 @@
 
 """
 This script is a rewrite of an experiment initially based on NEPI
-This version relies on a combination of 
+This version relies on what we call nepi-ng, that is to say a combination of 
 * asynciojobs
 * and apssh's jobs plugins SshJob*
 
@@ -40,7 +40,7 @@ from argparse import ArgumentParser
 from asynciojobs import Engine
 
 # we use only ssh-oriented jobs in this script
-from apssh import SshNode, SshJob, SshJobCollector, Command, LocalScript
+from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh import load_agent_keys
 
 # output formats
@@ -130,19 +130,19 @@ def one_run(gwhost, gwuser, keys,
         # list is expected to be a **LOCAL** script that gets puhed remotely
         # before being run
         # a simple JobSsh is more suitable to issue standard Unix commands for instance
-        command = LocalScript( auxiliary_script, "init-sender", 64, "HT20" ),
+        command = RunScript( auxiliary_script, "init-sender", 64, "HT20" ),
         # for convenience purposes
         label = "init-sender")
 
     init_receiver = SshJob(
         node = receiver,
-        command = LocalScript( auxiliary_script, "init-receiver", 64, "HT20" ),
+        command = RunScript( auxiliary_script, "init-receiver", 64, "HT20" ),
         label = "init-receiver")
 
     # ditto for actually running the experiment
     run_sender = SshJob(
         node = sender,
-        command = LocalScript( auxiliary_script, "run-sender", packets, size, period ),
+        command = RunScript( auxiliary_script, "run-sender", packets, size, period ),
         label = "run-sender")
 
     # run the sender only once both nodes are ready
@@ -150,17 +150,13 @@ def one_run(gwhost, gwuser, keys,
 
     run_receiver = SshJob(
         node = receiver,
-        command = LocalScript( auxiliary_script, "run-receiver", packets, size, period ),
+        commands = [
+            RunScript( auxiliary_script, "run-receiver", packets, size, period),
+            Pull(remotepaths = 'rawdata', localpath = dataname),
+        ],
         label = "run-receiver")
     # ditto
     run_receiver.requires(init_sender, init_receiver)
-
-    collector = SshJobCollector(
-        node = receiver,
-        remotepaths = 'rawdata',
-        localpath = dataname,
-        label = "collector")
-    collector.requires(run_receiver)
 
     # print a one-liner for that receiver, sender couple
     summary = "{} ==> {} - {} packets of {} bytes, each {}us"\
@@ -170,7 +166,6 @@ def one_run(gwhost, gwuser, keys,
     # create an Engine object that will orchestrate this scenario
     e = Engine(init_sender, init_receiver,
                run_sender, run_receiver,
-               collector,
                verbose = verbose,
                )
 

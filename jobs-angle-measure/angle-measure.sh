@@ -41,9 +41,9 @@ function list-interfaces () {
 
 function details-on-interface () {
     dev=$1; shift
-    echo ==================== ip addr sh $dev
+    echo ==================== ip address show $dev
     ip addr sh $dev
-    echo ==================== ip link sh $dev
+    echo ==================== ip link show $dev
     ip link sh $dev
     echo ==================== iwconfig $dev
     iwconfig $dev
@@ -135,6 +135,8 @@ function init-sender() {
 
     details-on-interface $wlan
     details-on-interface mon0
+
+    return 0
 }
 
 
@@ -161,6 +163,7 @@ function init-receiver() {
 
     details-on-interface $wlan
     
+    return 0
 }
 
 
@@ -196,13 +199,14 @@ function run-sender () {
     echo unloading intel drivers
     modprobe -r iwlwifi mac80211 cfg80211
 
+    return 0
 }
 
 
 # echo everything on stderr so we can just redirect stdout
 # so stdout receives the output of log_to_file
 function run-receiver () {
-    # 2 arguments are required
+    # 3 arguments are required
     packets=$1; shift
     size=$1; shift
     period=$1; shift
@@ -237,6 +241,7 @@ function run-receiver () {
     # for forensics
     echo $(date) - end
     md5sum rawdata
+    return 0
 }
 
 ########################################
