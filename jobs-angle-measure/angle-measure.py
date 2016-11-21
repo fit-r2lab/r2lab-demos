@@ -36,8 +36,8 @@ import time
 import logging
 from argparse import ArgumentParser
 
-# the Engine object is the core of asynciojobs
-from asynciojobs import Engine
+# the Scheduler object is the core of asynciojobs
+from asynciojobs import Scheduler
 
 # we use only ssh-oriented jobs in this script
 from apssh import SshNode, SshJob, Run, RunScript, Pull
@@ -163,11 +163,10 @@ def one_run(gwhost, gwuser, keys,
         .format(sendername, receivername, packets, size, period)
     print(10*'-', summary)
 
-    # create an Engine object that will orchestrate this scenario
-    e = Engine(init_sender, init_receiver,
-               run_sender, run_receiver,
-               verbose = verbose,
-               )
+    # create an Scheduler object that will orchestrate this scenario
+    e = Scheduler(init_sender, init_receiver,
+                  run_sender, run_receiver,
+                  verbose = verbose)
 
     print(20*'*', "before run")
     e.list(details=verbose)

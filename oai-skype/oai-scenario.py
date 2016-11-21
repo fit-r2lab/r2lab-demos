@@ -4,7 +4,7 @@ import os.path
 import time
 import asyncio
 
-from asynciojobs import Engine, Job, Sequence
+from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
 from apssh.formatters import ColonFormatter
@@ -244,7 +244,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # a local process
     # xxx to update: The following code kind of works, but it needs to be 
     # turned off, because the process in question would be killed
-    # at the end of the Engine orchestration (at the end of the run function)
+    # at the end of the Scheduler orchestration (at the end of the run function)
     # which is the exact time where it would be useful :)
     # however the code for LocalJob appears to work fine, it would be nice to
     # move it around - maybe in apssh ?
@@ -282,15 +282,15 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         jobs_extras += jobs_xterms_extras
 
     # schedule the load phases only if required
-    e = Engine(verbose=verbose)
-    # this is just a way to add a collection of jobs to the engine
-    e.update(jobs_prepare)
-    e.update(jobs_infra)
-    e.update(jobs_enb)
-    e.update(jobs_exp)
-    e.update(jobs_extras)
+    sched = Scheduler(verbose=verbose)
+    # this is just a way to add a collection of jobs to the scheduler
+    sched.update(jobs_prepare)
+    sched.update(jobs_infra)
+    sched.update(jobs_enb)
+    sched.update(jobs_exp)
+    sched.update(jobs_extras)
     # remove dangling requirements - if any - should not be needed but won't hurt either
-    e.sanitize()
+    sched.sanitize()
     
     print(40*"*")
     if load_nodes:
@@ -301,22 +301,22 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
     
-    e.rain_check()
+    sched.rain_check()
     # Update the .dot and .png file for illustration purposes
     if verbose:
-        e.list()
+        sched.list()
         name = "scenario-load" if load_nodes else \
                "scenario-reset" if reset_nodes else \
                "scenario"
-        e.store_as_dotfile("{}.dot".format(name))
+        sched.store_as_dotfile("{}.dot".format(name))
         os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
 
-    e.list()
+    sched.list()
     exit(0)
 
-    if not e.orchestrate():
-        print("RUN KO : {}".format(e.why()))
-        e.debrief()
+    if not sched.orchestrate():
+        print("RUN KO : {}".format(sched.why()))
+        sched.debrief()
         return False
     else:
         print("RUN OK")
@@ -372,16 +372,16 @@ def collect(run_name, slice, hss, epc, enb, verbose):
         )
         for (node, function, capturer) in zip(nodes, functions, capturers) ]
 
-    e = Engine(verbose=verbose)
-    e.update(capturers)
-    e.update(collectors)
+    sched = Scheduler(verbose=verbose)
+    sched.update(capturers)
+    sched.update(collectors)
     
     if verbose:
-        e.list()
+        sched.list()
 
-    if not e.orchestrate():
+    if not sched.orchestrate():
         print("KO")
-        e.debrief()
+        sched.debrief()
         return
     print("OK")
     if os.path.exists(run_name):

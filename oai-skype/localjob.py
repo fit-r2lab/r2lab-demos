@@ -11,7 +11,7 @@ from asynciojobs import AbstractJob
 
 class LocalJob(AbstractJob):
     """
-    A class that can be used in a asynciojobs Engine
+    A class that can be used in a asynciojobs Scheduler
     to run a command locally
     no support for commands yet though
 

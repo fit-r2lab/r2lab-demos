@@ -3,9 +3,9 @@
 import os.path
 import asyncio
 
-from asynciojobs import Engine, Job, Sequence
+from asynciojobs import Scheduler, Job, Sequence
 
-from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
+from apssh import SshNode, SshJob, Run, RunScript
 from apssh.formatters import ColonFormatter
 
 def script(s):
@@ -32,60 +32,47 @@ def all_off(slice, verbose, debug):
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
-    gwuser, gwhost = slice.split('@')
+    try:
+        gwuser, gwhost = slice.split('@')
+    except:
+        gwuser, gwhost = slice, "faraday.inria.fr"
+        
     gwnode = SshNode(hostname = gwhost, username = gwuser,
-                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+                         formatter = ColonFormatter(verbose=verbose), debug=debug)
 
-    ########## preparation
+    sched = Scheduler(verbose=verbose)
+    
     check_for_lease = SshJob(
         node = gwnode,
-        command = [ "rhubarbe", "leases", "--check" ],
+        command = Run("rhubarbe", "leases", "--check"),
         label = "check we have a current lease",
     )
-
-    off_nodes = SshJob(
-        node = gwnode,
-        # switch off all nodes but the ones we use
-        command = [ "rhubarbe", "off", "-a"],
-        label = "turn off unused nodes",
-        critical = False,
-        required = check_for_lease,
-    )
-
-    uoff_nodes = SshJob(
-        node = gwnode,
-        # switch off all nodes but the ones we use
-        command = [ "rhubarbe", "usrpoff", "-a"],
-        label = "turn off unused nodes",
-        critical = False,
-        required = check_for_lease,
-    )
-
-    # actually run this in the gateway, not on the mac
-    # the ssh keys are stored in the gateway and we do not yet have
-    # the tools to leverage such remote keys
-    stop_phone = SshJobScript(
-        node = gwnode,
-        command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
-        includes = includes,
-        label = "stop phone",
-        critical = False,
-        required = check_for_lease,
-    )
-
-    prepares = (check_for_lease, off_nodes, uoff_nodes, stop_phone)
+    sched.add(check_for_lease)
     
-    # schedule the load phases only if required
-    e = Engine(verbose=verbose, debug=debug)
-    # this is just a way to add a collection of jobs to the engine
-    e.update(prepares)
-    if not e.orchestrate():
-        print("RUN KO : {}".format(e.why()))
-        e.debrief()
-        return False
+    for command in (Run("rhubarbe", "off", "-a"),
+                    Run("rhubarbe", "usrpoff", "-a"),
+                    RunScript(script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off",
+                              includes = includes)):
+        sched.add(
+            SshJob(
+                node = gwnode,
+                command = command,
+                required = check_for_lease,
+                critical = False,
+            ))
+
+    result = sched.orchestrate()
+    if not result:
+        if check_for_lease.raised_exception():
+            print("slice {} does not appear to hold a valid lease".format(slice))
+        else:
+            print("RUN KO : {}".format(sched.why()))
+            sched.debrief()
     else:
         print("RUN OK")
-        return True
+
+    return 0 if result else 1
+        
 
 def main():
 
@@ -108,4 +95,4 @@ def main():
     # actually run it
     all_off(**kwds)
     
-main()
+exit(main())
