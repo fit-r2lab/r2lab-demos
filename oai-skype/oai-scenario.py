@@ -6,7 +6,7 @@ import asyncio
 
 from asynciojobs import Scheduler, Job, Sequence
 
-from apssh import SshNode, SshJob, SshJobScript, SshJobCollector
+from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
 # to be added to apssh
@@ -22,6 +22,7 @@ def r2lab_hostname(x):
 def script(s):
     """
     all the scripts are located in the same place
+    find that place among a list of possible locations
     """
     paths = [ "../../infra/user-env",
               os.path.expanduser("~/git/r2lab/infra/user-env/"), 
@@ -32,12 +33,16 @@ def script(s):
         if os.path.exists(candidate):
             return candidate
 
-async def verbose_delay(duration, *args):
-    print(20*'*', "Waiting for {} s".format(duration), *args)
+async def verbose_delay(duration, *print_args):
+    """
+    a coroutine that just sleeps for some time - and says so
+    print_args are passed to print
+    """
+    print(20*'*', "Waiting for {} s".format(duration), *print_args)
     await asyncio.sleep(duration)
-    print("Done waiting for {} s".format(duration), *args)
+    print("Done waiting for {} s".format(duration), *print_args)
 
-# include the same set of utility scripts
+# include the set of utility scripts that are included by the r2lab kit
 includes = [ script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
@@ -53,7 +58,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # (*) do nothing, proceed to experiment
 
     expects e.g.
-    * slice : s.t like onelab.inria.oai.oai_build@faraday.inria.fr
+    * slice : s.t like inria_oai.skype@faraday.inria.fr
     * hss : 23
     * epc : 16
     * enb : 19
@@ -108,10 +113,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # actually run this in the gateway, not on the mac
     # the ssh keys are stored in the gateway and we do not yet have
     # the tools to leverage such remote keys
-    job_stop_phone = SshJobScript(
+    job_stop_phone = SshJob(
         node = gwnode,
-        command = [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off" ],
-        includes = includes,
+        command = RunScript(
+            script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off",
+            includes = includes),
         label = "stop phone",
         required = job_check_for_lease,
     )
@@ -127,11 +133,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     commands = []
     if load_nodes:
-        commands.append([ "rhubarbe", "load", "-i", image_gw, hssname, epcname ])
+        commands.append(Run("rhubarbe", "load", "-i", image_gw, hssname, epcname))
     elif reset_nodes:
-        commands.append([ "rhubarbe", "reset", hssname, epcname ])
+        commands.append(Run("rhubarbe", "reset", hssname, epcname))
     # always do this
-    commands.append([ "rhubarbe", "wait", "-t",  120, hssname, epcname ])
+    commands.append(Run("rhubarbe", "wait", "-t",  120, hssname, epcname))
     job_load_infra = SshJob(
         node = gwnode,
         commands = commands,
@@ -141,10 +147,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
 
     # start services
     
-    job_service_hss = SshJobScript(
+    job_service_hss = SshJob(
         node = hssnode,
-        command = [ script("oai-hss.sh"), "run-hss", epc ],
-        includes = includes,
+        command = RunScript(script("oai-hss.sh"), "run-hss", epc,
+                            includes = includes),
         label = "start HSS service",
         required = job_load_infra,
     )
@@ -156,10 +162,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             verbose_delay(15, msg),
             label = msg,
             ), 
-        SshJobScript(
+        SshJob(
             node = epcnode,
-            command = [ script("oai-epc.sh"), "run-epc", hss ],
-            includes = includes,
+            command = RunScript(script("oai-epc.sh"), "run-epc", hss,
+                                includes = includes),
             label = "start EPC services",
         ),
         required = job_load_infra,
@@ -173,10 +179,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     commands = []
     if load_nodes:
-        commands.append(["rhubarbe", "load", "-i", image_enb, enb])
+        commands.append(Run("rhubarbe", "load", "-i", image_enb, enb))
     elif reset_nodes:
-        commands.append(["rhubarbe", "reset", enb])
-    commands.append(["rhubarbe", "wait", "-t", "120", enb])
+        commands.append(Run("rhubarbe", "reset", enb))
+    commands.append(Run("rhubarbe", "wait", "-t", "120", enb))
     
     job_load_enb = SshJob(
         node = gwnode,
@@ -192,11 +198,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         Job(
             verbose_delay(15, msg),
             label = msg),
-        SshJobScript(
+        SshJob(
             node = enbnode,
             # run-enb expects the id of the epc as a parameter
-            command = [ script("oai-enb.sh"), "run-enb", epc, reset_usrp ],
-            includes = includes,
+            command = RunScript(script("oai-enb.sh"), "run-enb", epc, reset_usrp,
+                                includes = includes),
             label = "start softmodem on ENB",
             ),
         required = (job_load_enb, job_service_hss, job_service_epc),
@@ -215,13 +221,14 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         label = msg,
         required = job_service_enb)
     
-    job_start_phone = SshJobScript(
+    job_start_phone = SshJob(
         node = gwnode,
         commands = [
-            [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on" ],
-            [ script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app" ],
+            RunScript(script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on",
+                      includes=includes),
+            RunScript(script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app",
+                      includes=includes),
         ],
-        includes = includes,
         label = "start phone 4g and speedtest app",
         required = job_wait_enb,
     )
@@ -229,8 +236,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_ping_phone_from_epc = SshJob(
         node = epcnode,
         commands = [
-            ["sleep 10"],
-            ["ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"],
+            Run("sleep 10"),
+            Run("ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"),
             ],
         label = "ping phone from EPC",
         critical = False,
@@ -254,13 +261,13 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         commands.append(["echo no extra nodes specified - ignored; exit 0"])
     else:
         if load_nodes:
-            commands.append(["rhubarbe", "usrpoff"] + extra_hostnames)
-            commands.append([ "rhubarbe", "load", "-i", image_extra ] + extra_hostnames)
-            commands.append([ "rhubarbe", "wait", "-t", 120 ] + extra_hostnames)
-            commands.append([ "rhubarbe", "usrpon"] + extra_hostnames)
+            commands.append(Run("rhubarbe", "usrpoff", *extra_hostnames))
+            commands.append(Run("rhubarbe", "load", "-i", image_extra, *extra_hostnames))
+            commands.append(Run("rhubarbe", "wait", "-t", 120, *extra_hostnames))
+            commands.append(Run("rhubarbe", "usrpon", *extra_hostnames))
         elif reset_nodes:
-            commands.append([ "rhubarbe", "reset"] + extra_hostnames)
-        commands.append([ "rhubarbe", "wait", "-t", "120" ] + extra_hostnames)
+            commands.append(Run("rhubarbe", "reset", extra_hostnames))
+        commands.append(Run("rhubarbe", "wait", "-t", "120", *extra_hostnames))
     job_load_extras = SshJob(
         node = gwnode,
         commands = commands,
@@ -308,11 +315,10 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         name = "scenario-load" if load_nodes else \
                "scenario-reset" if reset_nodes else \
                "scenario"
-        sched.store_as_dotfile("{}.dot".format(name))
+        sched.export_as_dotfile("{}.dot".format(name))
         os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
 
     sched.list()
-    exit(0)
 
     if not sched.orchestrate():
         print("RUN KO : {}".format(sched.why()))
@@ -353,20 +359,20 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     # info into a single tar named <run_name>.tgz
 
     capturers = [
-        SshJobScript(
+        SshJob(
             node = node,
-            command = [ script("oai-common.sh"), "capture-{}".format(function), run_name ],
+            command = RunScript(script("oai-common.sh"), "capture-{}".format(function), run_name,
+                                includes = [script("oai-{}.sh".format(function))]),
             label = "capturer on {}".format(function),
             # capture-enb will run oai-as-enb and thus requires oai-enb.sh
-            includes = [script("oai-{}.sh".format(function))],
         )
         for (node, function) in zip(nodes, functions) ]
         
     collectors = [
-        SshJobCollector(
+        SshJob(
             node = node,
-            remotepaths = [ "{}-{}.tgz".format(run_name, function) ],
-            localpath = ".",
+            command = Pull(remotepaths = [ "{}-{}.tgz".format(run_name, function) ],
+                           localpath = "."),
             label = "collector on {}".format(function),
             required = capturer,
         )
@@ -396,7 +402,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
         
 def main():
 
-    def_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
+    def_slice = "inria_oai.skype@faraday.inria.fr"
 # to enable the scrambler by default:
 #    def_hss, def_epc, def_enb, def_scr = 37, 36, 19, 11
     def_hss, def_epc, def_enb, def_scr = 37, 36, 23, 6
