@@ -258,7 +258,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
 
     commands = []
     if not extras:
-        commands.append(["echo no extra nodes specified - ignored; exit 0"])
+        commands.append(Run("echo no extra nodes specified - ignored"))
     else:
         if load_nodes:
             commands.append(Run("rhubarbe", "usrpoff", *extra_hostnames))
