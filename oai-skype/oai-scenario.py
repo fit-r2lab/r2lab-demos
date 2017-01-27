@@ -70,7 +70,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                   are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
     * otherwise (both False): do nothing
-    * reset_usrp : if not False, the USRP board won't be reset - makes it all much
+    * reset_usrp : if not False, the USRP board won't be reset
     * spawn_xterms : if set, starts xterm on all extra nodes
     * image_* : the name of the images to load on the various nodes
     """
@@ -179,6 +179,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     commands = []
     if load_nodes:
+        commands.append(Run("rhubarbe", "usrpoff", enb))
         commands.append(Run("rhubarbe", "load", "-i", image_enb, enb))
     elif reset_nodes:
         commands.append(Run("rhubarbe", "reset", enb))
