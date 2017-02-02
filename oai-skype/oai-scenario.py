@@ -19,19 +19,23 @@ def r2lab_hostname(x):
     """
     return "fit{:02d}".format(int(str(x).replace('fit','')))
 
-def script(s):
+def locate_local_script(s):
     """
     all the scripts are located in the same place
     find that place among a list of possible locations
     """
-    paths = [ "../../infra/user-env",
-              os.path.expanduser("~/git/r2lab/infra/user-env/"), 
-              os.path.expanduser("~/r2lab/infra/user-env/"),
-              ]
+    paths = [
+        "../../infra/user-env",
+        os.path.expanduser("~/git/r2lab/infra/user-env/"), 
+        os.path.expanduser("~/r2lab/infra/user-env/"),
+    ]
     for path in paths:
         candidate = os.path.join(path, s)
         if os.path.exists(candidate):
             return candidate
+    print("WARNING: could not locate local script {}".format(s))
+    for path in paths:
+        print("W: searched in {}".format(path))
 
 async def verbose_delay(duration, *print_args):
     """
@@ -43,7 +47,7 @@ async def verbose_delay(duration, *print_args):
     print("Done waiting for {} s".format(duration), *print_args)
 
 # include the set of utility scripts that are included by the r2lab kit
-includes = [ script(x) for x in [
+includes = [ locate_local_script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
@@ -116,7 +120,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_stop_phone = SshJob(
         node = gwnode,
         command = RunScript(
-            script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off",
+            locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off",
             includes = includes),
         label = "stop phone",
         required = job_check_for_lease,
@@ -149,7 +153,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     job_service_hss = SshJob(
         node = hssnode,
-        command = RunScript(script("oai-hss.sh"), "run-hss", epc,
+        command = RunScript(locate_local_script("oai-hss.sh"), "run-hss", epc,
                             includes = includes),
         label = "start HSS service",
         required = job_load_infra,
@@ -164,7 +168,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             ), 
         SshJob(
             node = epcnode,
-            command = RunScript(script("oai-epc.sh"), "run-epc", hss,
+            command = RunScript(locate_local_script("oai-epc.sh"), "run-epc", hss,
                                 includes = includes),
             label = "start EPC services",
         ),
@@ -202,7 +206,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         SshJob(
             node = enbnode,
             # run-enb expects the id of the epc as a parameter
-            command = RunScript(script("oai-enb.sh"), "run-enb", epc, reset_usrp,
+            command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, reset_usrp,
                                 includes = includes),
             label = "start softmodem on ENB",
             ),
@@ -225,9 +229,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_start_phone = SshJob(
         node = gwnode,
         commands = [
-            RunScript(script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on",
+            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on",
                       includes=includes),
-            RunScript(script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app",
+            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
         label = "start phone 4g and speedtest app",
@@ -362,8 +366,8 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     capturers = [
         SshJob(
             node = node,
-            command = RunScript(script("oai-common.sh"), "capture-{}".format(function), run_name,
-                                includes = [script("oai-{}.sh".format(function))]),
+            command = RunScript(locate_local_script("oai-common.sh"), "capture-{}".format(function), run_name,
+                                includes = [locate_local_script("oai-{}.sh".format(function))]),
             label = "capturer on {}".format(function),
             # capture-enb will run oai-as-enb and thus requires oai-enb.sh
         )
