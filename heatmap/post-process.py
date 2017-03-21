@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
-# input file names are assumed on the form "result-X.txt" where X corresponds to the FIT node number
-# output file names will be on the form "rssi-X.txt"
+# Compute average RSSI values for each node and fill values when missing with either RSSI_MIN or RSSI_MAX
+# - input RSSI files "result-X.txt" obtained through tshark for each FIT "receiving" node contain RSSI values corresponding
+# to ICMP ping packets sent by other FIT nodes. The number of RSSI values for each ping depends on the number of antennas 
+# used. 
+# - output RSSI files "rssi-X.txt" contain the average RSSI values received at node X.
 #
 # TT 20/3/17
 
@@ -26,10 +29,13 @@ def mask_to_nb(mask):
 
 
 
-def store_cte_rssi(file_out, Nant, sender, receiver, value):
+def store_missing_rssi(file_out, Nant, node, sender, receiver):
+    """                                                                                                                             write to the output file the missing  RSSI value for the couple sender, receiver                                           i.e., RSSI_MAX if the node itself is sending or else RSSI_MIN
     """
-        write to the output file constant RSSI values for the couple sender, receiver
-     """
+    if sender == node:
+        value = RSSI_MAX
+    else:
+        value = RSSI_MIN
     output = "10.0.0.{:02d}\t10.0.0.{:02d}\t".format(sender, receiver)
     for i in range(Nant+1):
         output += "{}\t".format(value)
@@ -79,13 +85,8 @@ def process(file_in, file_out, node, node_max, Nant):
                 store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval)
                 expected += 1
             while expected < sender:
-                # handle the case when no data is there for senders
-                if expected == node:
-                    # RSSI is max when the node itself is sender
-                    store_cte_rssi(file_out, Nant, expected, receiver, RSSI_MAX)
-                else:
-                    # this case occurs when all the pings fail with this expected sender
-                    store_cte_rssi(file_out, Nant, expected, receiver, RSSI_MIN)
+                # handle the case when data is missing for some senders
+                store_missing_rssi(file_out, Nant, node, expected, receiver)
                 expected += 1
             # At this point, sender is the one expected and it is the first RSSI value to store
             sum_rssi = rssi
@@ -99,13 +100,8 @@ def process(file_in, file_out, node, node_max, Nant):
         store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval)
         expected += 1
     while expected < node_max:
-        # data are missing for some senders
-        if expected == node:
-            # RSSI is max when the node itself is sender                                                            
-            store_cte_rssi(file_out, Nant, expected, node, RSSI_MAX)
-        else:
-            # this case occurs when all the pings fail with this expected sender                                    
-            store_cte_rssi(file_out, Nant, expected, node, RSSI_MIN)
+        # handle the case when data is missing for some senders
+        store_missing_rssi(file_out, Nant, node, expected, node)
         expected += 1
     # we are done
              

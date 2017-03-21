@@ -18,7 +18,7 @@ PING_NB=10
 # 
 
 # LOAD must be set to 1 if nodes are not yet running on R2lab to switch them on and load the right images
-LOAD=0
+LOAD=1
 
 for tx_power in `echo $TX_POWER`
 do 
