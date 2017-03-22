@@ -128,14 +128,6 @@ def main():
     Nant = mask_to_nb(ant_mask)
 
     for node in range(1, node_max):
-#
-# Following does not work, so the tshark processing step should be done by running the pprocess.sh script before 
-# 
-#    node = 1
-#    command = "tshark -2 -r fit"+str(node)+".pcap  -R \"ip.dst==10.0.0."+str(node)+" -Tfields -e \"ip.src\" -e \"ip.dst\" -e \"radiotap.dbm_antsignal\" >> result-"+str(node)+".txt"
-##    command = 'tshark -2 -r fit'+str(node)+'.pcap  -R "ip.dst==10.0.0.'+str(node)+' -Tfields -e "ip.src" -e "ip.dst" -e "radiotap.dbm_antsignal" >> result-'+str(node)+'.txt'
-#    print("command is {}".format(command))
-#    os.system(command)
         filename_in = "result-{}.txt".format(node)
         filename_out = "rssi-{}.txt".format(node)
         file_in = open(filename_in, "r")

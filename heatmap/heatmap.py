@@ -10,6 +10,7 @@ from apssh import SshNode, LocalNode, SshJob
 from apssh import Run, RunScript, Pull
 from apssh import TimeColonFormatter
 
+
 ##########
 gateway_hostname  = 'faraday.inria.fr'
 gateway_username  = 'inria_naoufal.mesh'
@@ -72,6 +73,7 @@ parser.add_argument("-d", "--debug", default=False, action='store_true',
                     help="run jobs and engine in verbose mode")
 args = parser.parse_args()
 
+max = args.max
 gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
 verbose_jobs = args.debug
@@ -85,6 +87,11 @@ phy_rate = args.phy_rate
 channel_frequency = args.channel_frequency
 tx_power = args.tx_power
 
+# convenience
+def fitname(id):
+    return "fit{:02d}".format(id)
+
+
 ###
 # create the logs dirctory base don input parameters
 dirlogs = "trace-T{}-r{}-a{}-t{}-i{}-S{}-N{}".format(tx_power,phy_rate,antenna_mask,ping_timeout,ping_interval,ping_size, ping_number)
@@ -94,11 +101,8 @@ os.makedirs(dirlogs, exist_ok=True)
 ### the list of (integers) that hold node numbers, starting at 1
 # of course it would make sense to come up with a less rustic way of
 # selecting target nodes
-node_ids = range(1, args.max+1)
+node_ids = range(1, max+1)
 
-# convenience
-def fitname(id):
-    return "fit{:02d}".format(id)
 
 ########## the nodes involved
 faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
@@ -163,7 +167,7 @@ init_wireless_jobs = [
         verbose = verbose_jobs,
         label = "init {}".format(id),
         command = RunScript(
-            "set-wireless.sh", "init-ad-hoc-network",
+            "node-utilities.sh", "init-ad-hoc-network",
             wireless_driver, "foobar", channel_frequency, phy_rate, antenna_mask, tx_power
         ))
     for id, node in node_index.items() ]
@@ -215,7 +219,7 @@ pings = [
         verbose = verbose_jobs,
         commands = [
             Run("echo {} '->' {}".format(i, j)),
-            RunScript("set-wireless.sh", "my-ping",
+            RunScript("node-utilities.sh", "my-ping",
                       "10.0.0.{}".format(j), ping_timeout, ping_interval,
                       ping_size, ping_number,
                       ">", "PING-{:02d}-{:02d}".format(i, j)),
@@ -240,8 +244,11 @@ retrieve_tcpdump = [
         verbose = verbose_jobs,
         commands = [
             Run("sleep 2;pkill tcpdump; sleep 1"),
+            RunScript("node-utilities.sh", "process-pcap", i),
             Run("echo retrieve pcap trace from fit{:02d}".format(i)),
-                    Pull(remotepaths = "/tmp/fit{}.pcap".format(i), localpath="./"+dirlogs),
+            Pull(remotepaths = "/tmp/fit{}.pcap".format(i), localpath="./"+dirlogs),
+            Run("echo retrieve result{}.txt file".format(i)),
+            Pull(remotepaths = "/tmp/result-{}.txt".format(i), localpath="./"+dirlogs),
         ]
     )
     for i, nodei in node_index.items()
@@ -267,15 +274,18 @@ else:
     # to use as the jobs_limit; if 0 then inch'allah
     jobs_window = args.parallel
 
-# finally - i.e. when all pings are done
-# we can list the current contents of our local directory
+
+# Finally - i.e. when traces are retrieved from all nodes
+# we can resume postprocessing of traces on the corresponding directory
 SshJob(
     node = LocalNode(),
     scheduler = scheduler,
     required = retrieve_tcpdump,
     verbose = verbose_jobs,
     commands = [
-        Run("ls", "-l", "{}/PING*".format(dirlogs))
+        Run("echo Run post-process.py on {}".format(dirlogs)),
+        Run("cd {};".format(dirlogs), "python3 ../post-process.py -m {} ".format(max), 
+            " -a {}".format(antenna_mask)),
     ]
 )
 
