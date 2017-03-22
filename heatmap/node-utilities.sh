@@ -39,6 +39,9 @@ function init-ad-hoc-network (){
     
     # some time for udev to trigger its rules
     sleep 1
+
+    # install tshark on the node for the post-processing step
+    apt-get install tshark
     
     ifname=$(wait-for-interface-on-driver $driver)
 
@@ -96,9 +99,20 @@ function my-ping (){
     return 0
 }
 
+
+function process-pcap (){
+    node=$1; shift
+
+    tshark -2 -r /tmp/fit"$node".pcap  -R "ip.dst==10.0.0.$node && icmp"  -Tfields -e "ip.src" -e "ip.dst" -e "radiotap.dbm_antsignal" > /tmp/result"-$node".txt
+    echo "Run tshark post-processing on node fit$node"
+    return 0
+}
+
+
+
 ########################################
 # just a wrapper so we can call the individual functions. so e.g.
-# set-wireless.sh tracable-ping 10.0.0.2 20
+# node-utilities.sh tracable-ping 10.0.0.2 20
 # results in calling tracable-ping 10.0.0.2 20
 
 "$@"
