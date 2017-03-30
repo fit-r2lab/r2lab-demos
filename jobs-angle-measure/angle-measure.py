@@ -28,6 +28,19 @@ So e.g.
 angle-measure.sh run-sender 50000 100 1000
 would cause the sender node to send 50000 random packets of 100 bytes every millisecond
 
+====================
+NOTES on images
+====================
+
+* contrary to other demo scripts like e.g. ../oai-skype, 
+  this script does not take care of loading images on the nodes
+  nodes are thus expected to have been loaded with an 
+  appropriate image before you run this script
+
+* as of beg. 2017, there have been reports that our latest
+  intelcsi images would not work for this experiment, 
+  but that 'intelcsi-v1' was working fine as an image
+
 """
 
 ########################################
