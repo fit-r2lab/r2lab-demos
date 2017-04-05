@@ -41,8 +41,6 @@ _holes = {
     if not node_id
 }
 
-####################
-
 
 def array_to_xyzt(array):
     """
@@ -87,8 +85,8 @@ def dict_to_xyzt(dict_values):
 
 def test1():
     node_ids = range(1, 38)
-    assert all(_position_to_node[_node_to_position[
-               id]] == id for id in node_ids)
+    assert all(_position_to_node[_node_to_position[id]] == id
+               for id in node_ids)
 
 if __name__ == '__main__':
     test1()
