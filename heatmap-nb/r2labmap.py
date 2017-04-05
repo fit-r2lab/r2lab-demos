@@ -44,7 +44,7 @@ _holes = {
 ####################
 
 
-def array_to_xyz(array):
+def array_to_xyzt(array):
     """
     converts an input array into suitable values for plotting in 3d
 
@@ -52,18 +52,19 @@ def array_to_xyz(array):
         array is expected to be an array of size exactly 37 
 
     Returns:
-        will return a triple X, Y, Z of arrays for your plotter
+        will return a triple X, Y, Z, T(ext) of arrays for your plotter
     """
-    X, Y, Z = [], [], []
+    X, Y, Z, T = [], [], [], []
     for node_id, value in enumerate(array, 1):
         x, y = _node_to_position(node_id)
         X.append(x)
         Y.append(y)
         Z.append(value)
-    return X, Y, Z
+        T.append("fit{:02d}".format(node_id))
+    return X, Y, Z, T
 
 
-def dict_to_xyz(dict_values):
+def dict_to_xyzt(dict_values):
     """
     converts an input dict into suitable values for plotting in 3d
 
@@ -71,16 +72,17 @@ def dict_to_xyz(dict_values):
         dict_values is expected to be a dict: node_id -> value 
 
     Returns:
-        will return a triple X, Y, Z of arrays for your plotter
+        will return a triple X, Y, Z, T(ext) of arrays for your plotter
     """
     # input dict may have holes
-    X, Y, Z = [], [], []
+    X, Y, Z, T = [], [], [], []
     for node_id, value in dict_values.items():
         x, y = _node_to_position[node_id]
         X.append(x)
         Y.append(y)
         Z.append(value)
-    return X, Y, Z
+        T.append("fit{:02d}".format(node_id))
+    return X, Y, Z, T
 
 
 def test1():
