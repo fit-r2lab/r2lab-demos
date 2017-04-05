@@ -1,5 +1,6 @@
-#!/usr/bin/env python3                                                                                                
+#!/usr/bin/env python3
 from r2labmap import dict_to_xyz
+
 
 def read_rssi(filename, sender, rssi_rank):
     '''
