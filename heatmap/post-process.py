@@ -27,9 +27,14 @@ def mask_to_nb(mask):
     }
     return switcher.get(mask)
 
+def save_RSSI(file_RSSI, node_max, RSSI):
+    """
+    write to file the overall RSSI values
+    """
+    [[file_RSSI.write(RSSI[s][r]) for r in range(1, node_max)] for s in range(1, node_max)]
+    return 0
 
-
-def store_missing_rssi(file_out, Nant, node, sender, receiver):
+def store_missing_rssi(file_out, Nant, node, sender, receiver, RSSI):
     """                                                                                                                             write to the output file the missing  RSSI value for the couple sender, receiver                                           i.e., RSSI_MAX if the node itself is sending or else RSSI_MIN
     """
     if sender == node:
@@ -39,24 +44,29 @@ def store_missing_rssi(file_out, Nant, node, sender, receiver):
     output = "10.0.0.{:02d}\t10.0.0.{:02d}\t".format(sender, receiver)
     for i in range(Nant+1):
         output += "{}\t".format(value)
-    file_out.write(output+"\n")
+    output += "\n"
+    file_out.write(output)
+    RSSI[sender][receiver] = output
     return 0
 
 
 
-def store_rssi(file_out, Nant, sender, receiver, sum_rssi, Nval):
+def store_rssi(file_out, Nant, sender, receiver, sum_rssi, Nval, RSSI):
     """
     write to the output file constant RSSI values for the couple sender, receiver
     """
     output = "10.0.0.{:02d}\t10.0.0.{:02d}\t".format(sender, receiver)
     for i in range(Nant+1):
         output += "{0:.2f}\t".format(sum_rssi[i]/Nval)
-    file_out.write(output+"\n")
+    output += "\n"
+    file_out.write(output)
+#    print("{} {}".format(sender,receiver))
+    RSSI[sender][receiver] = output
     return 0
 
 
 
-def process(file_in, file_out, node, node_max, Nant):
+def process(file_in, file_out, node, node_max, Nant, RSSI):
     """
     expects a FIT node number and the number of antennas and postprocess data
     lines of file_in for receiver Y are in the following format:
@@ -79,29 +89,33 @@ def process(file_in, file_out, node, node_max, Nant):
             sum_rssi = [sum_rssi[i]+rssi[i] for i in range(Nant+1)]
             Nval += 1
         else:
-            # This sender is new
+            # This sender is new (or an old one, not to take into account)
             if cur_sender:
-                # Store RSSI computed for cur_sender as no more data for it
-                store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval)
-                expected += 1
+                # only if not at beginning
+                if sender > cur_sender:
+                    # this check to ignore possible old sender...
+                    # Store RSSI computed for cur_sender as no more data for it
+                    store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval, RSSI)
+                    expected += 1
             while expected < sender:
                 # handle the case when data is missing for some senders
-                store_missing_rssi(file_out, Nant, node, expected, receiver)
+                store_missing_rssi(file_out, Nant, node, expected, receiver, RSSI)
                 expected += 1
-            # At this point, sender is the one expected and it is the first RSSI value to store
-            sum_rssi = rssi
-            Nval = 1
-            cur_sender = sender
+            if sender > cur_sender:
+                # At this point, sender is the one expected and it is the first RSSI value to store
+                sum_rssi = rssi
+                Nval = 1
+                cur_sender = sender
     # At this point there is no more data in file
     # we need to store RSSI computed for the current sender
     # and handle the case when the current sender is not the last sender in the list
     if cur_sender:
         # Store RSSI computed for cur_sender as no more data for it, receiver==node
-        store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval)
+        store_rssi(file_out, Nant, cur_sender, receiver, sum_rssi, Nval, RSSI)
         expected += 1
     while expected < node_max:
         # handle the case when data is missing for some senders
-        store_missing_rssi(file_out, Nant, node, expected, node)
+        store_missing_rssi(file_out, Nant, node, expected, node, RSSI)
         expected += 1
     # we are done
              
@@ -127,14 +141,22 @@ def main():
     ant_mask = args.ant_mask
     Nant = mask_to_nb(ant_mask)
 
+    pos = [[0,0],[1,5],[1,4],[1,3],[1,2],[1,1],[2,5],[2,4],[2,3],[2,2],[2,1],[3,5],[3,4],[3,3],
+           [3,2],[3,1],[4,5],[4,3],[4,2],[5,5],[5,4],[5,3],[5,2],[6,5],[6,3],[6,2],[7,5],[7,4],
+           [7,3],[7,2],[7,1],[8,5],[8,4],[8,3],[8,2],[8,1],[9,2],[9,1]]
+    RSSI = [["" for sender in range(1, node_max+1)] for receiver in range(1, node_max+1)]
+    file_RSSI = open("RSSI.txt", "w")
+
     for node in range(1, node_max):
         filename_in = "result-{}.txt".format(node)
         filename_out = "rssi-{}.txt".format(node)
         file_in = open(filename_in, "r")
         file_out = open(filename_out, "w")
-        process(file_in, file_out, node, node_max, Nant)
+        process(file_in, file_out, node, node_max, Nant, RSSI)
         file_in.close()
         file_out.close()
+    save_RSSI(file_RSSI, node_max, RSSI)
+    file_RSSI.close()
 
     exit(0)
 
