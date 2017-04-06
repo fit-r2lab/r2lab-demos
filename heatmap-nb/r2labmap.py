@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import numpy as np
+
 # the numbers as we display them in livemap
 positions = [
     [1,  6, 11, 16,   19,   23,   26, 31, None],
@@ -79,6 +81,33 @@ def dict_to_xyzt(dict_values):
         X.append(x)
         Y.append(y)
         Z.append(value)
+        T.append("fit{:02d}".format(node_id))
+    return X, Y, Z, T
+
+
+def dict_to_3Dxyzt(dict_values):
+    """
+    converts an input dict into suitable values for plotting in 3D
+
+    Parameters:
+        dict_values is expected to be a dict: node_id -> value 
+
+    Returns:
+        will return a triple X, Y, Z, T(ext) of numpy arrays for your plotter
+    """
+    # Make X,Y R2lab grid of nodes                                                                    
+    X = np.arange(1, 10, 1, dtype=np.integer)
+    Y = np.arange(1, 6, 1, dtype=np.integer)
+    X, Y = np.meshgrid(X, Y)
+
+    Z = np.zeros((5,9),dtype=np.float)
+    Z[0,3] = Z[0,4] = Z[0,5] = -100
+    Z[3,3] = Z[3,5] = Z[2,8] = Z[3,8] = Z[4,8] = -100
+    T = []
+    for node_id, value in dict_values.items():
+        x, y = _node_to_position[node_id]
+#        print("id{}, x{}, y{}, value{}".format(node_id,x,y,value))
+        Z[y-1,x-1] = value
         T.append("fit{:02d}".format(node_id))
     return X, Y, Z, T
 
