@@ -21,9 +21,7 @@ def read_rssi(filename, sender, rssi_rank):
                 node_number_to_value[n_rcv] = values[rssi_rank]
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
-        return
     except Exception as e:
         print("Ooops {}: {}".format(type(e), e))
-        return
 
     return node_number_to_value
