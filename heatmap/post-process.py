@@ -5,6 +5,7 @@
 # to ICMP ping packets sent by other FIT nodes. The number of RSSI values for each ping depends on the number of antennas 
 # used. 
 # - output RSSI files "rssi-X.txt" contain the average RSSI values received at node X.
+# - output file RSSI.txt contains the overall RSSI information that will be used to plot the heatmap.
 #
 # TT 20/3/17
 
@@ -35,7 +36,10 @@ def save_RSSI(file_RSSI, node_max, RSSI):
     return 0
 
 def store_missing_rssi(file_out, Nant, node, sender, receiver, RSSI):
-    """                                                                                                                             write to the output file the missing  RSSI value for the couple sender, receiver                                           i.e., RSSI_MAX if the node itself is sending or else RSSI_MIN
+    """
+    write to the output file the missing  RSSI value for the couple sender, receiver 
+    i.e., RSSI_MAX if the node itself is sending or else RSSI_MIN
+
     """
     if sender == node:
         value = RSSI_MAX
