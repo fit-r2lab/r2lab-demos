@@ -101,8 +101,8 @@ def dict_to_3Dxyzt(dict_values):
     X, Y = np.meshgrid(X, Y)
 
     Z = np.zeros((5,9),dtype=np.float)
-    Z[0,3] = Z[0,4] = Z[0,5] = -100 #np.nan
-    Z[3,3] = Z[3,5] = Z[2,8] = Z[3,8] = Z[4,8] = -100 #np.nan
+    Z[0,3] = Z[0,4] = Z[0,5] = -100 # np.nan
+    Z[3,3] = Z[3,5] = Z[2,8] = Z[3,8] = Z[4,8] = -100 # np.nan
     T = [ ["None"]*9 for i in range(6) ]
     for node_id, value in dict_values.items():
         x, y = _node_to_position[node_id]
