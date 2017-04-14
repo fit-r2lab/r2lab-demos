@@ -2,7 +2,7 @@
 
 import os
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from asynciojobs import Scheduler, Sequence, PrintJob
 
@@ -13,11 +13,11 @@ from apssh import TimeColonFormatter
 
 ##########
 gateway_hostname  = 'faraday.inria.fr'
-gateway_username  = 'inria_naoufal.mesh'
-# a fixed amount of time that we wait for once all the nodes
-# have their wireless interface configured
+gateway_username  = 'inria_radiomap'
+# a fixed amount of time that we wait for,
+# once all the nodes have their wireless interface configured
 settle_delay      = 10
-# antenna mask for each node, three values are authorized: 1, 3, 7
+# antenna mask for each node, three values are allowed: 1, 3, 7
 antenna_mask      = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
 phy_rate          = 1
@@ -25,6 +25,7 @@ phy_rate          = 1
 channel_frequency = 2412
 # Tx Power for each node, for Atheros 5dBm (i.e. 500) to 14dBm (i.e. 1400)
 tx_power          = 1400
+
 #
 # ping parameters
 #
@@ -33,37 +34,39 @@ ping_size         = 64
 ping_interval     = 0.008
 ping_number       = 100
 
-parser = ArgumentParser()
+# running with --help will show default values
+parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+
 parser.add_argument("-s", "--slice", default=gateway_username,
-                    help="specify an alternate slicename, default={}"
-                         .format(gateway_username))
+                    help="specify an alternate slicename")
 parser.add_argument("-l", "--load-images", default=False, action='store_true',
-                    help = "enable to load the default image on nodes before the exp")
-parser.add_argument("-w", "--wifi-driver", default='ath9k',
-                    choices = ['iwlwifi', 'ath9k'],
-                    help="specify which driver to use")
-parser.add_argument("-m", "--max", default=5, type=int,
+                    help = "if set, load image on nodes before running the exp")
+# TP : I am turning this off, since we currently only support iwlwifi anyways
+#parser.add_argument("-w", "--wifi-driver", default='ath9k',
+#                    choices = ['iwlwifi', 'ath9k'],
+#                    help="specify which driver to use")
+parser.add_argument("-m", "--max", default=37, type=int,
                     help="will run on all nodes between 1 and this number")
 
 parser.add_argument("-p", "--parallel", default=None,type=int,
                     help="""run in parallel, with this value as the
                     limit to the number of simultaneous pings - -p 0 means no limit""")
-parser.add_argument("-a", "--antenna-mask", default=antenna_mask,choices = ['1','3','7'],
-                    help="specify antenna mask for each node - default={}".format(antenna_mask))
+parser.add_argument("-a", "--antenna-mask", default=antenna_mask, choices = ['1', '3', '7'],
+                    help="specify antenna mask for each node")
 parser.add_argument("-r", "--phy-rate", default=phy_rate,
-                    help="specify PHY rate - default={}".format(phy_rate))
+                    help="specify PHY rate")
 parser.add_argument("-f", "--channel-frequency", default=channel_frequency,
-                    help="specify the channel frequency for each node - default={}".format(channel_frequency))
+                    help="specify the channel frequency for each node")
 parser.add_argument("-T", "--tx-power", default=tx_power,
-                    help="specify Tx power - default={}".format(tx_power))
+                    help="specify Tx power")
 parser.add_argument("-t", "--ping-timeout", default=ping_timeout,
-                    help="specify timeout for each individual ping - default={}".format(ping_timeout))
+                    help="specify timeout for each individual ping".format(ping_timeout))
 parser.add_argument("-i", "--ping-interval", default=ping_interval,
-                    help="specify time interval between ping - default={}".format(ping_interval))
+                    help="specify time interval between ping")
 parser.add_argument("-S", "--ping-size", default=ping_size,
-                    help="specify packet size for each individual ping - default={}".format(ping_size))
+                    help="specify packet size for each individual ping")
 parser.add_argument("-N", "--ping-number", default=ping_number,
-                    help="specify number of ping to send - default={}".format(ping_number))
+                    help="specify number of ping packets to send")
 
 parser.add_argument("-n", "--dry-run", default=False, action='store_true',
                     help="do not run anything, just print out scheduler, and generate .dot file")
@@ -81,7 +84,8 @@ ping_timeout = args.ping_timeout
 ping_interval = args.ping_interval
 ping_size = args.ping_size
 ping_number = args.ping_number
-wireless_driver   = args.wifi_driver
+#wireless_driver   = args.wifi_driver
+wireless_driver   = 'iwlwifi'
 antenna_mask = args.antenna_mask
 phy_rate = args.phy_rate
 channel_frequency = args.channel_frequency
@@ -93,7 +97,7 @@ def fitname(id):
 
 
 ###
-# create the logs dirctory base don input parameters
+# create the logs dirctory based on input parameters
 dirlogs = "trace-T{}-r{}-a{}-t{}-i{}-S{}-N{}".format(tx_power,phy_rate,antenna_mask,ping_timeout,ping_interval,ping_size, ping_number)
 print("Creating log directory: "+dirlogs)
 os.makedirs(dirlogs, exist_ok=True)
@@ -106,16 +110,13 @@ node_ids = range(1, max+1)
 
 ########## the nodes involved
 faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
-formatter=TimeColonFormatter(), verbose = verbose_ssh)
+                  formatter = TimeColonFormatter(), verbose = verbose_ssh)
 
 # this is a python dictionary that allows to retrieve a node object
 # from an id
 node_index = {
-    id: SshNode(gateway = faraday,
-                hostname = fitname(id),
-                username = "root",
-                formatter=TimeColonFormatter(),
-                verbose = verbose_ssh)
+    id: SshNode(gateway = faraday, hostname = fitname(id), username = "root",
+                formatter = TimeColonFormatter(), verbose = verbose_ssh)
     for id in node_ids
 }
 
@@ -136,6 +137,9 @@ check_lease = SshJob(
 green_light = check_lease
 
 if args.load_images:
+    # the nodes that we **do not** use should be turned off
+    # so if we have selected e.g. nodes 10 12 and 15, we will do
+    # rhubarbe off -a ~10 ~12 ~15, meaning all nodes except 10, 12 and 15
     negated_node_ids = [ "~{}".format(id) for id in node_ids ]
     # replace green_light in this case
     green_light = SshJob(
@@ -283,8 +287,8 @@ SshJob(
     required = retrieve_tcpdump,
     verbose = verbose_jobs,
     commands = [
-        Run("echo Run post-process.py on {}".format(dirlogs)),
-        Run("cd {};".format(dirlogs), "python3 ../post-process.py -m {} ".format(max), 
+        Run("echo Run processmap.py on {}".format(dirlogs)),
+        Run("cd {};".format(dirlogs), "python3 ../processmap.py -m {} ".format(max), 
             " -a {}".format(antenna_mask)),
     ]
 )
@@ -318,6 +322,7 @@ if args.dry_run:
     # in dry-run mode we are done
     exit(0)
 
+# if not in dry-run mode, let's proceed to the actual experiment
 ok = scheduler.orchestrate(jobs_window=jobs_window)
 # give details if it failed
 ok or scheduler.debrief()
