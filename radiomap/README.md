@@ -8,22 +8,17 @@ Additionally, that same experiment is carried out with **various settings** for 
 
 End to end experiment involves 3 successive stages:
 
-1. data acquisition per se
-1. post-processing - blind and background data processing and storage optimization
+1. data acquisition per se, including post-processing (aggregation)
 1. data visualization per se
 
-The first two stages are implemented through python scripts:
+Each of these phases can be carried out with 
 
-* `gathermap.py` for data acquisition per se
-* and `processmap.py` for post-processing
+* a `acquiremap.py` python script for data acquisition per se, and
+* a `visumap.ipynb` interactive notebook, that again is written in python.
 
-Last stage is implemented through an interactive notebook
+For convenience, this git repository also features a directory `datasample` that contains one dataset obtained by running the first-stage acquisition script, so that visualization can be performed right away, as a way to give a quick sense of the results. 
 
-* `radiomap.ipynb` that again is written in python.
-
-For convenience, this git repository also features a directory `data` that contains one dataset obtained by running the 2 first steps, so that visualization can be performed right away, as a way to give a quick sense of the results. 
-
-# `gathermap.py`
+# `acquiremap.py`
 
 Run in R2lab a scenario in which each node runs a tcpdump and, in turn, 
 sends a number of ping packets to each other node.
@@ -45,8 +40,8 @@ Then, it calls locally the post-processing function `processmap.py` to generate 
 NOTE: Currently only Atheros NIC (with ath9k driver) are supported in these scripts, despite the presence of the `-w` option.
 
 ```
-$ ./gathermap.py --help
-usage: gathermap.py [-h] [-s SLICE] [-l] [-m MAX] [-p PARALLEL] [-a {1,3,7}]
+$ ./acquiremap.py --help
+usage: acquiremap.py [-h] [-s SLICE] [-l] [-m MAX] [-p PARALLEL] [-a {1,3,7}]
                     [-r PHY_RATE] [-f CHANNEL_FREQUENCY] [-T TX_POWER]
                     [-t PING_TIMEOUT] [-i PING_INTERVAL] [-S PING_SIZE]
                     [-N PING_NUMBER] [-n] [-v] [-d]
@@ -88,13 +83,6 @@ optional arguments:
   -d, --debug           run jobs and engine in verbose mode (default: False)
 ```  
   
-# `post-process.py` 
-
- Compute average RSSI values for each node and fill values when they are missing with either `RSSI_MIN` or `RSSI_MAX`
-
-* input RSSI files "result-X.txt" obtained through tshark for each FIT "receiving" node contain RSSI values corresponding to ICMP ping packets sent by other FIT nodes. The number of RSSI values for each ping depends on the number of antennas used
-* output RSSI files "rssi-X.txt" contain the average RSSI values received at node X.
-* output file RSSI.txt contains the overall RSSI information that will be used to plot the heatmap.
 
 ---
 # Utility
@@ -107,33 +95,46 @@ It can also be used to select the ping parameters.
 
 It will create a different directory for each scenario.
 
+## `post-process.py` 
+
+This is actually called by `acquiremap.py`. It computes average RSSI values for each node, and fill values when they are missing with either `RSSI_MIN` or `RSSI_MAX`
+
+* input RSSI files `result-X.txt` obtained through tshark for each receiving node, contain RSSI values corresponding to ICMP ping packets sent by other nodes. The number of RSSI values for each ping depends on the number of antennas used;
+* output RSSI files `rssi-X.txt` contain the average RSSI values received at node X;
+* global unique output file `RSSI.txt` contains the overall RSSI information that will be used to plot the radiomap.
 
 ---
 # Plotting
 
-Now how to plot the heatmaps. You have several options...
+Now how to plot the radiomaps. You have several options...
 
 ## notebook
 
 The most convenient way is using jupyter notebook:
 
-- First if not installed, use the following steps (on OSX):
+### Installation 
+
+First if not installed, use the following steps (on OSX):
 
 ```
 $ sudo pip3 install jupyter
 $ sudo pip3 install --upgrade notebook
 $ jupyter nbextension enable --py --sys-prefix widgetsnbextension
+```
+
+Then start a notebook server as usual; you may need to mention this extra option if you run an early release of jupyter-5.0
+```
 $ jupyter notebook --NotebookApp.iopub_data_rate_limit=10000000000
 ```
 
-Double click on the file `heatmap-rssi.ipynb` on your browser, and just run the commands.
+Double click on the file `heatmap-rssi.ipynb` on your browser, and evaluate the commands using "Shift-Enter" (if needed, see other Internet resources about how to use a notebook)
 
-Heatmap version 1 plots the heatmap based for a single RSSI.txt file whereas version 2 
-is most advanced one and allows analyzing all the RSSI.txt files present in your 
-local logs directory with sliders to select parameters. Note that these heatmaps are 
-flat (2D plots)
+The notebook contains all information about its own capabilities.
+
 
 ## other option
+
+XXX I suspect this section is obsolete XXX
 
 If you prefer plotting 3D heatmaps, you can use the two other options:
 one using matplotlib (called plot-heatmap.py) and the other one using plotly
