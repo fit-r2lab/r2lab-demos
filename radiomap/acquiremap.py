@@ -42,8 +42,8 @@ ping_size         = 64
 ping_interval     = 0.015
 ping_number       = 500
 
-# wireless driver: can use only iwlwifi for now
-wireless_driver = 'iwlwifi'
+# wireless driver: can use only ath9k for now
+wireless_driver = 'ath9k'
 
 # convenience
 def fitname(id):
