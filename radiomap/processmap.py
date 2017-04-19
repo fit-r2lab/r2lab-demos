@@ -13,7 +13,7 @@ class Averager:
     def __init__(self, columns):
         self.number = 0
         self.columns = columns
-        self.total = [0 for i in range(columns)]
+        self.total = [0 for i in range(self.columns)]
 
     def record_point(self, values):
         """
@@ -29,10 +29,11 @@ class Averager:
         if self.number == 0:
             return [ default for i in range(self.columns) ]
         else:
-            return [ self.total[i]/self.number for i in range(columns)]
+            return [ self.total[i]/self.number for i in range(self.columns)]
 
 class Aggregator:
 
+    # we could also count the ones in a binary form
     mask_to_number = { 1: 1, 3: 2, 7: 3, }
 
     RSSI_MAX = 0
@@ -48,7 +49,7 @@ class Aggregator:
         # a sender, receiver tuple
         # value is a counter how_many, total
         self.RSSI = {
-            (sender, receiver) : Averager(self.nb_antennas)
+            (sender, receiver) : Averager(self.nb_antennas + 1)
             for sender in node_ids for receiver in node_ids
         }
 
@@ -67,7 +68,7 @@ class Aggregator:
         # consolidated file is called RSSI.txt
         aggragate_name = self.run_root / "RSSI.txt"
         with aggragate_name.open("w") as aggregate_file:
-            for (sender, receiver), averager in self.RSSI:
+            for (sender, receiver), averager in self.RSSI.items():
                 default = self.RSSI_MAX if sender == receiver else self.RSSI_MIN
                 avgs = averager.averages(default=default)
                 line = "10.0.0.{:02d}\t10.0.0.{:02d}\t".format(sender, receiver)

@@ -11,6 +11,7 @@ from apssh import SshNode, LocalNode, SshJob
 from apssh import Run, RunScript, Pull
 from apssh import TimeColonFormatter
 
+from processmap import Aggregator
 from listofchoices import ListOfChoices
 
 ##########
@@ -295,7 +296,6 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
     # data acquisition is done, let's aggregate results
     # i.e. compute averages
     if ok:
-        from processmap import Aggregator
         post_processor = Aggregator(run_root, node_ids, antenna_mask)
         post_processor.run()
 
