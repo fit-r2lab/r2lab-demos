@@ -20,8 +20,6 @@ class Averager:
         values should have as many measurements as columns
         """
         self.number += 1
-        print("adding {} values in {} columns"
-              .format(len(values), self.columns))
         for i in range(self.columns):
             self.total[i] += values[i]
 
