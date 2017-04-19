@@ -313,6 +313,12 @@ def main():
     # running with --help will show default values
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     
+    parser.add_argument("-o", "--output-name", dest='run_name',
+                        default=default_run_name,
+                        help="the name of a subdirectory where to store results")
+    parser.add_argument("-s", "--slice", default=default_gateway_username,
+                        help="specify an alternate slicename")
+
     parser.add_argument("-t", "--tx-power", dest='tx_powers',
                         default=[default_tx_power], choices = choices_tx_power,
                         action=ListOfChoices,
@@ -330,14 +336,9 @@ def main():
                         action=ListOfChoices,
                         help="channel frequency(ies)")
     
-    parser.add_argument("-s", "--slice", default=default_gateway_username,
-                        help="specify an alternate slicename")
-    parser.add_argument("-o", "--output-name", dest='run_name',
-                        default=default_run_name,
-                        help="the name of a subdirectory where to store results")
     parser.add_argument("-l", "--load-images", default=False, action='store_true',
                         help = "if set, load image on nodes before running the exp")
-    # TP : I am turning this off, since we currently only support iwlwifi anyways
+    # TP : I am turning this off, since we currently only support ath9k anyways
     #parser.add_argument("-w", "--wifi-driver", default='ath9k',
     #                    choices = ['iwlwifi', 'ath9k'],
     #                    help="specify which driver to use")
@@ -348,7 +349,8 @@ def main():
     
     parser.add_argument("-p", "--parallel", default=None, type=int,
                         help="""run in parallel, with this value as the
-                        limit to the number of simultaneous pings - -p 0 means no limit""")
+                        limit to the number of simultaneous pings - default is sequential;
+                        -p 0 means no limit""")
     #parser.add_argument("-T", "--ping-timeout", default=ping_timeout,
     #                    help="timeout for each individual ping")
     #parser.add_argument("-I", "--ping-interval", default=ping_interval,
