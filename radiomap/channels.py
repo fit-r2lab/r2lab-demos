@@ -17,6 +17,6 @@ channel_frequency = OrderedDict([
 
 ##########
 # same contents formatted for use in a ipywidget
-frequency_options = OrderedDict(
-    ("ch. {}".format(ch), freq) for (ch, freq) in channel_frequency.items()
+channel_options = OrderedDict(
+    ("ch. {}".format(ch), ch) for ch in channel_frequency.keys()
 )

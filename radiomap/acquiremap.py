@@ -14,29 +14,29 @@ from apssh import TimeColonFormatter
 # helpers
 from processmap import Aggregator
 from listofchoices import ListOfChoices
-from frequencies import channel_frequency
+from channels import channel_frequency
 
 ##########
-default_gateway_hostname  = 'faraday.inria.fr'
-default_gateway_username  = 'inria_radiomap'
-default_run_name          = 'myradiomap'
+default_gateway      = 'faraday.inria.fr'
+default_slicename    = 'inria_radiomap'
+default_run_name     = 'myradiomap'
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
-settle_delay              = 10
+settle_delay         = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
-choices_antenna_mask      = [ '1', '3', '7']
-default_antenna_mask      = 7
+choices_antenna_mask = [ '1', '3', '7']
+default_antenna_mask = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
-choices_phy_rate          = ['1', '54']
-default_phy_rate          = 1
+choices_phy_rate     = ['1', '54']
+default_phy_rate     = 1
 # Tx Power for each node, for Atheros 5dBm (i.e. 500) to 14dBm (i.e. 1400)
-choices_tx_power          = ['500', '1400']
-default_tx_power          = 1400
+choices_tx_power     = range(5, 15)
+default_tx_power     = 5
 
 # we'd rather provide a channel number than a frequency 
-choices_frequency         = list(str(f) for f in channel_frequency.values())
+choices_channel      = list(str(ch) for ch in channel_frequency.keys())
 # this is channel 1
-default_frequency         = 2412
+default_channel      = 1
 
 
 # run on all nodes by default
@@ -57,8 +57,21 @@ def fitname(id):
     return "fit{:02d}".format(int_id)
 
 
-def one_run(tx_power, phy_rate, antenna_mask, frequency,
-            run_name=default_run_name, gateway_username=default_gateway_username,
+def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel):
+    """
+    Returns a pathlib Path instance that points at the directory
+    where all tmp files and results are stored for those settings
+    """
+    root = Path(run_name)
+    run_root = root / "t{tx_power}-r{phy_rate}-a{antenna_mask}-ch{channel}"\
+               .format(**locals())
+    print("Creating/checking result directory: {}".format(run_root))
+    run_root.mkdir(parents=True, exist_ok=True)
+    return run_root
+    
+            
+def one_run(tx_power, phy_rate, antenna_mask, channel,
+            run_name=default_run_name, slicename=default_slicename,
             load_images=False, node_ids=None,
             parallel=None,
             verbose_ssh=False, verbose_jobs=False, dry_run=False,
@@ -67,13 +80,13 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
     Performs data acquisition on all nodes with the following settings
     
     Arguments:
-        tx_power: a string among 500, 1400 
+        tx_power: in dBm, a string like 5, 10 or 14 
         phy_rate: a string among 1, 54
         antenna_mask: a string among 1, 3, 7
-        frequency: a string like e.g. 2412
+        channel: a string like e.g. 1 or 40
         run_name: the name for a subdirectory where all data will be kept
                   successive runs should use the same name for further visualization
-        gateway_username: the Unix login name (slice name) to enter the gateway
+        slicename: the Unix login name (slice name) to enter the gateway
         load_images: a boolean specifying whether nodes should be re-imaged first
         node_ids: a list of node ids to run the scenario on; strings or ints are OK;
                   defaults to the all 37 nodes i.e. the whole testbed
@@ -87,14 +100,10 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
 
     ###
     # create the logs directory based on input parameters
-    root = Path(run_name)
-    run_root = root / "trace-t{tx_power}-r{phy_rate}-a{antenna_mask}-f{frequency}"\
-               .format(**locals())
-    print("Creating log directory: {}".format(run_root))
-    run_root.mkdir(parents=True, exist_ok=True)
+    run_root = naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel)
 
     ########## the nodes involved
-    faraday = SshNode(hostname = default_gateway_hostname, username = gateway_username,
+    faraday = SshNode(hostname = default_gateway, username = slicename,
                       formatter = TimeColonFormatter(), verbose = verbose_ssh)
 
     # this is a python dictionary that allows to retrieve a node object
@@ -148,6 +157,11 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
     # (id, SshNode) couples in node_index
     # and gather them all in init_wireless_jobs
     # they all depend on green_light
+    #
+    # provide node-utilities with the ranges/units it expects
+    frequency = channel_frequency[int(channel)]
+    # tx_power_in_mBm not in dBm
+    tx_power_driver = tx_power * 100
     init_wireless_jobs = [
         SshJob(
             scheduler = scheduler,
@@ -157,7 +171,7 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
             label = "init {}".format(id),
             command = RunScript(
                 "node-utilities.sh", "init-ad-hoc-network",
-                wireless_driver, "foobar", frequency, phy_rate, antenna_mask, tx_power
+                wireless_driver, "foobar", frequency, phy_rate, antenna_mask, tx_power_driver
             ))
         for id, node in node_index.items() ]
     
@@ -306,13 +320,24 @@ def one_run(tx_power, phy_rate, antenna_mask, frequency,
 
     return ok
 
-def all_runs(tx_powers, phy_rates, antenna_masks, frequencies, *args, **kwds):
+def all_runs(tx_powers, phy_rates, antenna_masks, channels, *args, **kwds):
+    """
+    calls one_run with the cartesian product of 
+    tx_powers, phy_rates, antenna_masks and channels, that are expected to
+    be lists of strings
+    
+    All other arguments to one_run may/must be specified as well
+    
+    Example:
+        all_runs([5, 14], [1], [1], [1, 40], ...)
+        will call one_run exactly 4 times 
+    """
     return all(
-        one_run(tx_power, phy_rate, antenna_mask, frequency, *args, **kwds)
+        one_run(tx_power, phy_rate, antenna_mask, channel, *args, **kwds)
         for tx_power in tx_powers
         for phy_rate in phy_rates
         for antenna_mask in antenna_masks
-        for frequency in frequencies)
+        for channel in channels)
 
 def main():
     # running with --help will show default values
@@ -321,7 +346,7 @@ def main():
     parser.add_argument("-o", "--output-name", dest='run_name',
                         default=default_run_name,
                         help="the name of a subdirectory where to store results")
-    parser.add_argument("-s", "--slice", default=default_gateway_username,
+    parser.add_argument("-s", "--slice", dest='slicename', default=default_slicename,
                         help="specify an alternate slicename")
 
     parser.add_argument("-t", "--tx-power", dest='tx_powers',
@@ -336,10 +361,10 @@ def main():
                         default=[default_antenna_mask], choices = choices_antenna_mask,
                         action=ListOfChoices,
                         help="specify antenna mask(s)")
-    parser.add_argument("-f", "--channel-frequency", dest='frequencies',
-                        default=[default_frequency], choices=choices_frequency,
+    parser.add_argument("-c", "--channel", dest='channels',
+                        default=[default_channel], choices=choices_channel,
                         action=ListOfChoices,
-                        help="channel frequency(ies)")
+                        help="channel(s)")
     
     parser.add_argument("-l", "--load-images", default=False, action='store_true',
                         help = "if set, load image on nodes before running the exp")
@@ -374,13 +399,11 @@ def main():
                         help="run jobs and engine in verbose mode")
     args = parser.parse_args()
     
-    print("node ids = ", args.node_ids)
-
     # run the experiment on all specified input values
     return all_runs(tx_powers=args.tx_powers, phy_rates=args.phy_rates,
-                    antenna_masks=args.antenna_masks, frequencies=args.frequencies,
+                    antenna_masks=args.antenna_masks, channels=args.channels,
                     run_name = args.run_name,
-                    gateway_username = args.slice,
+                    slicename = args.slicename,
                     load_images=args.load_images,
                     node_ids=args.node_ids,
                     verbose_ssh = args.verbose_ssh,
