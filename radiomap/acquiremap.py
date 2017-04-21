@@ -57,7 +57,7 @@ def fitname(id):
     return "fit{:02d}".format(int_id)
 
 
-def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel):
+def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel, verbose=False):
     """
     Returns a pathlib Path instance that points at the directory
     where all tmp files and results are stored for those settings
@@ -65,7 +65,8 @@ def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel):
     root = Path(run_name)
     run_root = root / "t{tx_power}-r{phy_rate}-a{antenna_mask}-ch{channel}"\
                .format(**locals())
-    print("Creating/checking result directory: {}".format(run_root))
+    if verbose:
+        print("Creating/checking result directory: {}".format(run_root))
     run_root.mkdir(parents=True, exist_ok=True)
     return run_root
     
@@ -100,7 +101,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel,
 
     ###
     # create the logs directory based on input parameters
-    run_root = naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel)
+    run_root = naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel, verbose=True)
 
     ########## the nodes involved
     faraday = SshNode(hostname = default_gateway, username = slicename,
