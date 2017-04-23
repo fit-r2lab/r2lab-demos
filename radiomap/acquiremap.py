@@ -24,17 +24,17 @@ default_run_name     = 'myradiomap'
 # once all the nodes have their wireless interface configured
 settle_delay         = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
-choices_antenna_mask = [ '1', '3', '7']
+choices_antenna_mask = [ 1, 3, 7]
 default_antenna_mask = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
-choices_phy_rate     = ['1', '54']
+choices_phy_rate     = [1, 54]
 default_phy_rate     = 1
 # Tx Power for each node, for Atheros 5dBm (i.e. 500) to 14dBm (i.e. 1400)
 choices_tx_power     = range(5, 15)
 default_tx_power     = 5
 
 # we'd rather provide a channel number than a frequency 
-choices_channel      = list(str(ch) for ch in channel_frequency.keys())
+choices_channel      = list(channel_frequency.keys())
 # this is channel 1
 default_channel      = 1
 
@@ -71,12 +71,11 @@ def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel, verbose=F
     return run_root
     
             
-def one_run(tx_power, phy_rate, antenna_mask, channel,
+def one_run(tx_power, phy_rate, antenna_mask, channel, *,
             run_name=default_run_name, slicename=default_slicename,
             load_images=False, node_ids=None,
             parallel=None,
-            verbose_ssh=False, verbose_jobs=False, dry_run=False,
-):
+            verbose_ssh=False, verbose_jobs=False, dry_run=False):
     """
     Performs data acquisition on all nodes with the following settings
     
@@ -281,32 +280,17 @@ def one_run(tx_power, phy_rate, antenna_mask, channel,
 
     #
     # dry-run mode
-    # show the scheduler using list(details=True)
-    # also generate a .dot file, and attempt to
-    # transform it into a .png - should work if graphviz is installed
-    # but don't run anything of course
-    #
+    # just display a one-liner with parameters
+    # 
     if dry_run:
-        print("==================== COMPLETE SCHEDULER")
-        # -n + -v = max details
-        scheduler.list(details=verbose_jobs)
-        suffix = "par" if parallel is not None else "seq"
-        if args.load_images:
-            suffix += "-load"
-        filename = "heatmap-{}-{}".format(suffix, args.max)
-        print("Creating dot file: {filename}.dot".format(filename=filename))
-        scheduler.export_as_dotfile(filename+".dot")
-        # try to run dot
-        command = "dot -Tpng -o {filename}.png {filename}.dot".format(filename=filename)
-        print("Trying to run dot to create {filename}.png".format(filename=filename))
-        retcod = os.system(command)
-        if retcod == 0:
-            print("{filename}.png OK".format(filename=filename))
-        else:
-            print("Could not create {filename}.png - do you have graphviz installed ?"
-                  .format(filename=filename))
+        load_msg = "" if not load_images else " LOAD"
+        nodes = " ".join(str(n) for n in node_ids)
+        print("dry-run: {run_name}{load_msg} -"
+              " t{tx_power} r{phy_rate} a{antenna_mask} ch{channel} -"
+              "nodes {nodes}"
+              .format(**locals()))
         # in dry-run mode we are done
-        exit(0)
+        return True
     
     # if not in dry-run mode, let's proceed to the actual experiment
     ok = scheduler.orchestrate(jobs_window=jobs_window)
@@ -352,19 +336,19 @@ def main():
 
     parser.add_argument("-t", "--tx-power", dest='tx_powers',
                         default=[default_tx_power], choices = choices_tx_power,
-                        action=ListOfChoices,
+                        action=ListOfChoices, type=int,
                         help="specify Tx power(s)")
     parser.add_argument("-r", "--phy-rate", dest='phy_rates',
                         default=[default_phy_rate], choices = choices_phy_rate,
-                        action=ListOfChoices,
+                        action=ListOfChoices, type=int,
                         help="specify PHY rate(s)")
     parser.add_argument("-a", "--antenna-mask", dest='antenna_masks',
                         default=[default_antenna_mask], choices = choices_antenna_mask,
-                        action=ListOfChoices,
+                        action=ListOfChoices, type=int,
                         help="specify antenna mask(s)")
     parser.add_argument("-c", "--channel", dest='channels',
                         default=[default_channel], choices=choices_channel,
-                        action=ListOfChoices,
+                        action=ListOfChoices, type=int,
                         help="channel(s)")
     
     parser.add_argument("-l", "--load-images", default=False, action='store_true',
