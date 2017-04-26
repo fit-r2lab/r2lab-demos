@@ -7,4 +7,14 @@
 # * specify that slice with -s
 # * and to load images with -l
 #
-./acquiremap.py -o datasample -t 5 -t 9 -t 14 -r 1 -r 54 -a 1 -a 3 -a 7 -c 1 -c 11 -c 40 "$@"
+# keep channel 40 out of scope for now as we need an eprom upgrade
+# to get our atheros cards to run the 5GHz band
+#
+
+./acquiremap.py -o datasample -t 5 -t 9 -t 14 -r 1 -a 1 -a 3 -a 7 -c 1 -c 11 "$@"
+
+# it is recommended to redirect the out/err flows like this
+#
+# rm -rf mymap; run-datasample.sh -o mymap 2>&1 | tee mymap.log
+#
+
