@@ -1,3 +1,7 @@
+"""
+Correspondance channel - frequency for WiFi
+"""
+
 # source
 # http://www.radio-electronics.com/info/wireless/wi-fi/80211-channels-number-frequencies-bandwidth.php
 from collections import OrderedDict

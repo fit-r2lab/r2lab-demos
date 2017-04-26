@@ -7,4 +7,4 @@
 # * specify that slice with -s
 # * and to load images with -l
 #
-./acquiremap.py "$@" -o datasample -t 5 -t 9 -t 14 -r 1 -r 54 -a 1 -a 3 -a 7 -c 1 -c 11 -c 40
+./acquiremap.py -o datasample -t 5 -t 9 -t 14 -r 1 -r 54 -a 1 -a 3 -a 7 -c 1 -c 11 -c 40 "$@"
