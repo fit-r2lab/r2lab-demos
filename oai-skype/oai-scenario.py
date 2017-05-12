@@ -19,6 +19,19 @@ def r2lab_hostname(x):
     """
     return "fit{:02d}".format(int(str(x).replace('fit','')))
 
+def parse_slice(slice):
+    """
+    returns username and hostname from a slice
+    can be either username@hostname or just username
+    in the latter case the hostname defaults to 
+    the r2lab gateway faraday.inria.fr
+    """
+    if slice.find('@') > 0:
+        user, host = slice.split('@')
+        return user, host
+    else:
+        return slice, "faraday.inria.fr"
+
 def locate_local_script(s):
     """
     all the scripts are located in the same place
@@ -80,7 +93,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
-    gwuser, gwhost = slice.split('@')
+    gwuser, gwhost = parse_slice(slice)
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
