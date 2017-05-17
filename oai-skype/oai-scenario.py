@@ -3,6 +3,7 @@
 import os.path
 import time
 import asyncio
+import itertools
 
 from asynciojobs import Scheduler, Job, Sequence
 
@@ -106,6 +107,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         for hostname in hostnames
     ]
 
+    extra_nodes = [
+        SshNode(gateway = gwnode, hostname = hostname, username='root',
+                formatter = ColonFormatter(verbose=verbose), debug=verbose)
+        for hostname in extra_hostnames
+        ]
 
     ########## preparation
     job_check_for_lease = SshJob(
@@ -117,7 +123,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # turn off all nodes 
     turn_off_command = [ "rhubarbe", "off", "-a"]
     # except our 3 nodes and the optional extras
-    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras]
+    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras + [20]]
 
     job_off_nodes = SshJob(
         node = gwnode,
@@ -295,14 +301,21 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                              
     jobs_extras = [job_load_extras]
 
+    colors = [ "wheat", "gray", "white"]
+
     if spawn_xterms:
         jobs_xterms_extras = [
-            LocalJob(command = "ssh -X {} ssh -X root@fit{} xterm".format(slice, extra),
-                     label = "xterm on node {}".format(extra),
-                     required = job_load_extras,
-                     forever = True,
-                     eternal = True,
-                 ) for extra in extras
+            SshJob(
+                node = extra_node,
+                command = Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
+                              " -bg {} -geometry 90x10".format(color),
+                              x11=True),
+                label = "xterm on node {}".format(extra_node.hostname),
+                required = job_load_extras,
+                # don't set forever; if we do, then these xterms get killed
+                # when all other tasks have completed
+                # forever = True,
+            ) for extra_node, color in zip(extra_nodes, itertools.cycle(colors))
         ]
         jobs_extras += jobs_xterms_extras
 
@@ -359,7 +372,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     in a single place locally, like what "logs.sh unwrap" does
     """
 
-    gwuser, gwhost = slice.split('@')
+    gwuser, gwhost = parse_slice(slice)
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
@@ -392,7 +405,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
             command = Pull(remotepaths = [ "{}-{}.tgz".format(run_name, function) ],
                            localpath = "."),
             label = "collector on {}".format(function),
-            required = capturer,
+            required = capturers,
         )
         for (node, function, capturer) in zip(nodes, functions, capturers) ]
 
