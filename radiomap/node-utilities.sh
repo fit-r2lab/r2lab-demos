@@ -44,31 +44,42 @@ function init-ad-hoc-network (){
     apt-get install tshark
     
     ifname=$(wait-for-interface-on-driver $driver)
+    phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
+    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
 
-    echo configuring interface $ifname
+    echo "configuring interface $ifname"
     # make sure to wipe down everything first so we can run again and again
     ip address flush dev $ifname
     ip link set $ifname down 
     # configure wireless
-    iw phy phy0 set antenna $antmask
-    echo "iw phy phy0 set antenna $antmask"
-    sleep 1
+    if test ${ifname} == "atheros";  then
+        # configure antennas
+	iw phy $phyname set antenna $antmask
+	echo "iw phy $phyname set antenna $antmask"
+	sleep 2
+    fi
     iw dev $ifname set type ibss
-    # set the Tx power Atheros'range is between 5dbm (500) and 14dBm (1400)
+    # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "iw dev $ifname set txpower fixed $txpower"
     iw dev $ifname set txpower fixed $txpower
     ip link set $ifname up
-    # set to ad-hoc mode and set the right PHY rate
+    # enable ad-hoc mode and set the target PHY rate
     iw dev $ifname ibss join $netname $freq
     echo "iw dev $ifname ibss join $netname $freq"
     ip address add $ipaddr_mask dev $ifname
-    iw dev $ifname set bitrates legacy-2.4 $phyrate
-    echo "iw dev $ifname set bitrates legacy-2.4 $phyrate"
+    if test $freq -le 3000
+      then 
+	iw dev $ifname set bitrates legacy-2.4 $phyrate
+	echo "iw dev $ifname set bitrates legacy-2.4 $phyrate"
+      else
+	iw dev $ifname set bitrates legacy-5 $phyrate
+	echo "iw dev $ifname set bitrates legacy-5 $phyrate"
+    fi
 
 
     # set the wireless interface in monitor mode                                                                           
-    iw phy phy0 interface add moni0 type monitor
-    ip link set moni0 up
+    iw phy $phyname interface add $moniname type monitor
+    ip link set $moniname up
     # then, run tcpdump with the right parameters 
     
 #    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
