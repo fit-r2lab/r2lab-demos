@@ -30,12 +30,15 @@ function init-ad-hoc-network (){
     # make sure to use the latest code on the node
     git-pull-r2lab
 
-    turn-off-wireless
-    
+#    turn-off-wireless
+
+    echo "Setting regulatory domain to CR"
+    iw reg set CR
+
     ipaddr_mask=10.0.0.$(r2lab-ip)/24
 
-    echo loading module $driver
-    modprobe $driver
+#    echo loading module $driver
+#    modprobe $driver
     
     # some time for udev to trigger its rules
     sleep 1
@@ -51,14 +54,15 @@ function init-ad-hoc-network (){
     echo "Configuring interface $ifname on $phyname"
     # make sure to wipe down everything first so we can run again and again
     ip address flush dev $ifname
-    ip link set $ifname down 
+    ip link set $ifname down
+    # Warning! if $moniname interface is up, it will prevent following configurations...
+    echo "Removing monitor interface $moniname" 
+    ip link set $moniname down 2>/dev/null
     # configure wireless
     if test ${ifname} == "atheros";  then
         # configure antennas
 	echo "Configuring $phyname with antenna mask $antmask"
 	iw phy $phyname set antenna $antmask
-	echo "Changing regulatory domain: iw reg set CR"
-	iw reg set CR
     fi
     ip link set $ifname up
     # enable ad-hoc mode and set the target frequency
@@ -81,10 +85,15 @@ function init-ad-hoc-network (){
 	iw dev $ifname set bitrates legacy-5 $phyrate
     fi
 
-
-    # set the wireless interface in monitor mode                                                                           
-    iw phy $phyname interface add $moniname type monitor
+    # set the wireless interface in monitor mode
+    echo "Creating monitor interface $moniname at $phyname"
+    iw phy $phyname interface add $moniname type monitor 2>/dev/null
     ip link set $moniname up
+
+    echo "List of authorized frequencies on $phyname:"
+    iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
+
+
     # then, run tcpdump with the right parameters 
     
 #    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
