@@ -45,7 +45,8 @@ function init-ad-hoc-network (){
     
     ifname=$(wait-for-interface-on-driver $driver)
     phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
-    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
+#    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
+    moniname="moni-$driver"
 
     echo "Configuring interface $ifname on $phyname"
     # make sure to wipe down everything first so we can run again and again

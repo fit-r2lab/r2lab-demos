@@ -51,7 +51,7 @@ ping_size = 64
 ping_interval = 0.015
 ping_number = 500
 
-# wireless driver: can use only ath9k for now
+# wireless driver: by default set to ath9k
 wireless_driver = 'ath9k'
 
 # convenience
@@ -214,7 +214,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
             verbose=verbose_jobs,
             commands=[
                 Run("echo run tcpdump on fit{:02d}".format(i)),
-                Run("tcpdump -U -i moni0  -y ieee802_11_radio -w /tmp/fit{}.pcap".format(i))
+                Run("tcpdump -U -i moni-{} -y ieee802_11_radio -w /tmp/fit{}.pcap".format(wireless_driver, i))
             ]
         )
         for i, node in node_index.items()
