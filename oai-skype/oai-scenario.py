@@ -433,7 +433,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
         
 def main():
 
-    def_slice = "inria_oai.skype@faraday.inria.fr"
+    def_slice = "inria_oai@faraday.inria.fr"
     # WARNING: initially we used 37 and 36 for hss and epc,
     # but these boxes now have a USRP and can't use the data network anymore
     def_hss, def_epc, def_enb, def_scr = 35, 34, 23, 6
