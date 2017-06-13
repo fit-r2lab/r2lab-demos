@@ -22,7 +22,7 @@ from channels import channel_frequency
 ##########
 default_gateway      = 'faraday.inria.fr'
 default_slicename    = 'inria_radiomap'
-default_run_name     = 'logs'
+default_run_name     = 'olsr_logs'
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
 settle_delay         = 10
