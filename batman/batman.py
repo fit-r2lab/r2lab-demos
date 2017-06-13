@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Script to run olsr routing protocol on R2lab
+Script to run batman routing protocol on R2lab
 """
 
 
@@ -22,7 +22,7 @@ from channels import channel_frequency
 ##########
 default_gateway      = 'faraday.inria.fr'
 default_slicename    = 'inria_radiomap'
-default_run_name     = 'logs_olsr'
+default_run_name     = 'logs_batman'
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
 settle_delay         = 10
@@ -212,15 +212,15 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
         
 
 
-    # then install and run olsr on fit nodes
-    run_olsr = [
+    # then install and run batman on fit nodes
+    run_batman = [
         SshJob(
             scheduler=scheduler,
             node=node,
             required=init_wireless_jobs,
-            label="init and run olsr on fit nodes",
+            label="init and run batman on fit nodes",
             verbose=verbose_jobs,
-            command=RunScript("node-utilities.sh", "run-olsr")
+            command=RunScript("node-utilities.sh", "run-batman")
             )
         for i, node in node_index.items()]
 
@@ -230,7 +230,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
         SshJob(
             scheduler=scheduler,
             node=node,
-            required=run_olsr,
+            required=run_batman,
             label="run tcpdump on fit nodes",
             verbose=verbose_jobs,
             commands=[
@@ -290,7 +290,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
             label="retrieve pcap trace from fit{:02d}".format(i),
             verbose=verbose_jobs,
             commands=[
-                RunScript("node-utilities.sh", "kill-olsr"),
+                RunScript("node-utilities.sh", "kill-batman"),
                 Run("sleep 1;pkill tcpdump; sleep 1"),
                 RunScript("node-utilities.sh", "process-pcap", i),
                 Run(
