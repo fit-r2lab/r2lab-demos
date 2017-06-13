@@ -169,7 +169,7 @@ function my-ping (){
     
     echo "ping -W $ptimeout -c $pnumber -i $pint -s $psize -q $dest >& /tmp/ping.txt"
     ping -w $ptimeout -c $pnumber -i $pint -s $psize -q $dest >& /tmp/ping.txt
-    result=$(grep "%" /tmp/ping.txt)
+    result=$(grep "ms" /tmp/ping.txt)
     echo "$(hostname) -> $dest: ${result}"
     return 0
 }
