@@ -116,12 +116,18 @@ function run-olsr (){
 
     echo "Install olsr"
     apt-get install -y olsrd
-    cat <<EOT>> /etc/olsrd/olsrd.conf
+    if grep -Fq "atheros" /etc/olsrd/olsrd.conf
+    then
+        echo "olsrd.conf already configured"
+    else
+        echo "configuring olsrd.conf"
+	cat <<EOT>> /etc/olsrd/olsrd.conf
 Interface "atheros"
  {
    Ip4Broadcast 255.255.255.255
  }
 EOT
+    fi
     #    olsrd -d 2
     echo "Run olsr daemon"
     olsrd 
