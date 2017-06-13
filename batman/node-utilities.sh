@@ -132,6 +132,7 @@ EOT
     echo "Run olsr daemon"
     olsrd 
     sleep 5
+    iwconfig atheros
     return 0
 }
 
