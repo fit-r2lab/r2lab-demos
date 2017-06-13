@@ -125,6 +125,7 @@ EOT
     #    olsrd -d 2
     echo "Run olsr daemon"
     olsrd 
+    sleep 5
     return 0
 }
 
@@ -133,7 +134,6 @@ function kill-olsr (){
 
     echo "Kill olsr daemon"
     pkill -9 olsrd
-    ps axu|grep olsr
     return 0
 }
 
@@ -142,10 +142,11 @@ function run-batman (){
 
     echo "Install batman"
     apt-get install -y batmand
-    ip addr add broadcast 255.255.255.255 dev atheros
+#    ip addr add broadcast 255.255.255.255 dev atheros
     #    batmand atheros -d 1
     echo "Run batman daemon"
     batmand atheros
+    sleep 5
     return 0
 }
 

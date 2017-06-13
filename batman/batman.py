@@ -28,8 +28,8 @@ default_run_name     = 'logs_batman'
 settle_delay         = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
 #choices_antenna_mask = [1, 3, 7]
-choices_antenna_mask = [3]
-default_antenna_mask = 3
+choices_antenna_mask = [7]
+default_antenna_mask = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
 #choices_phy_rate     = [1, 54]
 choices_phy_rate     = [54]
@@ -42,7 +42,7 @@ default_tx_power     = 5
 # we'd rather provide a channel number than a frequency
 #choices_channel      = list(channel_frequency.keys())
 choices_channel      = [10]
-default_channel      = 1
+default_channel      = 10
 
 
 # run on all nodes by default
