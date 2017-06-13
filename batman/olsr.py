@@ -28,8 +28,8 @@ default_run_name     = 'logs_olsr'
 settle_delay         = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
 #choices_antenna_mask = [1, 3, 7]
-choices_antenna_mask = [7]
-default_antenna_mask = 7
+choices_antenna_mask = [1]
+default_antenna_mask = 1
 # PHY rate used for each node, e.g. 1, 6, 54...
 #choices_phy_rate     = [1, 54]
 choices_phy_rate     = [54]
