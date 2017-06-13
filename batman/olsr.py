@@ -245,7 +245,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
         "Let the wireless network settle",
         sleep=settle_delay,
         scheduler=scheduler,
-        required=init_wireless_jobs,
+        required=run_olsr,
         label="settling")
 
     ##########
