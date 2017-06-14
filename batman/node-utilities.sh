@@ -67,20 +67,20 @@ function init-ad-hoc-network (){
 	iw phy $phyname set antenna $antmask
     fi
     ip link set $ifname up
+    echo "setting the broadcast address"
+    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
     # enable mesh mode on channel 10
     echo "Enable Mesh mode on channel 10"
     iwconfig $ifname essid mesh mode ad-hoc channel 10 rts 250 frag 256
     # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Setting the transmission power to $txpower"
     iw dev $ifname set txpower fixed $txpower
-    echo "setting the broadcast address"
-    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
     echo "second try"
     # do it twice...
-    ip address flush dev $ifname
-    ip link set $ifname down
-    ip link set $ifname up
-    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
+#    ip address flush dev $ifname
+#    ip link set $ifname down
+#    ip link set $ifname up
+#    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
     sleep 2
     if test $freq -le 3000
       then 
