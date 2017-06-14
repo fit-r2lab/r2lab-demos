@@ -28,4 +28,27 @@ In addition to the defaults for the 3 core nodes, it is advisable to use
 * `fit11` to watch traffic in both directions (it has no duplexer)
 * `fit16` to scramble the **uplink** (it has a UE duplexer)
 
-	
+# Commands
+    oai-scenario.py --load --xterm --extra 11 --extra 16
+
+or shorter
+
+    oai-scenario.py -l -X -x 11 -x 16
+
+
+## scrambler
+
+On the scrambler node you should have commands like (double-check you duplexer though):
+
+* `scramble-downlink`,
+* `scramble-downlink-mid` and
+* `scramble-downlink-blast`,
+* as well as 3 similar like `scramble-uplink` on the uplink side
+
+## spectrum-analyzer
+
+You can run either
+
+* `watch-downlink` or
+* `watch-uplink`
+
