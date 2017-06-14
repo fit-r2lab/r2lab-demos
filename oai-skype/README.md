@@ -45,6 +45,16 @@ On the scrambler node you should have commands like (double-check you duplexer t
 * `scramble-downlink-blast`,
 * as well as 3 similar like `scramble-uplink` on the uplink side
 
+**NOTE**
+
+On older images, you can gain access to these new commands by doing
+
+```
+cd /root/r2lab/
+git checkout public
+refresh
+```
+
 ## spectrum-analyzer
 
 You can run either
