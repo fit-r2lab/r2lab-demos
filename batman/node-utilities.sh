@@ -75,13 +75,14 @@ function init-ad-hoc-network (){
     # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Setting the transmission power to $txpower"
     iw dev $ifname set txpower fixed $txpower
+    sleep 5
     echo "second try"
     # do it twice...
-#    ip address flush dev $ifname
-#    ip link set $ifname down
-#    ip link set $ifname up
-#    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
-    sleep 2
+    ip address flush dev $ifname
+    ip link set $ifname down
+    ip link set $ifname up
+    iwconfig $ifname essid mesh mode ad-hoc channel 10 rts 250 frag 256
+    ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
     if test $freq -le 3000
       then 
 	echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
