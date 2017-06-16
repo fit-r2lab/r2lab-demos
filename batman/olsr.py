@@ -25,7 +25,7 @@ default_slicename    = 'inria_radiomap'
 default_run_name     = 'logs_olsr'
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
-settle_delay         = 30
+settle_delay         = 60
 # antenna mask for each node, three values are allowed: 1, 3, 7
 #choices_antenna_mask = [1, 3, 7]
 choices_antenna_mask = [1]
