@@ -214,7 +214,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
         init_wireless_done = [
         SshJob(
             scheduler=scheduler,
-            required=init_wireless_jobs
+            required=init_wireless_jobs,
             node=node,
             verbose=verbose_jobs,
             label="init {}".format(id),
