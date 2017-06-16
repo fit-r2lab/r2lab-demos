@@ -196,7 +196,28 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
     frequency = channel_frequency[int(channel)]
     # tx_power_in_mBm not in dBm
     tx_power_driver = tx_power * 100
-    init_wireless_jobs = [
+
+    if load_images:
+        # The first init_wireless_jobs always has troubles... Do it twice the first time (nasty hack)
+        init_wireless_jobs = [
+            SshJob(
+                scheduler=scheduler,
+                required=green_light,
+                node=node,
+                verbose=verbose_jobs,
+                label="init {}".format(id),
+                commands=[
+                    RunScript("node-utilities.sh", "init-ad-hoc-network",
+                              wireless_driver, "foobar", frequency, phy_rate, 
+                              antenna_mask, tx_power_driver),
+                    RunScript("node-utilities.sh", "init-ad-hoc-network",
+                              wireless_driver, "foobar", frequency, phy_rate, 
+                              antenna_mask, tx_power_driver)
+                    ]
+            )
+        for id, node in node_index.items()]
+    else:
+        init_wireless_jobs = [
         SshJob(
             scheduler=scheduler,
             required=green_light,
@@ -208,23 +229,6 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
                                antenna_mask, tx_power_driver)
             )
         for id, node in node_index.items()]
-        
-    if load_images:
-        # The first init_wireless_jobs always has troubles... Do it twice the first time (nasty hack)
-        init_wireless_done = [
-        SshJob(
-            scheduler=scheduler,
-            required=init_wireless_jobs,
-            node=node,
-            verbose=verbose_jobs,
-            label="init {}".format(id),
-            command=RunScript("node-utilities.sh", "init-ad-hoc-network",
-                               wireless_driver, "foobar", frequency, phy_rate, 
-                               antenna_mask, tx_power_driver)
-            )
-        for id, node in node_index.items()]
-    else:
-        init_wireless_done = True
 
 
     # then install and run olsr on fit nodes
@@ -232,7 +236,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
         SshJob(
             scheduler=scheduler,
             node=node,
-            required=init_wireless_done,
+            required=init_wireless_jobs,
             label="init and run olsr on fit nodes",
             verbose=verbose_jobs,
             command=RunScript("node-utilities.sh", "run-olsr")
