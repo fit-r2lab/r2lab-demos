@@ -52,32 +52,36 @@ After an install/upgrade, make sure to check for these manually:
 * In the **Settings ⟹ Cellular network settings** menu:
 * Access point names: r2lab, oai.ipv4 (not sure this is required actually...)
 
-## Nexus 5
+## Nexus 5 (now, instead of Nexus 6)
 
 * SIM pin code is # `1234`
 * Android Device ID is `1D54D2632597731`
 * Google Service Framework (GSF) is `31700F125B218CD6` - useful for downloading apk files
 
-## Nexus 6
-
-* pin code # `1234` 
 * This setting does not survive reboot**
-  * appli 4G switcher
-  * Set preferred network type -> LTE only
-* profil apn 
+  * app 4G switcher
+  * Set preferred network type -> LTE only 
+  * verify several times that this mode does not change by relaunching the app 4G switcher
+* profil APN
   * Settings
   * ... more
   * Cellular networks (requires airplane mode OFF)
   * Access point names
-  * Check that r2lab is selected 
-  * Details should be
-    * APN = oai.ipv4
-    * MCC = 208
-    * MNC = 95
-    * Bearer = LTE
+    * Check that r2lab is selected 
+  	 * Details should be
+    	* APN = oai.ipv4
+    	* MCC = 208
+    	* MNC = 95
+    	* Bearer = LTE
+
+* Verify also that:
+	* Settings/Wi-Fi Mode is off	
+	* Settings/Bluetooth Mode is off
+	* Settings/Data Usage/Cellular Data is on
 
 * NOTES
   * after reboot, you need to restart the vysor application
+  * *phone-reboot* does not do the exact same job than a manual reboot, e.g., you don't need to enter PIN for SIM just after the *phone-reboot* command...
 
 # google play
 
