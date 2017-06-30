@@ -76,7 +76,7 @@ def all_off(slice, verbose, debug):
 
 def main():
 
-    def_slice = "onelab.inria.oai.oai_build@faraday.inria.fr"
+    def_slice = "inria_oai@faraday.inria.fr"
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
