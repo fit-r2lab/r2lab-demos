@@ -26,6 +26,9 @@ function init-ad-hoc-network (){
     # load the r2lab utilities - code can be found here:
     # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
     source /root/r2lab/infra/user-env/nodes.sh
+    
+    # Avoid unexpected upgrades that could lock our apt-get update and limit reproducibility
+    apt-get -y purge unattended-upgrades
 
     # make sure to use the latest code on the node
     git-pull-r2lab
@@ -48,10 +51,10 @@ function init-ad-hoc-network (){
 
     # install tshark on the node for the post-processing step
 ## following for debug only
-    lsof /var/lib/dpkg/lock
-    ps axu
+#    lsof /var/lib/dpkg/lock
+#    ps axu
+    # For now, as we are unsure unattended upgrades are running, remove possible lock. Ugly hack to be fixed...
     rm -rf /var/lib/dpkg/lock
-#    apt-get update && apt-get upgrade
 ##
     apt-get install -y tshark
     
