@@ -42,7 +42,9 @@ function init-ad-hoc-network (){
     
     # sleep some random time for udev to trigger its rules and prevent 
     # errors when all nodes simulataneously want to apt-get install tshark
-    sleep $[($RANDOM % 10)+1]   
+    TSLEEP=$[($RANDOM % 10)+1]   
+    echo "Now sleep for $TSLEEP seconds"
+    sleep $TSLEEP
 
     # install tshark on the node for the post-processing step
     apt-get install tshark
