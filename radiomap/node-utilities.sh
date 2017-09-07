@@ -50,7 +50,8 @@ function init-ad-hoc-network (){
 ## following for debug only
     lsof /var/lib/dpkg/lock
     ps axu
-    apt-get update && apt-get upgrade
+    rm -rf /var/lib/dpkg/lock
+#    apt-get update && apt-get upgrade
 ##
     apt-get install -y tshark
     
