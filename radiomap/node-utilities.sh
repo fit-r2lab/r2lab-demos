@@ -44,13 +44,13 @@ function init-ad-hoc-network (){
     # errors when all nodes simulataneously want to apt-get install tshark
 #    TSLEEP=$[($RANDOM % 10)+1]   
 #    echo "Now sleep for $TSLEEP seconds"
-    sleep $TSLEEP
+#    sleep $TSLEEP
 
     # install tshark on the node for the post-processing step
 ## following for debug only
     lsof /var/lib/dpkg/lock
     ps axu
-#    apt-get update && apt-get upgrade
+    apt-get update && apt-get upgrade
 ##
     apt-get install -y tshark
     
