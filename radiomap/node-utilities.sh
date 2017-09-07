@@ -47,6 +47,7 @@ function init-ad-hoc-network (){
     sleep $TSLEEP
 
     # install tshark on the node for the post-processing step
+    lsof /var/lib/dpkg/lock
     apt-get install tshark
     
     ifname=$(wait-for-interface-on-driver $driver)
