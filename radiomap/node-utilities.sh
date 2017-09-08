@@ -27,8 +27,8 @@ function init-ad-hoc-network (){
     # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
     source /root/r2lab/infra/user-env/nodes.sh
     
-    # Avoid unexpected upgrades that could lock our apt-get update and limit reproducibility
-    apt-get -y purge unattended-upgrades
+#    # Avoid unexpected upgrades that could lock our apt-get update and limit reproducibility
+#    apt-get -y purge unattended-upgrades
 
     # make sure to use the latest code on the node
     git-pull-r2lab
@@ -54,8 +54,9 @@ function init-ad-hoc-network (){
 #    lsof /var/lib/dpkg/lock
 #    ps axu
     # For now, as we are unsure unattended upgrades are running, remove possible lock. Ugly hack to be fixed...
-    rm -rf /var/lib/dpkg/lock
+#    rm -rf /var/lib/dpkg/lock
 ##
+    echo  "Installing tshark"
     apt-get install -y tshark
     
     ifname=$(wait-for-interface-on-driver $driver)

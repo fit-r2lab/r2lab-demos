@@ -173,7 +173,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
             verbose=verbose_jobs,
             commands=[
                 Run("rhubarbe", "off", "-a", *negated_node_ids),
-                Run("rhubarbe", "load", "-i", "u16-ath-noreg", *node_ids),
+                Run("rhubarbe", "load", "-i", "u16-radiomap", *node_ids),
                 Run("rhubarbe", "wait", *node_ids)
             ]
         )
