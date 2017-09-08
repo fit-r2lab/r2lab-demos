@@ -78,19 +78,20 @@ function init-ad-hoc-network (){
 	iw phy $phyname set antenna $antmask
     fi
     iw dev $ifname set type ibss
+    sleep 1
     ip link set $ifname up
     # enable ad-hoc mode and set the target frequency
 #    echo "Joining $netname with ibss mode on frequency $freq MHz"
 #    iw dev $ifname ibss join $netname $freq
     # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
-    echo "Setting the transmission power to $txpower"
-    iw dev $ifname set txpower fixed $txpower
-    ip address add $ipaddr_mask dev $ifname
-    ip link set $ifname down
-    ip link set $ifname up
     echo "Joining $netname with ibss mode on frequency $freq MHz"
     iw dev $ifname ibss join $netname $freq
     sleep 2
+    echo "Setting the transmission power to $txpower"
+    iw dev $ifname set txpower fixed $txpower
+    echo "Tx Power:"
+    iwconfig $ifname | grep Tx−Power
+    ip address add $ipaddr_mask dev $ifname
     if test $freq -le 3000
       then 
 	echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
