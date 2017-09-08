@@ -33,6 +33,10 @@ function init-ad-hoc-network (){
     # make sure to use the latest code on the node
     git-pull-r2lab
 
+    # install tshark on the node for the post-processing step
+    echo  "Installing tshark"
+    apt-get install -y tshark
+    
 #    turn-off-wireless
 
     echo "Setting regulatory domain to CR"
@@ -43,26 +47,17 @@ function init-ad-hoc-network (){
 #    echo loading module $driver
 #    modprobe $driver
     
-    # sleep some random time for udev to trigger its rules and prevent 
-    # errors when all nodes simulataneously want to apt-get install tshark
+    # Following only useful to prevent all nodes simulatenusly doing the same updates, but actually useless
 #    TSLEEP=$[($RANDOM % 10)+1]   
 #    echo "Now sleep for $TSLEEP seconds"
 #    sleep $TSLEEP
 
-    # install tshark on the node for the post-processing step
-## following for debug only
-#    lsof /var/lib/dpkg/lock
-#    ps axu
-    # For now, as we are unsure unattended upgrades are running, remove possible lock. Ugly hack to be fixed...
-#    rm -rf /var/lib/dpkg/lock
-##
-    echo  "Installing tshark"
-    apt-get install -y tshark
-    
     ifname=$(wait-for-interface-on-driver $driver)
     phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
-#    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
     moniname="moni-$driver"
+
+    echo "List of authorized frequencies on $phyname:"
+    iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
 
     echo "Configuring interface $ifname on $phyname"
     # make sure to wipe down everything first so we can run again and again
@@ -83,14 +78,14 @@ function init-ad-hoc-network (){
     # enable ad-hoc mode and set the target frequency
 #    echo "Joining $netname with ibss mode on frequency $freq MHz"
 #    iw dev $ifname ibss join $netname $freq
-    # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Joining $netname with ibss mode on frequency $freq MHz"
     iw dev $ifname ibss join $netname $freq
     sleep 2
+    # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Setting the transmission power to $txpower"
     iw dev $ifname set txpower fixed $txpower
-    echo "Tx Power:"
-    iwconfig $ifname | grep Tx−Power
+    echo "Checking Tx Power value"
+    iwconfig $ifname | grep dBm
     ip address add $ipaddr_mask dev $ifname
     if test $freq -le 3000
       then 
@@ -106,13 +101,8 @@ function init-ad-hoc-network (){
     iw phy $phyname interface add $moniname type monitor 2>/dev/null
     ip link set $moniname up
 
-    echo "List of authorized frequencies on $phyname:"
-    iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
-
-
-    # then, run tcpdump with the right parameters 
-    
-#    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
+    echo "Final configuration:"
+    iwconfig $ifname
 
 
     ### addition - would be cool to come up with something along these lines that
