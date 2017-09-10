@@ -15,6 +15,11 @@
 # * the wifi network name to join
 # * the wifi frequency to use
 
+# Important Note
+# Ad hoc mode using 5 GHz is not supported by Intel® Wireless Adapters
+
+
+ 
 function init-ad-hoc-network (){
     driver=$1; shift
     netname=$1; shift

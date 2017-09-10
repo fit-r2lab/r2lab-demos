@@ -23,10 +23,12 @@ from channels import channel_frequency
 ##########
 default_gateway      = 'faraday.inria.fr'
 default_slicename    = 'inria_radiomap'
-default_run_name     = 'myradiomap'
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
 settle_delay         = 10
+# supported wifi drivers are ath9k for atheros and iwlwifi for intel
+default_driver       = 'ath9k'
+default_run_name     = 'myradiomap'
 # antenna mask for each node, three values are allowed: 1, 3, 7
 choices_antenna_mask = [1, 3, 7]
 default_antenna_mask = 7
@@ -51,8 +53,8 @@ ping_size = 64
 ping_interval = 0.015
 ping_number = 500
 
-# wireless driver: by default set to ath9k
-wireless_driver = 'ath9k'
+# wireless driver
+wireless_driver = default_driver
 
 # convenience
 
@@ -84,7 +86,8 @@ def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel,
     return run_root
 
 
-def one_run(tx_power, phy_rate, antenna_mask, channel, *,
+def one_run(wireless_driver, 
+            tx_power, phy_rate, antenna_mask, channel, *,
             run_name=default_run_name, slicename=default_slicename,
             load_images=False, node_ids=None,
             parallel=None,
@@ -93,6 +96,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
     Performs data acquisition on all nodes with the following settings
 
     Arguments:
+        wireless_driver: wifi driver name, either ath9k or iwlwifi
         tx_power: in dBm, a string like 5, 10 or 14
         phy_rate: a string among 1, 54
         antenna_mask: a string among 1, 3, 7
@@ -200,7 +204,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
             label="init {}".format(id),
             command=RunScript(
                 "node-utilities.sh", "init-ad-hoc-network",
-                wireless_driver, "foobar", frequency, phy_rate, antenna_mask, tx_power_driver
+                wireless_driver, "foobar", frequency, phy_rate, 
+                antenna_mask, tx_power_driver
             ))
         for id, node in node_index.items()]
 
@@ -317,7 +322,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, *,
     return ok
 
 
-def all_runs(tx_powers, phy_rates, antenna_masks, channels, *args, **kwds):
+def all_runs(wireless_driver,
+             tx_powers, phy_rates, antenna_masks, channels, *args, **kwds):
     """
     calls one_run with the cartesian product of
     tx_powers, phy_rates, antenna_masks and channels, that are expected to
@@ -339,7 +345,7 @@ def all_runs(tx_powers, phy_rates, antenna_masks, channels, *args, **kwds):
             for antenna_mask in antenna_masks:
                 for channel in channels:
                     # record any failure
-                    if not one_run(tx_power, phy_rate, antenna_mask,
+                    if not one_run(wireless_driver, tx_power, phy_rate, antenna_mask,
                                    channel, *args, **kwds):
                         overall = False
                     # make sure images will get loaded only once
@@ -381,10 +387,11 @@ def main():
 
     parser.add_argument("-l", "--load-images", default=False, action='store_true',
                         help="if set, load image on nodes before running the exp")
-    # TP : I am turning this off, since we currently only support ath9k anyways
-    # parser.add_argument("-w", "--wifi-driver", default='ath9k',
-    #                    choices = ['iwlwifi', 'ath9k'],
-    #                    help="specify which driver to use")
+
+    parser.add_argument("-w", "--wifi-driver", default=default_driver,
+                        choices = ['iwlwifi', 'ath9k'],
+                        help="specify which driver to use")
+
     parser.add_argument("-N", "--node-id", dest='node_ids',
                         default=default_node_ids, choices=[
                             str(x) for x in default_node_ids],
@@ -424,11 +431,11 @@ def main():
                     verbose_jobs=args.debug,
                     parallel=args.parallel,
                     dry_run=args.dry_run,
+                    wireless_driver=args.wifi_driver
                     # ping_timeout = args.ping_timeout
                     # ping_interval = args.ping_interval
                     # ping_size = args.ping_size
                     # ping_number = args.ping_number
-                    # wireless_driver   = args.wifi_driver
                    )
 
 
