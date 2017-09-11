@@ -21,6 +21,7 @@ class Averager:
         """
         self.number = 0
         self.columns = columns
+        print("columns number is {}".format(columns))
         self.total = [0 for i in range(self.columns)]
 
     def record_point(self, values):
@@ -28,6 +29,7 @@ class Averager:
         values should have as many measurements as columns
         """
         self.number += 1
+        print(self.columns)
         for i in range(self.columns):
             self.total[i] += values[i]
 
@@ -50,7 +52,8 @@ class Aggregator:
     """
 
     # we could also count the ones in a binary form
-    mask_to_number = {1: 1, 3: 2, 7: 3, }
+    # for Intel 5300 cards only one column of RSSI for all 3 antennas 
+    mask_to_number = {0: 0, 1: 1, 3: 2, 7: 3, }
 
     RSSI_MAX = 0
     RSSI_MIN = -100
@@ -82,7 +85,11 @@ class Aggregator:
                     sender_ip, receiver_ip, comma_rssis = line.split()
                     sender_id = int(sender_ip.split('.')[-1])
                     receiver_id = int(receiver_ip.split('.')[-1])
-                    rssis = [int(x) for x in comma_rssis.split(',')]
+                    if ',' in comma_rssis:
+                        rssis = [int(x) for x in comma_rssis.split(',')]
+                    else:
+                        rssis = [int(comma_rssis)]
+                    print(rssis)
                     averager = self.RSSI[sender_id, receiver_id]
                     averager.record_point(rssis)
 

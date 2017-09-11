@@ -30,7 +30,7 @@ settle_delay         = 10
 default_driver       = 'ath9k'
 default_run_name     = 'myradiomap'
 # antenna mask for each node, three values are allowed: 1, 3, 7
-choices_antenna_mask = [1, 3, 7]
+choices_antenna_mask = [0, 1, 3, 7]
 default_antenna_mask = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
 choices_phy_rate     = [1, 54]
@@ -339,6 +339,11 @@ def all_runs(wireless_driver,
     # (*) we want to run all configs regardless of a failure, and
     #     all() is lazy and would stop at the first failure
     # (*) we need to set load_images to false after the first run
+
+    # Warning, for Intel 5300 card, 3 antennas are always used and only one single RSSI value is reported
+    if wireless_driver == "iwlwifi":
+        antenna_masks = [0]
+
     overall = True
     for tx_power in tx_powers:
         for phy_rate in phy_rates:
@@ -379,7 +384,7 @@ def main():
                         default=[
                             default_antenna_mask], choices=choices_antenna_mask,
                         action=ListOfChoices, type=int,
-                        help="specify antenna mask(s)")
+                        help="specify antenna mask(s), use only for ath9k driver"),
     parser.add_argument("-c", "--channel", dest='channels',
                         default=[default_channel], choices=choices_channel,
                         action=ListOfChoices, type=int,
