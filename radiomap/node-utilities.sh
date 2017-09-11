@@ -53,9 +53,11 @@ function init-ad-hoc-network (){
 #    modprobe $driver
     
     # Following only useful to prevent all nodes simultaneously join WiFi channel, which creates different cells...
-    TSLEEP=$[($RANDOM % 1000000)]   
-    echo "Now sleep for $TSLEEP microseconds"
-    usleep $TSLEEP
+    TSLEEP=$[($RANDOM % 10)]   
+    USLEEP=$[($RANDOM % 100000)]   
+    echo "Now sleep for $TSLEEP seconds and $USLEEP microseconds"
+    sleep $TSLEEP
+    usleep $USLEEP
 
     ifname=$(wait-for-interface-on-driver $driver)
     phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
@@ -109,6 +111,8 @@ function init-ad-hoc-network (){
     echo "Final configuration:"
     iwconfig $ifname
 
+    echo "Waiting 10 seconds to ensure cells are joined"
+    sleep 10
 
     ### addition - would be cool to come up with something along these lines that
     # works on both cards
