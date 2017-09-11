@@ -58,14 +58,17 @@ class Aggregator:
     RSSI_MAX = 0
     RSSI_MIN = -100
 
-    def __init__(self, run_root, node_ids, antenna_mask):
+    def __init__(self, run_root, node_ids, antenna_mask, wireless_driver):
         """
         run_root should be a pathlib Path
         """
         self.run_root = run_root
         self.node_ids = node_ids
         self.antenna_mask = antenna_mask
-        self.nb_antennas = self.mask_to_number[antenna_mask]
+        if wireless_driver == 'ath9k':
+            self.nb_antennas = self.mask_to_number[antenna_mask]
+        else:
+            self.nb_antennas = 0
         # internal result is a dicted hashed on
         # a sender, receiver tuple
         # value is a counter how_many, total

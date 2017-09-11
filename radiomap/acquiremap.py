@@ -316,7 +316,7 @@ def one_run(wireless_driver,
     # data acquisition is done, let's aggregate results
     # i.e. compute averages
     if ok:
-        post_processor = Aggregator(run_root, node_ids, antenna_mask)
+        post_processor = Aggregator(run_root, node_ids, antenna_mask, wireless_driver)
         post_processor.run()
 
     return ok
