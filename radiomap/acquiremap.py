@@ -30,13 +30,14 @@ settle_delay         = 10
 default_driver       = 'ath9k'
 default_run_name     = 'myradiomap'
 # antenna mask for each node, three values are allowed: 1, 3, 7
-choices_antenna_mask = [0, 1, 3, 7]
+choices_antenna_mask = [1, 3, 7]
 default_antenna_mask = 7
 # PHY rate used for each node, e.g. 1, 6, 54...
 choices_phy_rate     = [1, 54]
 default_phy_rate     = 1
 # Tx Power for each node, for Atheros 5dBm (i.e. 500) to 14dBm (i.e. 1400)
-choices_tx_power     = range(5, 15)
+# for Intel 5300, between 0dBm and 15 dBm
+choices_tx_power     = range(0, 16)
 default_tx_power     = 5
 
 # we'd rather provide a channel number than a frequency
@@ -342,7 +343,7 @@ def all_runs(wireless_driver,
 
     # Warning, for Intel 5300 card, 3 antennas are always used and only one single RSSI value is reported
     if wireless_driver == "iwlwifi":
-        antenna_masks = [0]
+        antenna_masks = [1]
 
     overall = True
     for tx_power in tx_powers:
