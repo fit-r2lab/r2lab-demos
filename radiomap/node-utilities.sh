@@ -108,11 +108,11 @@ function init-ad-hoc-network (){
     iw phy $phyname interface add $moniname type monitor 2>/dev/null
     ip link set $moniname up
 
+    echo "Waiting 10 seconds to allow cells association"
+    sleep 10
+
     echo "Final configuration:"
     iwconfig $ifname
-
-    echo "Waiting 10 seconds to ensure cells are joined"
-    sleep 10
 
     ### addition - would be cool to come up with something along these lines that
     # works on both cards
