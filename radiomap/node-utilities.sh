@@ -83,7 +83,6 @@ function init-ad-hoc-network (){
     ip link set $ifname up
     # enable ad-hoc mode and set the target frequency
 #    echo "Joining $netname with ibss mode on frequency $freq MHz"
-#    iw dev $ifname ibss join $netname $freq
     echo "Joining $netname with ibss mode on frequency $freq MHz"
     iw dev $ifname ibss join $netname $freq
     sleep 2
@@ -92,7 +91,7 @@ function init-ad-hoc-network (){
     iw dev $ifname set txpower fixed $txpower
     echo "Checking Tx Power value"
     iwconfig $ifname | grep dBm
-    ip address add $ipaddr_mask dev $ifname
+    ip address add $ipaddr_mask dev $ifname broadcast 10.0.0.255
     if test $freq -le 3000
       then 
 	echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
