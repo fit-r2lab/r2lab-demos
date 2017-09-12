@@ -52,12 +52,11 @@ function init-ad-hoc-network (){
 #    echo loading module $driver
 #    modprobe $driver
     
-    # Following only useful to prevent all nodes simultaneously join WiFi channel, which creates different cells...
-    TSLEEP=$[($RANDOM % 10)]   
-    USLEEP=$[($RANDOM % 100000)]   
-    echo "Now sleep for $TSLEEP seconds and $USLEEP microseconds"
-    sleep $TSLEEP
-    usleep $USLEEP
+    # Following [0-10s sleep] is useful to prevent all nodes simultaneously join WiFi channel, which creates different cells...
+    TSLEEP=`echo "scale=2;$RANDOM/3276.7" |bc`
+    echo "Now sleep for $TSLEEP seconds"
+    time sleep $TSLEEP
+
 
     ifname=$(wait-for-interface-on-driver $driver)
     phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
