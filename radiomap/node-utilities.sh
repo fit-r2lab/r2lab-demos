@@ -52,8 +52,8 @@ function init-ad-hoc-network (){
 #    echo loading module $driver
 #    modprobe $driver
     
-    # Following [0-10s sleep] is useful to prevent all nodes simultaneously join WiFi channel, which creates different cells...
-    TSLEEP=`echo "scale=2;$RANDOM/3276.7" |bc`
+    # Following [0-100s sleep] is useful to prevent all nodes simultaneously join WiFi channel, which creates different cells...
+    TSLEEP=`echo "scale=2;$RANDOM/327.67" |bc`
     echo "Now sleep for $TSLEEP seconds"
     time sleep $TSLEEP
 
