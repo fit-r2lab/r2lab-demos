@@ -441,7 +441,7 @@ def main():
 #    def_image_gw  = "u14.48-oai-gw"
 #    def_image_enb = "u14.319-oai-enb"
     def_image_gw  = "oai-cn"
-    def_image_enb = "oai-cn"
+    def_image_enb = "oai-enb"
     def_image_extra = "gnuradio"
 
     from argparse import ArgumentParser
