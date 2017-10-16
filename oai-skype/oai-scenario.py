@@ -435,8 +435,8 @@ def main():
 
     def_slice = "inria_oai@faraday.inria.fr"
     # WARNING: initially we used 37 and 36 for hss and epc,
-    # but these boxes now have a USRP and can't use the data network anymore
-    def_hss, def_epc, def_enb, def_scr = 4, 3, 23, 6
+    # but these boxes now have a USRP N210 and can't use the data network anymore
+    def_hss, def_epc, def_enb, def_scr = 7, 8, 23, 6
     
 #    def_image_gw  = "u14.48-oai-gw"
 #    def_image_enb = "u14.319-oai-enb"
