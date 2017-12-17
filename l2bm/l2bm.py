@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from pathlib import Path
 
-from asynciojobs import Scheduler
+from asynciojobs import Job, Scheduler
 
 from apssh import SshNode, SshJob, Run
 from apssh import RunString, RunScript, TimeColonFormatter
@@ -12,6 +13,9 @@ gateway_hostname  = 'faraday.inria.fr'
 gateway_username  = 'inria_l2bm'
 verbose_ssh = True
 #verbose_ssh = False
+# run on all nodes by default                                               
+default_node_ids = [1,]
+node_ids = []
 
 parser = ArgumentParser()
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -22,16 +26,37 @@ parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
 parser.add_argument("-d", "--driver", default='ath9k',
                     choices = ['iwlwifi', 'ath9k'],
                     help="specify which driver to use")
+
 args = parser.parse_args()
 
 gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
 wireless_driver = args.driver
 
+
+# set default for the nodes parameter                                    
+node_ids = [int(id) for id in node_ids] if node_ids is not None else default_node_ids
+
+
 ##########
 faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
                   verbose = verbose_ssh,
                   formatter = TimeColonFormatter())
+
+def fitname(node_id):
+    """                                                                      
+    Return a valid hostname from a node number - either str or int           
+    """
+    int_id = int(node_id)
+    return "fit{:02d}".format(int_id)
+
+# this is a python dictionary that allows to retrieve a node object      
+# from an id                                                             
+#node_index = {
+#    id: SshNode(gateway=faraday, hostname=fitname(id), username="root",
+#                formatter=TimeColonFormatter(), verbose=verbose_ssh)
+#    for id in node_ids
+#    }
 
 node1 = SshNode(gateway = faraday, hostname = "fit01", username = "root",
                 verbose = verbose_ssh,
@@ -52,6 +77,16 @@ check_lease = SshJob(
 )
 
 ####################
+
+async def verbose_delay(duration, *print_args):
+    """                                                                      
+    a coroutine that just sleeps for some time - and says so                 
+    print_args are passed to print                                           
+    """
+    print(20*'*', "Waiting for {} s".format(duration), *print_args)
+    await asyncio.sleep(duration)
+    print("Done waiting for {} s".format(duration), *print_args)
+
 
 ##########
 # setting up the wireless interface on both fit01 and fit02
@@ -91,7 +126,7 @@ ovs_setup = SshJob(
     ))
 
 # we need to wait for fit01 OVS and libfluid controller setup
-duration = 60
+duration = 120
 msg = "wait for OVS and libfluid setup in fit01".format(duration)
 job_wait = Job(
     verbose_delay(duration, msg),
@@ -118,7 +153,7 @@ iperf_receiver = SshJob(
 
 ##########
 # our orchestration scheduler has 4 jobs to run this time
-sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, iperf_sender, iperf_receiver)
+sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, job_wait, iperf_sender, iperf_receiver)
 
 # run the scheduler
 ok = sched.orchestrate()
