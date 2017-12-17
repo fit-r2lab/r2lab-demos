@@ -91,12 +91,13 @@ ovs_setup = SshJob(
     ))
 
 # we need to wait for fit01 OVS and libfluid controller setup
-    duration = 60
-    msg = "wait for OVS and libfluid setup in fit01".format(duration)
-    job_wait = Job(
-        verbose_delay(duration, msg),
-        label = msg,
-        required = ping)
+duration = 60
+msg = "wait for OVS and libfluid setup in fit01".format(duration)
+job_wait = Job(
+    verbose_delay(duration, msg),
+    label = msg,
+    required = ping
+)
 
 iperf_sender = SshJob(
     node = node2,
