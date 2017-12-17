@@ -99,8 +99,8 @@ function ovs-setup(){
     make
 
     # Run the mc_controller
-    echo "Run the mc_controller: mc_controller mc-app 10.0.0.6 8888 7777"
-    LD_LIBRARY_PATH=/usr/local/lib ./mc_controller mc-app 10.0.0.6 8888 7777
+    echo "Run the mc_controller in background with mc-app 10.0.0.6 8888 7777"
+    LD_LIBRARY_PATH=/usr/local/lib ./mc_controller mc-app 10.0.0.6 8888 7777&
 
 }
 
