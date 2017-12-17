@@ -3,7 +3,7 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
 
-from asynciojobs import Job, Scheduler
+from asynciojobs import Job, Scheduler, PrintJob
 
 from apssh import SshNode, SshJob, Run
 from apssh import RunString, RunScript, TimeColonFormatter
@@ -12,10 +12,11 @@ from apssh import RunString, RunScript, TimeColonFormatter
 gateway_hostname  = 'faraday.inria.fr'
 gateway_username  = 'inria_l2bm'
 verbose_ssh = True
-#verbose_ssh = False
-# run on all nodes by default                                               
-default_node_ids = [1,]
-node_ids = []
+
+# sender is node 02
+node_sender = 2
+node_ids = [1,2,3]
+frequency = 2412
 
 parser = ArgumentParser()
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -33,11 +34,6 @@ gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
 wireless_driver = args.driver
 
-
-# set default for the nodes parameter                                    
-node_ids = [int(id) for id in node_ids] if node_ids is not None else default_node_ids
-
-
 ##########
 faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
                   verbose = verbose_ssh,
@@ -52,113 +48,123 @@ def fitname(node_id):
 
 # this is a python dictionary that allows to retrieve a node object      
 # from an id                                                             
-#node_index = {
-#    id: SshNode(gateway=faraday, hostname=fitname(id), username="root",
-#                formatter=TimeColonFormatter(), verbose=verbose_ssh)
-#    for id in node_ids
-#    }
+node_index = {
+    id: SshNode(gateway=faraday, hostname=fitname(id), username="root",
+                formatter=TimeColonFormatter(), verbose=verbose_ssh)
+    for id in node_ids
+}
+receiver_index = dict(node_index)
+del receiver_index[2]
 
-node1 = SshNode(gateway = faraday, hostname = "fit01", username = "root",
+node_ovs = SshNode(gateway = faraday, hostname = "fit02", username = "root",
                 verbose = verbose_ssh,
                 formatter = TimeColonFormatter())
 
-node2 = SshNode(gateway = faraday, hostname = "fit02", username = "root",
-                verbose = verbose_ssh,
-                formatter = TimeColonFormatter())
+# the global scheduler                                                   
+scheduler = Scheduler(verbose=verbose_ssh)
+
 
 ##########
 check_lease = SshJob(
-    # checking the lease is done on the gateway
+    scheduler=scheduler,
     node = faraday,
-    # this means that a failure in any of the commands
-    # will cause the scheduler to bail out immediately
     critical = True,
+    verbose=verbose_ssh,
     command = Run("rhubarbe leases --check"),
+)
+
+green_light = SshJob(
+    scheduler=scheduler,
+    required=check_lease,
+    node=faraday,
+    critical=True,
+    verbose=verbose_ssh,
+    commands=[
+#        Run("rhubarbe", "load", "-i", "u16.04-ovs-hostapd", *node_ids),
+        Run("rhubarbe", "wait", *node_ids)
+    ]
 )
 
 ####################
 
-async def verbose_delay(duration, *print_args):
-    """                                                                      
-    a coroutine that just sleeps for some time - and says so                 
-    print_args are passed to print                                           
-    """
-    print(20*'*', "Waiting for {} s".format(duration), *print_args)
-    await asyncio.sleep(duration)
-    print("Done waiting for {} s".format(duration), *print_args)
-
 
 ##########
-# setting up the wireless interface on both fit01 and fit02
-init_node_01 = SshJob(
-    node = node1,
-    required = check_lease,
-    command = RunScript(
-        "l2bm-setup.sh", "init-ad-hoc-network",
-        wireless_driver, "L2BM", 2412,
-#        verbose=True,
-    ))
+# setting up the wireless interface on node_ovs and other receiver nodes
 
-init_node_02 = SshJob(
-    node = node2,
-    required = check_lease,
-    command = RunScript(
-        "l2bm-setup.sh", "init-ad-hoc-network",
-        wireless_driver, "L2BM", 2412))
+init_nodes = [
+    SshJob(
+        scheduler=scheduler,
+        required=green_light,
+        node=node,
+        critical=True,
+        verbose=verbose_ssh,
+        label="init {}".format(id),
+        command=RunScript(
+            "l2bm-setup.sh", "init-ad-hoc-network",
+            wireless_driver, "L2BM", frequency)
+    ) for id, node in node_index.items()
+]
 
-# test Wi-Fi ad hoc connectivity between the two nodes 
-ping = SshJob(
-    node = node1,
-    required = (init_node_01, init_node_02),
-    command = RunScript(
-        "l2bm-setup.sh", "my-ping", '10.0.0.2', 20,
-#        verbose=True,
-    ))
+# test Wi-Fi ad hoc connectivity between receivers and the sender
+ping = [
+    SshJob(
+        scheduler=scheduler,
+        required=init_nodes,
+        node=node,
+        verbose=verbose_ssh,
+        label="init {}".format(id),
+        command = RunScript(
+            "l2bm-setup.sh", "my-ping", '10.0.0.2', 20)
+    ) for id, node in receiver_index.items()
+]
 
-# Let fit02 node be the OVS switch node
-
+# Setting up OVS and libfluid on the sender node
 ovs_setup = SshJob(
-    node = node2,
+    scheduler=scheduler,
     required = ping,
-    command = RunScript(
-        "l2bm-setup.sh", "ovs-setup",
-#        verbose=True,                                                          
-    ))
-
-# we need to wait for fit01 OVS and libfluid controller setup
-duration = 120
-msg = "wait for OVS and libfluid setup in fit01".format(duration)
-job_wait = Job(
-    verbose_delay(duration, msg),
-    label = msg,
-    required = ping
+    node = node_ovs,
+    critical=True,
+    verbose=verbose_ssh,
+    command = RunScript("l2bm-setup.sh", "ovs-setup")
 )
 
+# we need to wait for OVS and libfluid controller setup
+wait_ovs_job = PrintJob(
+    "Let the OVS and Libfluid settle",
+    scheduler=scheduler,
+    required=ping,
+    sleep=100,
+    label="settling ovs and libfluid"
+)
+
+
 iperf_sender = SshJob(
-    node = node2,
-    required = job_wait,
+    node = node_ovs,
+    required = wait_ovs_job,
+    verbose=verbose_ssh,
     command = RunScript(
         "l2bm-setup.sh", "iperf_sender",)
-    )
+)
 
-# Run an iperf receiver at node 01
-iperf_receiver = SshJob(
-    node = node1,
-    required = iperf_sender,
-    command = RunScript(
-        "l2bm-setup.sh", "iperf_receiver",
-#        verbose=True,                                                          
-    ))
-
+# Run an iperf receiver at each receiving nodes
+iperf_receivers = [
+    SshJob(
+        scheduler=scheduler,
+        required=wait_ovs_job,
+        node=node,
+        verbose=verbose_ssh,
+        label="run iperf on receiver {}".format(id),
+        command = RunScript(
+            "l2bm-setup.sh", "iperf_receiver")
+    ) for id, node in receiver_index.items()
+]
 
 ##########
-# our orchestration scheduler has 4 jobs to run this time
-sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, job_wait, iperf_sender, iperf_receiver)
-
-# run the scheduler
-ok = sched.orchestrate()
-# give details if it failed
-ok or sched.debrief()
+# orchestration scheduler jobs
+ok = scheduler.orchestrate()
+# give details if it failed                                              
+if not ok:
+    scheduler.debrief()
 
 success = ok and ping.result() == 0
 
