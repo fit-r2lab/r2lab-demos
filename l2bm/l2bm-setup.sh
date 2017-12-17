@@ -5,13 +5,11 @@
 # it run on the remote machine - either sender or receiver
 # and is in charge of initializing a small ad-hoc network
 #
-# Thanks to the RunString class, we can just define this as
-# a python string, and pass it arguments from python variables
 #
 
 
-# we expect the following arguments
-# * wireless driver name (iwlwifi or ath9k)
+# init-ad-hoc-network expects the following arguments
+# * wireless driver name, here for atheros: ath9k
 # * the wifi network name to join
 # * the wifi frequency to use
 
@@ -57,15 +55,61 @@ function init-ad-hoc-network (){
     iw phy $phyname interface add $moniname type monitor 2>/dev/null
     ip link set $moniname up
 
-    ### addition - would be cool to come up with something along these lines that
-    # works on both cards
-    # a recipe from Naoufal for Intel
-    # modprobe iwlwifi
-    # iwconfig wlan2 mode ad-hoc
-    # ip addr add 10.0.0.41/16 dev wlan2
-    # ip link set wlan2 up
-    # iwconfig wlan2 essid mesh channel 1
-    
+    # install iperf and tcpdump
+    apt-get install -y iperf tcpdump
+
+}
+
+function ovs-setup(){
+
+    # Install missing packages useful for ovs and libfluid
+    apt-get install -y autoconf libtool build-essential pkg-config libevent-dev libssl-dev
+
+    # Install libfluid and the L2BM controller
+    echo "Install Libfluid controller and L2BM multicast function"
+    git clone https://github.com/hksoni/libfluid.git
+    cd libfluid/
+    ./bootstrap.sh
+    cd libfluid_base/
+    ./configure
+    make
+    make install
+
+    cd ../examples/controller/
+    make
+
+    # Manage the atheros wireless interface through ovs
+    echo "Configure ovs and interface it with atheros Wi-Fi interface"
+    ip addr del 10.0.0.2/24  dev atheros
+
+    ovs-vsctl add-br br0
+    ovs-vsctl add-port br0 atheros
+
+    ip addr add 10.0.0.2/24 broadcast 10.0.0.255 dev br0
+    ip link set br0 up
+
+    ovs-vsctl set bridge br0 protocols=OpenFlow13
+    ovs-vsctl set bridge br0 other_config:disable-in-band=true
+    ovs-vsctl set-manager ptcp:6640
+    ovs-vsctl set-controller br0 tcp:0.0.0.0:7777
+
+    # Run the mc_controller
+    echo "Run the mc_controller: mc_controller mc-app 10.0.0.6 8888 7777"
+    ./mc_controller mc-app 10.0.0.6 8888 7777
+}
+
+
+function iperf_sender () {
+    echo "run iperf sender: iperf -l 1400  -c 239.0.0.1 -u -b 100k -f m -i 3 -t 1200"
+    route add -host 239.0.0.1 br0
+    iperf -l 1400 -c 239.0.0.1 -u -b 100k -f m -i 3 -t 1200
+}
+
+
+function iperf_receiver () {
+    echo "run iperf receiver: iperf -l 1400  -c 239.0.0.1 -u -b 100k -f m -i 3 -t 1200"
+    route add -host 239.0.0.1 br0
+    iperf -s -B 239.0.0.1 -u -f m -i 3
 }
 
 function my-ping (){

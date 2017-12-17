@@ -9,7 +9,7 @@ from apssh import RunString, RunScript, TimeColonFormatter
 
 ##########
 gateway_hostname  = 'faraday.inria.fr'
-gateway_username  = 'inria_pfe'
+gateway_username  = 'inria_l2bm'
 verbose_ssh = True
 #verbose_ssh = False
 
@@ -36,6 +36,7 @@ faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
 node1 = SshNode(gateway = faraday, hostname = "fit01", username = "root",
                 verbose = verbose_ssh,
                 formatter = TimeColonFormatter())
+
 node2 = SshNode(gateway = faraday, hostname = "fit02", username = "root",
                 verbose = verbose_ssh,
                 formatter = TimeColonFormatter())
@@ -50,7 +51,6 @@ check_lease = SshJob(
     command = Run("rhubarbe leases --check"),
 )
 
-# the shell script has gone into B3-wireless.sh
 ####################
 
 ##########
@@ -59,29 +59,59 @@ init_node_01 = SshJob(
     node = node1,
     required = check_lease,
     command = RunScript(
-        "B3-wireless.sh", "init-ad-hoc-network",
-        wireless_driver, "foobar", 2412,
+        "l2bm-setup.sh", "init-ad-hoc-network",
+        wireless_driver, "L2BM", 2412,
 #        verbose=True,
     ))
+
 init_node_02 = SshJob(
     node = node2,
     required = check_lease,
     command = RunScript(
-        "B3-wireless.sh", "init-ad-hoc-network",
-        wireless_driver, "foobar", 2412))
+        "l2bm-setup.sh", "init-ad-hoc-network",
+        wireless_driver, "L2BM", 2412))
 
-# the command we want to run in faraday is as simple as it gets
+# test Wi-Fi ad hoc connectivity between the two nodes 
 ping = SshJob(
     node = node1,
     required = (init_node_01, init_node_02),
     command = RunScript(
-        "B3-wireless.sh", "my-ping", '10.0.0.2', 20
+        "l2bm-setup.sh", "my-ping", '10.0.0.2', 20,
 #        verbose=True,
     ))
 
+# Let fit02 node be the OVS switch node
+
+ovs_setup = SshJob(
+    node = node2,
+    required = ping,
+    command = RunScript(
+        "l2bm-setup.sh", "ovs-setup",
+#        verbose=True,                                                          
+    ))
+
+iperf_sender = SshJob(
+    node = node2,
+    required = ovs_setup,
+    command = RunScript(
+        "l2bm-setup.sh", "iperf_sender",
+#        verbose=True,                                                          
+    ))
+
+# Run an iperf receiver at node 01
+iperf_receiver = SshJob(
+    node = node1,
+    required = iperf_receiver,
+    command = RunScript(
+        "l2bm-setup.sh", "iperf_receiver",
+#        verbose=True,                                                          
+    ))
+
+
 ##########
 # our orchestration scheduler has 4 jobs to run this time
-sched = Scheduler(check_lease, ping, init_node_01, init_node_02)
+sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, ipe
+                  rf_sender, iperf_receiver)
 
 # run the scheduler
 ok = sched.orchestrate()
