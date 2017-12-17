@@ -90,13 +90,20 @@ ovs_setup = SshJob(
 #        verbose=True,                                                          
     ))
 
+# we need to wait for fit01 OVS and libfluid controller setup
+    duration = 60
+    msg = "wait for OVS and libfluid setup in fit01".format(duration)
+    job_wait = Job(
+        verbose_delay(duration, msg),
+        label = msg,
+        required = ping)
+
 iperf_sender = SshJob(
     node = node2,
-    required = ovs_setup,
+    required = job_wait,
     command = RunScript(
-        "l2bm-setup.sh", "iperf_sender",
-#        verbose=True,                                                          
-    ))
+        "l2bm-setup.sh", "iperf_sender",)
+    )
 
 # Run an iperf receiver at node 01
 iperf_receiver = SshJob(
