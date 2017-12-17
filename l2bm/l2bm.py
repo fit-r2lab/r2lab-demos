@@ -101,7 +101,7 @@ iperf_sender = SshJob(
 # Run an iperf receiver at node 01
 iperf_receiver = SshJob(
     node = node1,
-    required = iperf_receiver,
+    required = iperf_sender,
     command = RunScript(
         "l2bm-setup.sh", "iperf_receiver",
 #        verbose=True,                                                          
@@ -110,8 +110,7 @@ iperf_receiver = SshJob(
 
 ##########
 # our orchestration scheduler has 4 jobs to run this time
-sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, ipe
-                  rf_sender, iperf_receiver)
+sched = Scheduler(check_lease, init_node_01, init_node_02, ping, ovs_setup, iperf_sender, iperf_receiver)
 
 # run the scheduler
 ok = sched.orchestrate()
