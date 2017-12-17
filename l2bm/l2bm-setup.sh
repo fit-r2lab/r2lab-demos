@@ -65,19 +65,6 @@ function ovs-setup(){
     # Install missing packages useful for ovs and libfluid
     apt-get install -y autoconf libtool build-essential pkg-config libevent-dev libssl-dev
 
-    # Install libfluid and the L2BM controller
-    echo "Install Libfluid controller and L2BM multicast function"
-    git clone https://github.com/hksoni/libfluid.git
-    cd libfluid/
-    ./bootstrap.sh
-    cd libfluid_base/
-    ./configure
-    make
-    make install
-
-    cd ../examples/controller/
-    make
-
     # Manage the atheros wireless interface through ovs
     echo "Configure ovs and interface it with atheros Wi-Fi interface"
     ip addr del 10.0.0.2/24  dev atheros
@@ -92,6 +79,24 @@ function ovs-setup(){
     ovs-vsctl set bridge br0 other_config:disable-in-band=true
     ovs-vsctl set-manager ptcp:6640
     ovs-vsctl set-controller br0 tcp:0.0.0.0:7777
+
+    # Install libfluid and the L2BM controller
+    echo "Install Libfluid controller and L2BM multicast function"
+    git clone https://github.com/hksoni/libfluid.git
+    cd libfluid/
+    ./bootstrap.sh
+    cd libfluid_base/
+    ./configure
+    make
+    make install
+
+    cd ../libfluid_msg
+    ./configure
+    make
+    make install
+
+    cd ../examples/controller/
+    make
 
     # Run the mc_controller
     echo "Run the mc_controller: mc_controller mc-app 10.0.0.6 8888 7777"
