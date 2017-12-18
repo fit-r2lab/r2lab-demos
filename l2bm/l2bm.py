@@ -11,7 +11,7 @@ from apssh import RunString, RunScript, TimeColonFormatter
 from listofchoices import ListOfChoices
 
 ##########
-gateway_hostname  = 'faraday.inria.fr'
+default_gateway  = 'faraday.inria.fr'
 gateway_username  = 'inria_l2bm'
 fit_image = "u16.04-ovs-hostapd"
 wireless_driver = 'ath9k'
@@ -50,23 +50,21 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
         print("sender node {} must be part of selected fit nodes {}".format(node_sender, node_ids))
         exit(1)
 
-    # node_index is a python dictionary that allows to retrieve 
-    # a node object from an id 
+    faraday = SshNode(hostname=default_gateway, username=slicename,
+                      verbose=verbose_mode,
+                      formatter=TimeColonFormatter())
+
+    node_ovs = SshNode(gateway=faraday, hostname=fitname(node_sender), 
+                       username="root",
+                       verbose=verbose_mode,
+                       formatter=TimeColonFormatter())
+
     node_index = {
-        id: SshNode(gateway=gateway_hostname, hostname=fitname(id), 
+        id: SshNode(gateway=faraday, hostname=fitname(id), 
                     username="root",formatter=TimeColonFormatter(), 
                     verbose=verbose_mode)
         for id in node_ids
         }
-
-    faraday = SshNode(hostname = gateway_hostname, username = slicename,
-                      verbose = verbose_mode,
-                      formatter = TimeColonFormatter())
-
-    node_ovs = SshNode(gateway = faraday, hostname = node_sender, 
-                       username = "root",
-                       verbose = verbose_mode,
-                       formatter = TimeColonFormatter())
 
     receiver_index = dict(node_index)
     del receiver_index[node_sender]
@@ -122,8 +120,7 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
             node=node,
             critical=True,
             verbose=verbose_mode,
-            label="init fit node ",
-#            label="init fit node {}".format(id),
+            label="init fit node {}".format(id),
             command=RunScript(
                 "l2bm-setup.sh", "init-ad-hoc-network",
                 wireless_driver, ssid, frequency)
@@ -138,7 +135,7 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
             node=node,
             verbose=verbose_mode,
             label="ping sender from receiver {}".format(id),
-            command = RunScript(
+            command=RunScript(
                 "l2bm-setup.sh", "my-ping", ip_sender, 20)
             ) for id, node in receiver_index.items()
         ]
@@ -146,11 +143,11 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
     # Setting up OVS and libfluid on the sender node
     ovs_setup = SshJob(
         scheduler=scheduler,
-        required = ping,
-        node = node_ovs,
+        required=ping,
+        node=node_ovs,
         critical=True,
         verbose=verbose_mode,
-        command = RunScript("l2bm-setup.sh", "ovs-setup")
+        command=RunScript("l2bm-setup.sh", "ovs-setup")
         )
 
     # we need to wait for OVS and libfluid controller setup
@@ -158,14 +155,15 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
         "Let the OVS and Libfluid settle",
         scheduler=scheduler,
         required=ping,
-        sleep=100,
+        sleep=60,
         label="settling ovs and libfluid"
         )
 
 
     iperf_sender = SshJob(
-        node = node_ovs,
+        scheduler=scheduler,
         required = wait_ovs_job,
+        node = node_ovs,
         verbose=verbose_mode,
         command = RunScript("l2bm-setup.sh", "iperf_sender")
         )
