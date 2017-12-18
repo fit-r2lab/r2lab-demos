@@ -113,8 +113,9 @@ function iperf_sender () {
 
 
 function iperf_receiver () {
-    echo "run iperf receiver: iperf -l 1400  -c 239.0.0.1 -u -b 100k -f m -i 3 -t 1200"
-    route add -host 239.0.0.1 br0
+    ovs-vsctl del-br br0
+    route add -host 239.0.0.1 atheros
+    echo "run iperf receiver: -s -B 239.0.0.1 -u -f m -i 3"
     iperf -s -B 239.0.0.1 -u -f m -i 3
 }
 
