@@ -9,7 +9,7 @@ def read_rssi(filename, sender, rssi_rank):
     '''
     read a RSSI file and, given a sender node and
     an rssi_rank, returns a dictionary
-    node_number -> value
+    receiver_node_number -> value
     '''
 
     node_number_to_value = {}
