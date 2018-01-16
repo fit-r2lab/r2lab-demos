@@ -1,1 +1,0 @@
-../jobs-angle-measure/angle-measure.sh
