@@ -16,14 +16,18 @@ def read_rssi(filename, sender, rssi_rank):
     try:
         with open(filename) as in_file:
             for line in in_file:
-                ip_snd, ip_rcv, *values = line.split()
-                *_, n_snd = ip_snd.split('.')
-                *_, n_rcv = ip_rcv.split('.')
-                n_snd = int(n_snd)
-                n_rcv = int(n_rcv)
-                if n_snd != sender:
-                    continue
-                node_number_to_value[n_rcv] = values[rssi_rank]
+                try:
+                    ip_snd, ip_rcv, *values = line.split()
+                    *_, n_snd = ip_snd.split('.')
+                    *_, n_rcv = ip_rcv.split('.')
+                    n_snd = int(n_snd)
+                    n_rcv = int(n_rcv)
+                    if n_snd != sender:
+                        continue
+                    node_number_to_value[n_rcv] = values[rssi_rank]
+                except IndexError as e:
+                    print("rssi_rank {} not present in values"
+                          .format(rssi_rank))
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
 

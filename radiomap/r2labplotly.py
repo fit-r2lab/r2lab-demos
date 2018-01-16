@@ -15,27 +15,27 @@ def plotx(x):
     return x + 1
 
 def ploty(y):
-    return r2lab.height - y
+    return r2labmap.height - y
 
 # internal maps
 _node_to_position, _position_to_node, _holes \
     = r2labmap.maps(plotx, ploty)
 
 #################### for plotly
-def rssi_to_plotly(dict_values):
+def rssi_to_plotly(rssi_dict):
     """
     converts an input dict into suitable values 
     for plotting in plotly
 
     Parameters:
-        dict_values is expected to be a dict: node_id -> value 
+        rssi_dict is expected to be a dict: node_id -> value 
 
     Returns:
         a tuple X, Y, Z, T(ext) of arrays for plotly
     """
     # input dict may have holes
     X, Y, Z, T = [], [], [], []
-    for node_id, value in dict_values.items():
+    for node_id, value in rssi_dict.items():
         x, y = _node_to_position[node_id]
         X.append(x)
         Y.append(y)
@@ -44,12 +44,12 @@ def rssi_to_plotly(dict_values):
     return X, Y, Z, T
 
 
-def rssi_to_plotly3D(dict_values):
+def rssi_to_plotly3D(rssi_dict):
     """
     converts an input dict into suitable values for plotting in 3D
 
     Parameters:
-        dict_values is expected to be a dict: node_id -> value 
+        rssi_dict is expected to be a dict: node_id -> value 
 
     Returns:
         will return a triple X, Y, Z, T(ext) of numpy arrays for your plotter
@@ -63,7 +63,7 @@ def rssi_to_plotly3D(dict_values):
     Z[0,3] = Z[0,4] = Z[0,5] = -100 # np.nan
     Z[3,3] = Z[3,5] = Z[2,8] = Z[3,8] = Z[4,8] = -100 # np.nan
     T = [ ["None"]*9 for i in range(6) ]
-    for node_id, value in dict_values.items():
+    for node_id, value in rssi_dict.items():
         x, y = _node_to_position[node_id]
         Z[y-1,x-1] = value
         T[y-1][x-1]="fit{:02d}".format(node_id)

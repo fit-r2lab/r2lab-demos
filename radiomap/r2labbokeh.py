@@ -22,7 +22,7 @@ def bokx(x):
     return x
 
 def boky(y):
-    return y
+    return r2labmap.height - y
 
 # internal maps
 _node_to_position, _position_to_node, _holes \
@@ -35,17 +35,13 @@ def init_dataframe():
     returns a dataframe that has the right
     number of lines and columns to depict r2lab nodes
     """
-    df = pd.DataFrame(r2labmap.r2labmap)
-    def numbers(nam, i):
-        return f"{nam}{i:03d}"
-    # make column names strings instead of numbers
-    columns_map = lambda i: numbers("col", i)
-    index_map = lambda i: numbers("col", i)
-    df.rename(index = index_map, columns = columns_map, inplace=True)
-    # fill with zeros
-    for node_id in range(1, 38):
-        x, y = _node_to_position[node_id]
-        df.iloc[y, x] = 0
+    index = _node_to_position.keys()
+    columns = ['x', 'y', 'value']
+    df = pd.DataFrame(index = index, columns=columns)
+    for node_id, (x, y) in _node_to_position.items():
+        df.loc[node_id]['x'] = x
+        df.loc[node_id]['y'] = y
+        df.loc[node_id]['value'] = 0
     return df
     
 def fill_dataframe_from_rssi(df, rssi_dict):
@@ -56,9 +52,8 @@ def fill_dataframe_from_rssi(df, rssi_dict):
     returns df
     """
 
-    for node_id, value in dict_values.items():
-        x, y = _node_to_position[node_id]
-        df.iloc[y, x] = value
+    for node_id, value in rssi_dict.items():
+        df.loc[node_id]['value'] = value
     return df
 
 
