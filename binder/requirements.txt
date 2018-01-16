@@ -1,5 +1,6 @@
 wheel
 numpy
+pandas
 plotly
 bokeh
 asynciojobs
