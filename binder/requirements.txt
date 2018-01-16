@@ -1,0 +1,7 @@
+wheel
+numpy
+plotly
+bokeh
+asynciojobs
+asyncssh
+apssh
