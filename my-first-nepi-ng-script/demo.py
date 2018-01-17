@@ -27,7 +27,7 @@ def main(nodename1, nodename2, *, verbose=True):
         for nodename in (nodename1, nodename2)]
 
     ########## 
-    job_check_for_lease = SshJob(
+    job_warmup = SshJob(
         node = gateway,
         # with just Run()
         # you can run a command already available on the remote
@@ -47,12 +47,12 @@ def main(nodename1, nodename2, *, verbose=True):
             Run("ip address show control"),
         ],
         # run this only once this job is done
-        required = job_check_for_lease,
+        required = job_warmup,
     )
     job_prep_recv = SshJob(
         node = node2,
         command = RunScript("demo.sh", "prepare-receiver"),
-        required = job_check_for_lease,
+        required = job_warmup,
     )
 
     job_run_send = SshJob(
@@ -76,7 +76,7 @@ def main(nodename1, nodename2, *, verbose=True):
     )
         
     scheduler = Scheduler(
-        job_check_for_lease,
+        job_warmup,
         job_prep_send, job_prep_recv,
         job_run_send, job_run_recv,
         verbose=verbose
