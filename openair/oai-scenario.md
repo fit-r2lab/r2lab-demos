@@ -8,7 +8,7 @@
 Only a command-line access; this will let you turn the phone on or off, but that's it:
 
 ```
-onelab.inria.oai.oai_build@faraday:~$ macphone
+inria_r2lab.tutorial@faraday:~$ macphone
 Last login: Wed Oct  5 15:28:08 2016 from faraday4
 macphone:~ tester$ help
 #################### Native bash help
@@ -25,7 +25,7 @@ refresh 	      retrieve latest git repo, and source it in this shell
 
 This method gives you a screen sharing, so you can access many more features
 
-From the public Internet, use target `faraday.inria.fr` -> `tester/tester++`
+From the public Internet, use target `faraday-macphone1.inria.fr` -> `tester/tester++`
 
 You can in particular open a terminal, and also do things like `help` or `phone-status`
 

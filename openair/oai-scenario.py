@@ -39,9 +39,9 @@ def locate_local_script(s):
     find that place among a list of possible locations
     """
     paths = [
-        "../../infra/user-env",
-        os.path.expanduser("~/git/r2lab/infra/user-env/"), 
-        os.path.expanduser("~/r2lab/infra/user-env/"),
+        "../../r2lab-embedded/shell/",
+        os.path.expanduser("~/git/r2lab-embedded/shell/"), 
+        os.path.expanduser("~/r2lab-embedded/shell/"),
     ]
     for path in paths:
         candidate = os.path.join(path, s)
@@ -139,7 +139,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_stop_phone = SshJob(
         node = gwnode,
         command = RunScript(
-            locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-off",
+            locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-off",
             includes = includes),
         label = "stop phone",
         required = job_check_for_lease,
@@ -248,9 +248,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_start_phone = SshJob(
         node = gwnode,
         commands = [
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-on",
+            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-on",
                       includes=includes),
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab/infra/user-env/macphone.sh", "phone-start-app",
+            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
         label = "start phone 4g and speedtest app",
