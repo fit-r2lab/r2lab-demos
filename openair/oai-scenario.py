@@ -10,6 +10,8 @@ from asynciojobs import Scheduler, Job, Sequence
 from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
+from listofchoices import ListOfChoices
+
 # to be added to apssh
 from localjob import LocalJob
 
@@ -88,7 +90,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                   are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
     * otherwise (both False): do nothing
-    * reset_usrp : if not False, the USRP board won't be reset
+    * reset_usb : if not False, the USRP board won't be reset
     * spawn_xterms : if set, starts xterm on all extra nodes
     * image_* : the name of the images to load on the various nodes
     """
@@ -239,7 +241,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     # the phone
     # we need to wait for the USB firmware to be loaded
-    duration = 30 if reset_usrp is not False else 8
+    duration = 30 if reset_usb is not False else 8
     msg = "wait for enodeb firmware to load on USRP".format(duration)
     job_wait_enb = Job(
         verbose_delay(duration, msg),
