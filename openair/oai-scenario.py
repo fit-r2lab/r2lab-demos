@@ -67,7 +67,7 @@ includes = [ locate_local_script(x) for x in [
 
 ############################## first stage 
 def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra,
-        reset_nodes, reset_usrp, spawn_xterms, verbose):
+        reset_nodes, reset_usb, spawn_xterms, n_rb, verbose):
     """
     ##########
     # 3 methods to get nodes ready
@@ -225,7 +225,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         SshJob(
             node = enbnode,
             # run-enb expects the id of the epc as a parameter
-            command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, reset_usrp,
+            # n_rb means number of resource blocks for DL, set to either 25, 50 or 100.
+            command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, n_rb, reset_usb,
                                 includes = includes),
             label = "start softmodem on ENB",
             ),
@@ -443,6 +444,7 @@ def main():
     def_image_gw  = "oai-cn"
     def_image_enb = "oai-enb"
     def_image_extra = "gnuradio"
+    def_image_oai_ue = "oai-ue"
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -465,7 +467,7 @@ def main():
                         help="image to load in extra nodes (default={})"
                         .format(def_image_extra))
 
-    parser.add_argument("-f", "--fast", dest="reset_usrp", default=True, action='store_false')
+    parser.add_argument("-f", "--fast", dest="reset_usb", default=True, action='store_false')
 
     parser.add_argument("--hss", default=def_hss,
                         help="""id of the node that runs the HSS
@@ -485,6 +487,11 @@ def main():
                         will be loaded with the gnuradio image""")
     parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
                         help="if set, spawns xterm on all extra nodes")
+    parser.add_argument("-N", "--n-rb", dest='n_rb',
+                        default=25,
+                        choices=[25, 50, 100],
+                        action=ListOfChoices,
+                        help="specify the Number of Resource Blocks (NRB) for the downlink")
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
