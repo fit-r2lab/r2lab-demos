@@ -8,6 +8,14 @@ https://github.com/parmentelat/r2lab
 
 We expose here a few typical usages of the R2lab testbed
 
+# Requirements
+
+The demos occasionnally depend on the `r2lb-embedded` module; it is the case for example with the `openair` demo.
+
+In order to fullful this requirement, you will need to git glone this repository, preferably at the same level as `r2lab-demos`, or directly under your homedir.
+
+`git clone https://github.com/fit-r2lab/r2lab-embedded`
+
 # What to expect
 
 Mostly ready-to-use scripts; this almost always assumes though:
