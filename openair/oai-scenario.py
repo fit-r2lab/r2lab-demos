@@ -201,7 +201,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     ########## enodeb
 
     # prepare node
-    
+
     commands = []
     if load_nodes:
         commands.append(Run("rhubarbe", "usrpoff", enb))
@@ -498,6 +498,11 @@ def main():
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
     args = parser.parse_args()
+    
+    if args.enb in ["9", "09", "34"] :
+        args.image_enb="oai-enb-limesdr"
+        print("Forcing the eNB image to {} on node fit{}".format(args.image_enb, args.enb))
+
 
     # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
