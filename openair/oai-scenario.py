@@ -10,7 +10,7 @@ from asynciojobs import Scheduler, Job, Sequence
 from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
-from listofchoices import ListOfChoices
+#from listofchoices import ListOfChoices
 
 # to be added to apssh
 from localjob import LocalJob
@@ -68,7 +68,7 @@ includes = [ locate_local_script(x) for x in [
 ] ]
 
 ############################## first stage 
-def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra,
+def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue,
         reset_nodes, reset_usb, spawn_xterms, n_rb, verbose):
     """
     ##########
@@ -113,7 +113,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         SshNode(gateway = gwnode, hostname = hostname, username='root',
                 formatter = ColonFormatter(verbose=verbose), debug=verbose)
         for hostname in extra_hostnames
-        ]
+    ]
 
     ########## preparation
     job_check_for_lease = SshJob(
@@ -227,7 +227,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         SshJob(
             node = enbnode,
             # run-enb expects the id of the epc as a parameter
-            # n_rb means number of resource blocks for DL, set to either 25, 50 or 100.
+            # n_rb means number of resource blocks for DL, set to either 25 or 50.
             command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, n_rb, reset_usb,
                                 includes = includes),
             label = "start softmodem on ENB",
@@ -242,7 +242,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # the phone
     # we need to wait for the USB firmware to be loaded
     duration = 30 if reset_usb is not False else 8
-    msg = "wait for enodeb firmware to load on USRP".format(duration)
+    msg = "wait for enodeb firmware to load on the SDR device".format(duration)
     job_wait_enb = Job(
         verbose_delay(duration, msg),
         label = msg,
@@ -283,26 +283,71 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # however the code for LocalJob appears to work fine, it would be nice to
     # move it around - maybe in apssh ?
 
-    commands = []
-    if not extras:
-        commands.append(Run("echo no extra nodes specified - ignored"))
+    e3372_ue_hostnames, oai_ue_hostnames, gnuradio_hostnames = [], [], []
+    commands_e3372_ue, commands_oai_ue, commands_gnuradio = [], [], []
+
+    for host in extra_hostnames:
+        if host == "fit02" or host == "fit26":
+            e3372_ue_hostnames.append(host)
+        elif host == "fit06" or host == "fit19":
+            oai_ue_hostnames.append(host)
+        else:
+            gnuradio_hostnames.append(host)
+
+    if not e3372_ue_hostnames:
+        commands.append(Run("echo no e3372 UE nodes specified - ignored"))
     else:
         if load_nodes:
-            commands.append(Run("rhubarbe", "usrpoff", *extra_hostnames))
-            commands.append(Run("rhubarbe", "load", "-i", image_extra, *extra_hostnames))
-            commands.append(Run("rhubarbe", "wait", "-t", 120, *extra_hostnames))
-            commands.append(Run("rhubarbe", "usrpon", *extra_hostnames))
+            commands_e3372_ue.append(Run("rhubarbe", "usrpoff", *e3372_ue_hostnames))
+            commands_e3372_ue.append(Run("rhubarbe", "load", "-i", image_e3372_ue, *e3372_ue_hostnames))
         elif reset_nodes:
-            commands.append(Run("rhubarbe", "reset", extra_hostnames))
-        commands.append(Run("rhubarbe", "wait", "-t", "120", *extra_hostnames))
-    job_load_extras = SshJob(
+            commands_e3372_ue.append(Run("rhubarbe", "reset", *e3372_ue_hostnames))
+        commands_e3372_ue.append(Run("rhubarbe", "wait", "-t", "120", *e3372_ue_hostnames))
+
+    job_load_e3372_ue = SshJob(
         node = gwnode,
-        commands = commands,
-        label = "load and wait extra nodes",
+        commands = commands_e3372_ue,
+        label = "load and wait Huawei e3372 extra nodes",
+        required = job_check_for_lease,
+    )
+
+    if not oai_ue_hostnames:
+        commands.append(Run("echo no oai UE nodes specified - ignored"))
+    else:
+        if load_nodes:
+            commands_oai_ue.append(Run("rhubarbe", "usrpoff", *oai_ue_hostnames))
+            commands_oai_ue.append(Run("rhubarbe", "load", "-i", image_oai_ue, *oai_ue_hostnames))
+        elif reset_nodes:
+            commands_oai_ue.append(Run("rhubarbe", "reset", *oai_ue_hostnames))
+        commands_oai_ue.append(Run("rhubarbe", "wait", "-t", "120", *oai_ue_hostnames))
+
+    job_load_oai_ue = SshJob(
+        node = gwnode,
+        commands = commands_oai_ue,
+        label = "load and wait Huawei oai extra nodes",
+        required = job_check_for_lease,
+    )
+
+    if not gnuradio_hostnames:
+        commands.append(Run("echo no extra gnuradio nodes specified - ignored"))
+    else:
+        if load_nodes:
+            commands_gnuradio.append(Run("rhubarbe", "usrpoff", *gnuradio_hostnames))
+            commands_gnuradio.append(Run("rhubarbe", "load", "-i", image_extra, *gnuradio_hostnames))
+            commands_gnuradio.append(Run("rhubarbe", "wait", "-t", 120, *gnuradio_hostnames))
+            commands_gnuradio.append(Run("rhubarbe", "usrpon", *gnuradio_hostnames))
+        elif reset_nodes:
+            commands_gnuradio.append(Run("rhubarbe", "reset", *gnuradio_hostnames))
+        commands_gnuradio.append(Run("rhubarbe", "wait", "-t", "120", *gnuradio_hostnames))
+
+    job_load_gnuradio = SshJob(
+        node = gwnode,
+        commands = commands_gnuradio,
+        label = "load and wait Huawei e3372 extra nodes",
         required = job_check_for_lease,
     )
                              
-    jobs_extras = [job_load_extras]
+    jobs_extras = [job_load_e3372_ue, job_load_oai_ue, job_load_gnuradio]
 
     colors = [ "wheat", "gray", "white"]
 
@@ -314,7 +359,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                               " -bg {} -geometry 90x10".format(color),
                               x11=True),
                 label = "xterm on node {}".format(extra_node.hostname),
-                required = job_load_extras,
+                required = (job_load_e3372_ue, job_load_oai_ue, job_load_gnuradio),
                 # don't set forever; if we do, then these xterms get killed
                 # when all other tasks have completed
                 # forever = True,
@@ -441,12 +486,11 @@ def main():
     # but these boxes now have a USRP N210 and can't use the data network anymore
     def_hss, def_epc, def_enb, def_scr = 7, 8, 23, 6
     
-#    def_image_gw  = "u14.48-oai-gw"
-#    def_image_enb = "u14.319-oai-enb"
     def_image_gw  = "oai-cn"
     def_image_enb = "oai-enb"
     def_image_extra = "gnuradio"
     def_image_oai_ue = "oai-ue"
+    def_image_e3372_ue = "e3372-ue"
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -468,6 +512,12 @@ def main():
     parser.add_argument("--image-extra", default=def_image_extra,
                         help="image to load in extra nodes (default={})"
                         .format(def_image_extra))
+    parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
+                        help="image to load in OAI UE nodes (default={})"
+                        .format(def_image_oai_ue))
+    parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
+                        help="image to load in e3372 UE nodes (default={})"
+                        .format(def_image_e3372_ue))
 
     parser.add_argument("-f", "--fast", dest="reset_usb", default=True, action='store_false')
 
@@ -485,21 +535,24 @@ def main():
                         / defaults to {}"""
                         .format(def_enb))
     parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
-                        help="""id of an extra node(s) for scrambling or observation;
-                        will be loaded with the gnuradio image""")
+                        help="""id of (an) extra node(s) to run;
+                        theses nodes are of 3 types, depending on the id number selected:
+                        2|26) Huawei e3372 UE extra node
+                        6|19) OAI UE extra node
+                        *) scrambler or observer node with gnuradio image""")
     parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
                         help="if set, spawns xterm on all extra nodes")
     parser.add_argument("-N", "--n-rb", dest='n_rb',
                         default=25,
-                        choices=[25, 50, 100],
-                        action=ListOfChoices,
+                        type=int,
+                        choices=[25, 50],
                         help="specify the Number of Resource Blocks (NRB) for the downlink")
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
     args = parser.parse_args()
     
-    if args.enb in ["9", "09", "34"] :
+    if args.enb in ['9', '09', '34'] :
         args.image_enb="oai-enb-limesdr"
         print("Forcing the eNB image to {} on node fit{}".format(args.image_enb, args.enb))
 
