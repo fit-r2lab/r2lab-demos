@@ -68,8 +68,8 @@ includes = [ locate_local_script(x) for x in [
 ] ]
 
 ############################## first stage 
-def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue,
-        reset_nodes, reset_usb, spawn_xterms, n_rb, verbose):
+def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue, 
+        oai_ue, reset_nodes, reset_usb, spawn_xterms, n_rb, verbose):
     """
     ##########
     # 3 methods to get nodes ready
@@ -93,6 +93,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     * reset_usb : if not False, the USRP board won't be reset
     * spawn_xterms : if set, starts xterm on all extra nodes
     * image_* : the name of the images to load on the various nodes
+    * oai_ue: flag set to True if OAI UE image requested on extra nodes fit06/fit19
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
@@ -289,7 +290,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     for host in extra_hostnames:
         if host == "fit02" or host == "fit26":
             e3372_ue_hostnames.append(host)
-        elif host == "fit06" or host == "fit19":
+        elif oai_ue and (host == "fit06" or host == "fit19"):
             oai_ue_hostnames.append(host)
         else:
             gnuradio_hostnames.append(host)
@@ -518,6 +519,8 @@ def main():
     parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
                         help="image to load in e3372 UE nodes (default={})"
                         .format(def_image_e3372_ue))
+    parser.add_argument("-o", "--oai-ue", dest='oai_ue', action='store_true', default=False,
+                        help='load OAI UE image in case extra node fit06/fit19 is/are selected')
 
     parser.add_argument("-f", "--fast", dest="reset_usb", default=True, action='store_false')
 
@@ -536,10 +539,11 @@ def main():
                         .format(def_enb))
     parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
                         help="""id of (an) extra node(s) to run;
-                        theses nodes are of 3 types, depending on the id number selected:
-                        2|26) Huawei e3372 UE extra node
-                        6|19) OAI UE extra node
-                        *) scrambler or observer node with gnuradio image""")
+                        theses nodes are of 3 types, depending on the id number selected:\n
+                        2|26) Huawei e3372 UE extra node\n
+                        6|19) for OAI UE or uplink 2.54GHz scrambler extra node, depending on the oai-ue flag\n
+                        *) scrambler or observer node with gnuradio image
+                           Prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
                         help="if set, spawns xterm on all extra nodes")
     parser.add_argument("-N", "--n-rb", dest='n_rb',
