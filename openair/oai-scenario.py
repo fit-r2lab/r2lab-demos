@@ -69,7 +69,7 @@ includes = [ locate_local_script(x) for x in [
 
 ############################## first stage 
 def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue, 
-        oai_ue, reset_nodes, reset_usb, spawn_xterms, n_rb, verbose):
+        oai_ue, reset_nodes, reset_usb, spawn_xterms, n_rb, phone1, phone2, verbose):
     """
     ##########
     # 3 methods to get nodes ready
@@ -94,6 +94,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     * spawn_xterms : if set, starts xterm on all extra nodes
     * image_* : the name of the images to load on the various nodes
     * oai_ue: flag set to True if OAI UE image requested on extra nodes fit06/fit19
+    * phone1: flag set to True if Nexus phone used as UE
+    * phone2: flag set to True if Moto G phone used as UE
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
@@ -139,16 +141,29 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # actually run this in the gateway, not on the mac
     # the ssh keys are stored in the gateway and we do not yet have
     # the tools to leverage such remote keys
-    job_stop_phone = SshJob(
+    job_stop_phone1 = SshJob(
         node = gwnode,
         command = RunScript(
             locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-off",
             includes = includes),
-        label = "stop phone",
+        label = "stop Nexus phone",
         required = job_check_for_lease,
     )
 
-    jobs_prepare = [job_check_for_lease, job_stop_phone]
+    job_stop_phone2 = SshJob(
+        node = gwnode,
+        command = RunScript(
+            locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-off",
+            includes = includes),
+        label = "stop Moto G phone",
+        required = job_check_for_lease,
+    )
+
+    jobs_prepare = [job_check_for_lease]
+    if phone1:
+        jobs_prepare.append(job_stop_phone1)
+    if phone2:
+        jobs_prepare.append(job_stop_phone2)
     # turn off nodes only when --load or --reset is set
     if load_nodes or reset_nodes:
         jobs_prepare.append(job_off_nodes)
@@ -249,7 +264,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         label = msg,
         required = job_service_enb)
     
-    job_start_phone = SshJob(
+    job_start_phone1 = SshJob(
         node = gwnode,
         commands = [
             RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-on",
@@ -257,22 +272,49 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
-        label = "start phone 4g and speedtest app",
+        label = "start Nexus phone and speedtest app",
         required = job_wait_enb,
     )
 
-    job_ping_phone_from_epc = SshJob(
+    job_ping_phone1_from_epc = SshJob(
         node = epcnode,
         commands = [
             Run("sleep 10"),
             Run("ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"),
             ],
-        label = "ping phone from EPC",
+        label = "ping Nexus phone from EPC",
         critical = False,
         required = job_wait_enb,
     )
 
-    jobs_exp = job_wait_enb, job_start_phone, job_ping_phone_from_epc
+    job_start_phone2 = SshJob(
+        node = gwnode,
+        commands = [
+            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-on",
+                      includes=includes),
+            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
+                      includes=includes),
+        ],
+        label = "start Moto G phone and speedtest app",
+        required = job_wait_enb,
+    )
+
+    job_ping_phone2_from_epc = SshJob(
+        node = epcnode,
+        commands = [
+            Run("sleep 10"),
+            Run("ping -c 100 -s 100 -i .05 172.16.0.3 &> /root/ping-phone"),
+            ],
+        label = "ping Moto G phone from EPC",
+        critical = False,
+        required = job_wait_enb,
+    )
+
+    jobs_exp = [job_wait_enb,]
+    if phone1:
+        jobs_exp += job_start_phone1, job_ping_phone1_from_epc
+    if phone2:
+        jobs_exp += job_start_phone2, job_ping_phone2_from_epc
 
     ########## extra nodes
     # ssh -X not yet supported in apssh, so one option is to start them using
@@ -493,8 +535,8 @@ def main():
     def_image_oai_ue = "oai-ue"
     def_image_e3372_ue = "e3372-ue"
 
-    from argparse import ArgumentParser
-    parser = ArgumentParser()
+    from argparse import ArgumentParser, RawTextHelpFormatter
+    parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
     # xxx faire une première phase de vérifications diverses (clés, scripts, etc..)
     # xxx ajouter une option -k pour spécifier une clé ssh
     parser.add_argument("-s", "--slice", default=def_slice,
@@ -505,19 +547,19 @@ def main():
     parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
                         help='reset nodes instead of loading images')
     parser.add_argument("--image-gw", default=def_image_gw,
-                        help="image to load in hss and epc nodes (default={})"
+                        help="image to load in hss and epc nodes (default to {})"
                         .format(def_image_gw))
     parser.add_argument("--image-enb", default=def_image_enb,
-                        help="image to load in enb node (default={})"
+                        help="image to load in enb node (default to {})"
                         .format(def_image_enb))
     parser.add_argument("--image-extra", default=def_image_extra,
-                        help="image to load in extra nodes (default={})"
+                        help="image to load in extra nodes (default to {})"
                         .format(def_image_extra))
     parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
-                        help="image to load in OAI UE nodes (default={})"
+                        help="image to load in OAI UE nodes (default to {})"
                         .format(def_image_oai_ue))
     parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
-                        help="image to load in e3372 UE nodes (default={})"
+                        help="image to load in e3372 UE nodes (default to {})"
                         .format(def_image_e3372_ue))
     parser.add_argument("-o", "--oai-ue", dest='oai_ue', action='store_true', default=False,
                         help='load OAI UE image in case extra node fit06/fit19 is/are selected')
@@ -525,25 +567,22 @@ def main():
     parser.add_argument("-f", "--fast", dest="reset_usb", default=True, action='store_false')
 
     parser.add_argument("--hss", default=def_hss,
-                        help="""id of the node that runs the HSS
-                        / defaults to {}"""
+                        help="""id of the node that runs the HSS (defaults to {})"""
                         .format(def_hss))
     parser.add_argument("--epc", default=def_epc,
-                        help="""id of the node that runs the EPC
-                        / defaults to {}"""
+                        help="""id of the node that runs the EPC (defaults to {})"""
                         .format(def_epc))
     parser.add_argument("--enb", default=def_enb,
-                        help="""id of the node that runs the eNodeB
-                        / requires a USRP b210 and duplexr for eNodeB
-                        / defaults to {}"""
-                        .format(def_enb))
+                        help='\n'.join(['id of the node that runs the eNodeB',
+                        'requires a USRP b210 and duplexer for eNodeB', 
+                        'defaults to {}']).format(def_enb))
     parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
-                        help="""id of (an) extra node(s) to run;
-                        theses nodes are of 3 types, depending on the id number selected:\n
-                        2|26) Huawei e3372 UE extra node\n
-                        6|19) for OAI UE or uplink 2.54GHz scrambler extra node, depending on the oai-ue flag\n
-                        *) scrambler or observer node with gnuradio image
-                           Prefer using fit10 and fit11 (B210 without duplexer)""")
+                        help='\n'.join(['id of (an) extra node(s) to run;',
+                        'theses nodes are of 3 types, depending on the id number selected:',
+                        '\t2 or 26) Huawei e3372 UE extra node',
+                        '\t6 or 19) for OAI UE or uplink 2.54GHz scrambler extra node, depending on the oai-ue flag',
+                        '\t*) scrambler or observer node with gnuradio image',
+                        '\t  --prefer using fit10 and fit11 (B210 without duplexer)']))
     parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
                         help="if set, spawns xterm on all extra nodes")
     parser.add_argument("-N", "--n-rb", dest='n_rb',
@@ -551,6 +590,10 @@ def main():
                         type=int,
                         choices=[25, 50],
                         help="specify the Number of Resource Blocks (NRB) for the downlink")
+    parser.add_argument("--nophone1", dest='phone1', action='store_false', default=True,
+                        help='Disable use of Nexus Phone, used by default')
+    parser.add_argument("--phone2", dest='phone2', action='store_true', default=False,
+                        help='Enable use of Moto G Phone')
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
