@@ -128,7 +128,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     # turn off all nodes 
     turn_off_command = [ "rhubarbe", "off", "-a"]
     # except our 3 nodes and the optional extras
-    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras + [20]]
+#    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras + [20]]
+    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras]
 
     job_off_nodes = SshJob(
         node = gwnode,
@@ -229,7 +230,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_load_enb = SshJob(
         node = gwnode,
         commands = commands,
-        label = "load and wait ENB",
+        label = "load and wait eNB",
         required = jobs_prepare,
     )
         
@@ -246,7 +247,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             # n_rb means number of resource blocks for DL, set to either 25 or 50.
             command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, n_rb, reset_usb,
                                 includes = includes),
-            label = "start softmodem on ENB",
+            label = "start softmodem on eNB",
             ),
         required = (job_load_enb, job_service_hss, job_service_epc),
     )
@@ -256,7 +257,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     ########## run experiment per se
     
     # the phone
-    # we need to wait for the USB firmware to be loaded
+    # we need to wait for the SDR firmware to be loaded
     duration = 30 if reset_usb is not False else 8
     msg = "wait for enodeb firmware to load on the SDR device".format(duration)
     job_wait_enb = Job(
@@ -284,7 +285,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             ],
         label = "ping Nexus phone from EPC",
         critical = False,
-        required = job_wait_enb,
+        required = job_start_phone1,
     )
 
     job_start_phone2 = SshJob(
@@ -307,7 +308,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             ],
         label = "ping Moto G phone from EPC",
         critical = False,
-        required = job_wait_enb,
+        required = job_start_phone2,
     )
 
     jobs_exp = [job_wait_enb,]
@@ -337,11 +338,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         else:
             gnuradio_hostnames.append(host)
 
-    if not e3372_ue_hostnames:
-        commands.append(Run("echo no e3372 UE nodes specified - ignored"))
-    else:
+    if e3372_ue_hostnames:
+        commands_e3372_ue.append(Run("rhubarbe", "usrpoff", *e3372_ue_hostnames))
         if load_nodes:
-            commands_e3372_ue.append(Run("rhubarbe", "usrpoff", *e3372_ue_hostnames))
             commands_e3372_ue.append(Run("rhubarbe", "load", "-i", image_e3372_ue, *e3372_ue_hostnames))
         elif reset_nodes:
             commands_e3372_ue.append(Run("rhubarbe", "reset", *e3372_ue_hostnames))
@@ -354,11 +353,9 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         required = job_check_for_lease,
     )
 
-    if not oai_ue_hostnames:
-        commands.append(Run("echo no oai UE nodes specified - ignored"))
-    else:
+    if oai_ue_hostnames:
+        commands_oai_ue.append(Run("rhubarbe", "usrpoff", *oai_ue_hostnames))
         if load_nodes:
-            commands_oai_ue.append(Run("rhubarbe", "usrpoff", *oai_ue_hostnames))
             commands_oai_ue.append(Run("rhubarbe", "load", "-i", image_oai_ue, *oai_ue_hostnames))
         elif reset_nodes:
             commands_oai_ue.append(Run("rhubarbe", "reset", *oai_ue_hostnames))
@@ -367,13 +364,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_load_oai_ue = SshJob(
         node = gwnode,
         commands = commands_oai_ue,
-        label = "load and wait Huawei oai extra nodes",
+        label = "load and wait OAI UE extra nodes",
         required = job_check_for_lease,
     )
 
-    if not gnuradio_hostnames:
-        commands.append(Run("echo no extra gnuradio nodes specified - ignored"))
-    else:
+    if gnuradio_hostnames:
         if load_nodes:
             commands_gnuradio.append(Run("rhubarbe", "usrpoff", *gnuradio_hostnames))
             commands_gnuradio.append(Run("rhubarbe", "load", "-i", image_extra, *gnuradio_hostnames))
@@ -386,7 +381,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     job_load_gnuradio = SshJob(
         node = gwnode,
         commands = commands_gnuradio,
-        label = "load and wait Huawei e3372 extra nodes",
+        label = "load and wait extra gnuradio nodes",
         required = job_check_for_lease,
     )
                              
@@ -599,11 +594,6 @@ def main():
 
     args = parser.parse_args()
     
-    if args.enb in ['9', '09', '34'] :
-        args.image_enb="oai-enb-limesdr"
-        print("Forcing the eNB image to {} on node fit{}".format(args.image_enb, args.enb))
-
-
     # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
