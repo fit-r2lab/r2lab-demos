@@ -197,7 +197,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         required = job_load_infra,
     )
 
-    msg = "wait for HSS to warm up"
+    msg = "wait 15s for HSS to warm up before running EPC"
     job_service_epc = Sequence(
         # let 15 seconds to HSS 
         Job(
@@ -236,10 +236,18 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         
     # start service
     
-    msg = "wait for EPC to warm up"
+    if load_nodes:
+        # this longer delay is required to avoid cx issue occuring when loading images
+        msg = "wait 40s for EPC to warm up"
+        msg = "wait 40s for EPC to warm up"
+        delay = 40
+    else:
+        msg = "wait 15s for EPC to warm up"
+        delay = 15
+
     job_service_enb = Sequence(
         Job(
-            verbose_delay(15, msg),
+            verbose_delay(delay, msg),
             label = msg),
         SshJob(
             node = enbnode,
