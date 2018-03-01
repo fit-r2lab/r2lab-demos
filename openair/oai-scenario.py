@@ -436,12 +436,12 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     print(40*"*")
     if load_nodes:
-        if not extra_loads:
+        if not extras_load:
             print("LOADING IMAGES: (gw->{}, enb->{} WITHOUT EXTRAS)"
                   .format(image_gw, image_enb))
         else:
             print("LOADING IMAGES: (gw->{}, enb->{}, WITH FOLLOWING EXTRAS->{})"
-                  .format(image_gw, image_enb, extra_loads))
+                  .format(image_gw, image_enb, extras_load))
     elif reset_nodes:
         print("RESETTING NODES")
     else:
