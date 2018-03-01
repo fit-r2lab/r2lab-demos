@@ -239,7 +239,6 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     if load_nodes:
         # this longer delay is required to avoid cx issue occuring when loading images
         msg = "wait 40s for EPC to warm up"
-        msg = "wait 40s for EPC to warm up"
         delay = 40
     else:
         msg = "wait 15s for EPC to warm up"
@@ -392,8 +391,18 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         label = "load and wait extra gnuradio nodes",
         required = job_check_for_lease,
     )
-                             
-    jobs_extras = [job_load_e3372_ue, job_load_oai_ue, job_load_gnuradio]
+
+    jobs_extras = []
+    extras_load = ""
+    if e3372_ue_hostnames:
+        jobs_extras += job_load_e3372_ue
+        extras_load += "{} ".format(image_e3372_ue)
+    if oai_ue_hostnames:
+        jobs_extras += job_load_oai_ue
+        extras_load += "{} ".format(image_oai_ue)
+    if gnuradio_hostnames:
+        jobs_extras += job_load_gnuradio
+        extras_load += "{} ".format(image_extra)
 
     colors = [ "wheat", "gray", "white"]
 
@@ -420,14 +429,19 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     sched.update(jobs_infra)
     sched.update(jobs_enb)
     sched.update(jobs_exp)
-    sched.update(jobs_extras)
+    if jobs_extras:
+        sched.update(jobs_extras)
     # remove dangling requirements - if any - should not be needed but won't hurt either
     sched.sanitize()
     
     print(40*"*")
     if load_nodes:
-        print("LOADING IMAGES: (gw->{}, enb->{}, extras->{})"
-              .format(load_nodes, image_gw, image_enb, image_extra))
+        if not :
+            print("LOADING IMAGES: (gw->{}, enb->{} WITHOUT EXTRAS)"
+                  .format(image_gw, image_enb))
+        else:
+            print("LOADING IMAGES: (gw->{}, enb->{}, WITH FOLLOWING EXTRAS->{})"
+                  .format(image_gw, image_enb, extra_loads))
     elif reset_nodes:
         print("RESETTING NODES")
     else:
