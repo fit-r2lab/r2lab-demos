@@ -436,7 +436,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     
     print(40*"*")
     if load_nodes:
-        if not :
+        if not extra_loads:
             print("LOADING IMAGES: (gw->{}, enb->{} WITHOUT EXTRAS)"
                   .format(image_gw, image_enb))
         else:
