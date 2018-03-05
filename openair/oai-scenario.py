@@ -320,9 +320,11 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
 
     jobs_exp = [job_wait_enb,]
     if phone1:
-        jobs_exp += job_start_phone1, job_ping_phone1_from_epc
+        jobs_exp.append(job_start_phone1)
+        jobs_exp.append(job_ping_phone1_from_epc)
     if phone2:
-        jobs_exp += job_start_phone2, job_ping_phone2_from_epc
+        jobs_exp.append(job_start_phone2)
+        jobs_exp.append(job_ping_phone2_from_epc)
 
     ########## extra nodes
     # ssh -X not yet supported in apssh, so one option is to start them using
@@ -395,13 +397,13 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     jobs_extras = []
     extras_load = ""
     if e3372_ue_hostnames:
-        jobs_extras += job_load_e3372_ue
+        jobs_extras.append(job_load_e3372_ue)
         extras_load += "{} ".format(image_e3372_ue)
     if oai_ue_hostnames:
-        jobs_extras += job_load_oai_ue
+        jobs_extras.append(job_load_oai_ue)
         extras_load += "{} ".format(image_oai_ue)
     if gnuradio_hostnames:
-        jobs_extras += job_load_gnuradio
+        jobs_extras.append(job_load_gnuradio)
         extras_load += "{} ".format(image_extra)
 
     colors = [ "wheat", "gray", "white"]
@@ -420,7 +422,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                 # forever = True,
             ) for extra_node, color in zip(extra_nodes, itertools.cycle(colors))
         ]
-        jobs_extras += jobs_xterms_extras
+        jobs_extras.append(jobs_xterms_extras)
 
     # schedule the load phases only if required
     sched = Scheduler(verbose=verbose)
