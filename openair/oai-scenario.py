@@ -95,7 +95,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     * image_* : the name of the images to load on the various nodes
     * oai_ue: flag set to True if OAI UE image requested on extra nodes fit06/fit19
     * phone1: flag set to True if Nexus phone used as UE
-    * phone2: flag set to True if Moto G phone used as UE
+    * phone2: flag set to True if Moto E phone used as UE
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
@@ -156,7 +156,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
         command = RunScript(
             locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-off",
             includes = includes),
-        label = "stop Moto G phone",
+        label = "stop Moto E phone",
         required = job_check_for_lease,
     )
 
@@ -303,7 +303,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
-        label = "start Moto G phone and speedtest app",
+        label = "start Moto E phone and speedtest app",
         required = job_wait_enb,
     )
 
@@ -313,7 +313,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             Run("sleep 10"),
             Run("ping -c 100 -s 100 -i .05 172.16.0.3 &> /root/ping-phone"),
             ],
-        label = "ping Moto G phone from EPC",
+        label = "ping Moto E phone from EPC",
         critical = False,
         required = job_start_phone2,
     )
@@ -416,7 +416,7 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
                               " -bg {} -geometry 90x10".format(color),
                               x11=True),
                 label = "xterm on node {}".format(extra_node.hostname),
-                required = (job_load_e3372_ue, job_load_oai_ue, job_load_gnuradio),
+                required = jobs_extras,
                 # don't set forever; if we do, then these xterms get killed
                 # when all other tasks have completed
                 # forever = True,
@@ -612,7 +612,7 @@ def main():
     parser.add_argument("--nophone1", dest='phone1', action='store_false', default=True,
                         help='Disable use of Nexus Phone, used by default')
     parser.add_argument("--phone2", dest='phone2', action='store_true', default=False,
-                        help='Enable use of Moto G Phone')
+                        help='Enable use of Moto E Phone')
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
 
