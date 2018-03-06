@@ -274,22 +274,14 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     jobs_exp = job_wait_enb, job_start_phone, job_ping_phone_from_epc
 
     ########## extra nodes
-    # ssh -X not yet supported in apssh, so one option is to start them using
-    # a local process
-    # xxx to update: The following code kind of works, but it needs to be 
-    # turned off, because the process in question would be killed
-    # at the end of the Scheduler orchestration (at the end of the run function)
-    # which is the exact time where it would be useful :)
-    # however the code for LocalJob appears to work fine, it would be nice to
-    # move it around - maybe in apssh ?
 
     e3372_ue_hostnames, oai_ue_hostnames, gnuradio_hostnames = [], [], []
     commands_e3372_ue, commands_oai_ue, commands_gnuradio = [], [], []
 
     for host in extra_hostnames:
-        if host == "fit02" or host == "fit26":
+        if host in ("fit02", "fit26"):
             e3372_ue_hostnames.append(host)
-        elif host == "fit06" or host == "fit19":
+        elif host in ("fit06", "fit19"):
             oai_ue_hostnames.append(host)
         else:
             gnuradio_hostnames.append(host)
