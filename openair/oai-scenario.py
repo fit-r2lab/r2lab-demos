@@ -4,13 +4,23 @@ import os.path
 import time
 import asyncio
 import itertools
+from collections import defaultdict
 
 from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
-#from listofchoices import ListOfChoices
+from listofchoices import ListOfChoices
+
+hardware_map = {
+    'E3372-UE' : (2, 26),
+    'OAI-UE' : (6, 19),
+}
+hardware_reverse_map = {
+    id: kind for (kind, ids) in hardware_map.items()
+    for id in ids
+}
 
 # to be added to apssh
 from localjob import LocalJob
@@ -68,9 +78,15 @@ includes = [ locate_local_script(x) for x in [
 ] ]
 
 ############################## first stage 
-def run(slice, hss, epc, enb, extras,
-        load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue, 
-        oai_ue, reset_nodes, reset_usb, spawn_xterms, n_rb, phone1, phone2, verbose):
+def run(*,
+        # the pieces to use
+        slice, hss, epc, enb, phones, e3372_ues, oai_ues, extras,
+        # boolean flags
+        load_nodes, reset_nodes, skip_reset_usb,
+        # the images to load
+        image_gw, image_enb, image_oai_ue, image_e3372_ue, image_extra,
+        # miscell
+        n_rb, verbose, dry_run):
     """
     ##########
     # 3 methods to get nodes ready
@@ -83,20 +99,21 @@ def run(slice, hss, epc, enb, extras,
     * hss : 04
     * epc : 03
     * enb : 23
-    * extras : a list of ids that will be loaded with the gnuradio image
+    * phones: list of indices of phones to use
+
+    * e3372_ues : list of nodes to use as a UE using e3372
+    * oai_ues   : list of nodes to use as a UE using OAI
+    * extras    : list of extra nodes that will simply run an xterm
+
+    * image_* : the name of the images to load on the various nodes
 
     Plus
     * load_nodes: whether to load images or not - in which case
-                  image_gw, image_enb and image_extra
+                  image_gw, image_enb and image_*
                   are used to tell the image names
     * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
-    * otherwise (both False): do nothing
-    * reset_usb : if not False, the USRP board won't be reset
-    * spawn_xterms : if set, starts xterm on all extra nodes
-    * image_* : the name of the images to load on the various nodes
-    * oai_ue: flag set to True if OAI UE image requested on extra nodes fit06/fit19
-    * phone1: flag set to True if Nexus phone used as UE
-    * phone2: flag set to True if Moto E phone used as UE
+    * otherwise (both load_nodes and reset_nodes are False): do nothing
+    * skip_reset_usb : the USRP board will be reset as well unless this is set
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
@@ -105,7 +122,8 @@ def run(slice, hss, epc, enb, extras,
                      formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
     hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
-    extra_hostnames = [ r2lab_hostname(x) for x in extras ]
+
+    optional_ids = e3372_ues + oai_ues + extras
     
     hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
@@ -113,327 +131,207 @@ def run(slice, hss, epc, enb, extras,
         for hostname in hostnames
     ]
 
-    extra_nodes = [
-        SshNode(gateway = gwnode, hostname = hostname, username='root',
-                formatter = ColonFormatter(verbose=verbose), debug=verbose)
-        for hostname in extra_hostnames
-    ]
+    sched = Scheduler(verbose=verbose)
 
     ########## preparation
     job_check_for_lease = SshJob(
         node = gwnode,
         command = [ "rhubarbe", "leases", "--check" ],
         label = "check we have a current lease",
+        scheduler = sched,
     )
 
     # turn off all nodes 
     turn_off_command = [ "rhubarbe", "off", "-a"]
-    # except our 3 nodes and the optional extras
-#    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras + [20]]
-    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + extras]
 
-    job_off_nodes = SshJob(
-        node = gwnode,
-        # switch off all nodes but the ones we use
-        command = turn_off_command,
-        label = "turn off unused nodes",
-        required = job_check_for_lease,
-    )
+    # except our 3 nodes and the optional ones
+    turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + optional_ids]
 
-    # actually run this in the gateway, not on the mac
+    # only do the turn-off thing if load_nodes or reset_nodes
+    if load_nodes or reset_nodes:
+        job_off_nodes = SshJob(
+            node = gwnode,
+            # switch off all nodes but the ones we use
+            command = turn_off_command,
+            label = "turn off unused nodes",
+            required = job_check_for_lease,
+            scheduler = sched,
+        )
+
+    # actually run this in the gateway, not on the macphone
     # the ssh keys are stored in the gateway and we do not yet have
     # the tools to leverage such remote keys
-    job_stop_phone1 = SshJob(
+    job_stop_phones = [ SshJob(
         node = gwnode,
         command = RunScript(
-            locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-off",
+            # script
+            locate_local_script("faraday.sh"),
+            # arguments
+            "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-off",
+            # options
             includes = includes),
-        label = "stop Nexus phone",
+        label = "put phone{} in airplane mode".format(id),
         required = job_check_for_lease,
-    )
+        scheduler = sched,
+    ) for id in phones ]
 
-    job_stop_phone2 = SshJob(
-        node = gwnode,
-        command = RunScript(
-            locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-off",
-            includes = includes),
-        label = "stop Moto E phone",
-        required = job_check_for_lease,
-    )
+    ########## prepare the image-loading phase
+    # this will be a dict of items imagename -> ids
+    to_load = defaultdict(list)
+    to_load[image_gw] += [hss, epc]
+    to_load[image_enb] += [enb]
+    if e3372_ues:
+        to_load[image_e3372_ue] += e3372_ues
+    if oai_ues:
+        to_load[image_oai_ue] += oai_ues
+    if extras:
+        to_load[image_extra] += extras
+        
+    prep_job_by_node = {}
+    for image, nodes in to_load.items():
+        commands = []
+        if load_nodes:
+            commands.append(Run("rhubarbe", "usrpoff", *nodes))
+            commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
+            commands.append(Run("rhubarbe", "usrpon", *nodes))
+        elif reset_nodes:
+            commands.append(Run("rhubarbe", "reset", *nodes))
+        # always do this
+        commands.append(Run("rhubarbe", "wait", "-t",  120, *nodes))
+        job = SshJob(
+            node = gwnode,
+            commands = commands,
+            label = "Prepare node(s) {}".format(nodes),
+            required = job_check_for_lease,
+            scheduler = sched,
+        )
+        for node in nodes:
+            prep_job_by_node[node] = job
 
-    jobs_prepare = [job_check_for_lease]
-    if phone1:
-        jobs_prepare.append(job_stop_phone1)
-    if phone2:
-        jobs_prepare.append(job_stop_phone2)
-    # turn off nodes only when --load or --reset is set
-    if load_nodes or reset_nodes:
-        jobs_prepare.append(job_off_nodes)
-
-    ########## infra nodes hss + epc
-
-    # prepare nodes
-    
-    commands = []
-    if load_nodes:
-        commands.append(Run("rhubarbe", "load", "-i", image_gw, hssname, epcname))
-    elif reset_nodes:
-        commands.append(Run("rhubarbe", "reset", hssname, epcname))
-    # always do this
-    commands.append(Run("rhubarbe", "wait", "-t",  120, hssname, epcname))
-    job_load_infra = SshJob(
-        node = gwnode,
-        commands = commands,
-        label = "load and wait HSS and EPC nodes",
-        required = jobs_prepare,
-    )
 
     # start services
-    
     job_service_hss = SshJob(
         node = hssnode,
         command = RunScript(locate_local_script("oai-hss.sh"), "run-hss", epc,
                             includes = includes),
         label = "start HSS service",
-        required = job_load_infra,
+        required = prep_job_by_node[hss],
+        scheduler = sched,
     )
 
-    msg = "wait 15s for HSS to warm up before running EPC"
-    job_service_epc = Sequence(
-        # let 15 seconds to HSS 
-        Job(
-            verbose_delay(15, msg),
-            label = msg,
-            ), 
-        SshJob(
-            node = epcnode,
-            command = RunScript(locate_local_script("oai-epc.sh"), "run-epc", hss,
-                                includes = includes),
-            label = "start EPC services",
-        ),
-        required = job_load_infra,
+    delay = 15
+    job_service_epc = SshJob(
+        node = epcnode,
+        commands = [
+            Run("echo giving HSS {delay}s to warm up; sleep {delay}"
+                .format(delay=delay)),
+            RunScript(locate_local_script("oai-epc.sh"), "run-epc", hss,
+                      includes = includes),
+        ],
+        label = "start EPC services",
+        required = prep_job_by_node[epc],
+        scheduler = sched,
     )
-
-    jobs_infra = job_load_infra, job_service_hss, job_service_epc
 
     ########## enodeb
 
-    # prepare node
-
-    commands = []
-    if load_nodes:
-        commands.append(Run("rhubarbe", "usrpoff", enb))
-        commands.append(Run("rhubarbe", "load", "-i", image_enb, enb))
-    elif reset_nodes:
-        commands.append(Run("rhubarbe", "reset", enb))
-    commands.append(Run("rhubarbe", "wait", "-t", "120", enb))
-    
-    job_load_enb = SshJob(
-        node = gwnode,
-        commands = commands,
-        label = "load and wait eNB",
-        required = jobs_prepare,
-    )
-        
     # start service
     
-    if load_nodes:
-        # this longer delay is required to avoid cx issue occuring when loading images
-        msg = "wait 40s for EPC to warm up"
-        delay = 40
-    else:
-        msg = "wait 15s for EPC to warm up"
-        delay = 15
+    # this longer delay is required to avoid cx issue occuring when loading images
+    delay = 40 if load_nodes else 15
 
-    job_service_enb = Sequence(
-        Job(
-            verbose_delay(delay, msg),
-            label = msg),
-        SshJob(
-            node = enbnode,
-            # run-enb expects the id of the epc as a parameter
-            # n_rb means number of resource blocks for DL, set to either 25 or 50.
-            command = RunScript(locate_local_script("oai-enb.sh"), "run-enb", epc, n_rb, reset_usb,
-                                includes = includes),
-            label = "start softmodem on eNB",
-            ),
-        required = (job_load_enb, job_service_hss, job_service_epc),
+    job_service_enb = SshJob(
+        node = enbnode,
+        # run-enb expects the id of the epc as a parameter
+        # n_rb means number of resource blocks for DL, set to either 25 or 50.
+        commands = [
+            Run("echo Waiting for {delay}s for EPC to warm up; sleep {delay}"
+                .format(delay=delay)),
+            RunScript(locate_local_script("oai-enb.sh"),
+                      "run-enb", epc, n_rb, not skip_reset_usb,
+                      includes = includes),
+        ],
+        label = "start softmodem on eNB",
+        required = (prep_job_by_node[enb], job_service_hss, job_service_epc),
+        scheduler = sched,
     )
-
-    jobs_enb = job_load_enb, job_service_enb
 
     ########## run experiment per se
     
     # the phone
     # we need to wait for the SDR firmware to be loaded
-    duration = 30 if reset_usb is not False else 8
+    duration = 30 if not skip_reset_usb else 8
     msg = "wait for enodeb firmware to load on the SDR device".format(duration)
     job_wait_enb = Job(
         verbose_delay(duration, msg),
         label = msg,
-        required = job_service_enb)
+        required = job_service_enb,
+        scheduler = sched,
+    )
     
-    job_start_phone1 = SshJob(
+    job_start_phones = [ SshJob(
         node = gwnode,
         commands = [
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-on",
+            RunScript(locate_local_script("faraday.sh"),
+                      "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-on",
                       includes=includes),
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
+            RunScript(locate_local_script("faraday.sh"),
+                      "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
         label = "start Nexus phone and speedtest app",
         required = job_wait_enb,
-    )
+    ) for id in phones ]
 
-    job_ping_phone1_from_epc = SshJob(
+    job_ping_phones_from_epc = [ SshJob(
         node = epcnode,
         commands = [
             Run("sleep 10"),
-            Run("ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"),
+            Run("ping -c 100 -s 100 -i .05 172.16.0.{ip} &> /root/ping-phone".format(ip=id+1)),
             ],
         label = "ping Nexus phone from EPC",
         critical = False,
-        required = job_start_phone1,
-    )
-
-    job_start_phone2 = SshJob(
-        node = gwnode,
-        commands = [
-            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-on",
-                      includes=includes),
-            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
-                      includes=includes),
-        ],
-        label = "start Moto E phone and speedtest app",
-        required = job_wait_enb,
-    )
-
-    job_ping_phone2_from_epc = SshJob(
-        node = epcnode,
-        commands = [
-            Run("sleep 10"),
-            Run("ping -c 100 -s 100 -i .05 172.16.0.3 &> /root/ping-phone"),
-            ],
-        label = "ping Moto E phone from EPC",
-        critical = False,
-        required = job_start_phone2,
-    )
-
-    jobs_exp = [job_wait_enb,]
-    if phone1:
-        jobs_exp.append(job_start_phone1)
-        jobs_exp.append(job_ping_phone1_from_epc)
-    if phone2:
-        jobs_exp.append(job_start_phone2)
-        jobs_exp.append(job_ping_phone2_from_epc)
+        required = job_start_phones,
+    ) for id in phones ]
 
     ########## extra nodes
 
-    e3372_ue_hostnames, oai_ue_hostnames, gnuradio_hostnames = [], [], []
-    commands_e3372_ue, commands_oai_ue, commands_gnuradio = [], [], []
-    jobs_extras_stage1 = []
-    message_extras_load = ""
+    colors = [ "wheat", "gray", "white", "darkolivegreen" ]
 
-    for host in extra_hostnames:
-        if host in ("fit02", "fit26"):
-            e3372_ue_hostnames.append(host)
-        elif oai_ue and host in ("fit06", "fit19"):
-            oai_ue_hostnames.append(host)
-        else:
-            gnuradio_hostnames.append(host)
-
-    if e3372_ue_hostnames:
-        commands_e3372_ue.append(Run("rhubarbe", "usrpoff", *e3372_ue_hostnames))
-        if load_nodes:
-            commands_e3372_ue.append(Run("rhubarbe", "load", "-i", image_e3372_ue, *e3372_ue_hostnames))
-        elif reset_nodes:
-            commands_e3372_ue.append(Run("rhubarbe", "reset", *e3372_ue_hostnames))
-        commands_e3372_ue.append(Run("rhubarbe", "wait", "-t", "120", *e3372_ue_hostnames))
-
-        jobs_extras_stage1.append(SshJob(
-            node = gwnode,
-            commands = commands_e3372_ue,
-            label = "load and wait Huawei e3372 extra nodes",
-            required = job_check_for_lease,
-        ))
-
-    if oai_ue_hostnames:
-        commands_oai_ue.append(Run("rhubarbe", "usrpoff", *oai_ue_hostnames))
-        if load_nodes:
-            commands_oai_ue.append(Run("rhubarbe", "load", "-i", image_oai_ue, *oai_ue_hostnames))
-        elif reset_nodes:
-            commands_oai_ue.append(Run("rhubarbe", "reset", *oai_ue_hostnames))
-        commands_oai_ue.append(Run("rhubarbe", "wait", "-t", "120", *oai_ue_hostnames))
-
-        jobs_extras_stage1.append(SshJob(
-            node = gwnode,
-            commands = commands_oai_ue,
-            label = "load and wait OAI UE extra nodes",
-            required = job_check_for_lease,
-        ))
-
-    if gnuradio_hostnames:
-        if load_nodes:
-            commands_gnuradio.append(Run("rhubarbe", "usrpoff", *gnuradio_hostnames))
-            commands_gnuradio.append(Run("rhubarbe", "load", "-i", image_extra, *gnuradio_hostnames))
-            commands_gnuradio.append(Run("rhubarbe", "wait", "-t", 120, *gnuradio_hostnames))
-            commands_gnuradio.append(Run("rhubarbe", "usrpon", *gnuradio_hostnames))
-        elif reset_nodes:
-            commands_gnuradio.append(Run("rhubarbe", "reset", *gnuradio_hostnames))
-        commands_gnuradio.append(Run("rhubarbe", "wait", "-t", "120", *gnuradio_hostnames))
-
-        jobs_extras_stage1.append(SshJob(
-            node = gwnode,
-            commands = commands_gnuradio,
-            label = "load and wait extra gnuradio nodes",
-            required = job_check_for_lease,
-        ))
-
-    colors = [ "wheat", "gray", "white"]
-
-    if spawn_xterms:
-        jobs_extras_xterms = [
-            SshJob(
-                node = extra_node,
-                command = Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
-                              " -bg {} -geometry 90x10".format(color),
-                              x11=True),
-                label = "xterm on node {}".format(extra_node.hostname),
-                required = jobs_extras_stage1,
-                # don't set forever; if we do, then these xterms get killed
-                # when all other tasks have completed
-                # forever = True,
-            ) for extra_node, color in zip(extra_nodes, itertools.cycle(colors))
-        ]
-
-    # schedule the load phases only if required
-    sched = Scheduler(verbose=verbose)
-    # this is just a way to add a collection of jobs to the scheduler
-    sched.update(jobs_prepare)
-    sched.update(jobs_infra)
-    sched.update(jobs_enb)
-    sched.update(jobs_exp)
-    sched.update(jobs_extras_stage1)
-    sched.update(jobs_extras_xterms)
-    # remove dangling requirements - if any - should not be needed but won't hurt either
+    for extra, color in zip(extras, itertools.cycle(colors)):
+        extra_node = SshNode(
+            gateway = gwnode, hostname = r2lab_hostname(extra), username='root',
+            formatter = ColonFormatter(verbose=verbose), debug=verbose)
+        SshJob(
+            node = extra_node,
+            command = Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
+                          " -bg {} -geometry 90x10".format(color),
+                          x11=True),
+            label = "xterm on node {}".format(extra_node.hostname),
+            required = prep_job_by_node[extra],
+            scheduler = sched,
+            # don't set forever; if we do, then these xterms get killed
+            # when all other tasks have completed
+            # forever = True,
+            )
+#    # remove dangling requirements - if any - should not be needed but won't hurt either
     sched.sanitize()
     
-    print(40*"*")
+    print(20*"*", "nodes usage summary")
     if load_nodes:
-        if not message_extras_load:
-            print("LOADING IMAGES: (gw->{}, enb->{} WITHOUT EXTRAS)"
-                  .format(image_gw, image_enb))
-        else:
-            print("LOADING IMAGES: (gw->{}, enb->{}, WITH FOLLOWING EXTRAS->{})"
-                  .format(image_gw, image_enb, message_extras_load))
+        for image, nodes in to_load.items():
+            for node in nodes:
+                print("node {node} : {image}".format(node=node, image=image))
     elif reset_nodes:
-        print("RESETTING NODES")
+        for image, nodes in to_load.items():
+            for node in nodes:
+                print("reset of node {node}".format(node=node))
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
-    
+
     sched.rain_check()
     # Update the .dot and .png file for illustration purposes
-    if verbose:
+    if verbose or dry_run:
         sched.list()
         name = "scenario-load" if load_nodes else \
                "scenario-reset" if reset_nodes else \
@@ -441,7 +339,10 @@ def run(slice, hss, epc, enb, extras,
         sched.export_as_dotfile("{}.dot".format(name))
         os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
 
-    sched.list()
+    if dry_run:
+        return False
+        
+    input('OK ? - press control C to abort ? ')
 
     if not sched.orchestrate():
         print("RUN KO : {}".format(sched.why()))
@@ -536,67 +437,86 @@ def main():
     def_image_oai_ue = "oai-ue"
     def_image_e3372_ue = "e3372-ue"
 
-    from argparse import ArgumentParser, RawTextHelpFormatter
-    parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
-    # xxx faire une première phase de vérifications diverses (clés, scripts, etc..)
-    # xxx ajouter une option -k pour spécifier une clé ssh
+    # raw formatting (for -x mostly) + show defaults
+    from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, RawTextHelpFormatter
+    class RawAndDefaultsFormatter(ArgumentDefaultsHelpFormatter, RawTextHelpFormatter):
+        pass
+    parser = ArgumentParser(formatter_class=RawAndDefaultsFormatter)
+    
     parser.add_argument("-s", "--slice", default=def_slice,
-                        help="defaults to {}".format(def_slice))
+                        help="slice to use for entering")
+
+    parser.add_argument("--hss", default=def_hss,
+                        help="""id of the node that runs the HSS"""
+                        .format(def_hss))
+    parser.add_argument("--epc", default=def_epc,
+                        help="""id of the node that runs the EPC"""
+                        .format(def_epc))
+    parser.add_argument("--enb", default=def_enb,
+                        help="""id of the node that runs the eNodeB',
+requires a USRP b210 and 'duplexer for eNodeB'""")
+
+    parser.add_argument("-p", "--phones", dest='phones',
+                        action=ListOfChoices, type=int, choices=(1, 2),
+                        default=[1],
+                        help='Commercial phones to use')
+
+    e3372_nodes = hardware_map['E3372-UE']
+    parser.add_argument("-e", "--e3372", dest='e3372_ues', default=[],
+                        action=ListOfChoices, type=int, choices=e3372_nodes,
+                        help ="""id(s) of nodes to be used as a E3372-based UE
+choose among {}"""
+                        .format(e3372_nodes))
+
+    oaiue_nodes = hardware_map['OAI-UE']
+    parser.add_argument("-u", "--oai-ue", dest='oai_ues', default=[],
+                        action=ListOfChoices, type=int, choices=oaiue_nodes,
+                        help ="""id(s) of nodes to be used as a OAI-based UE
+choose among {} - note that these notes are also
+suitable for scrambling the 2.54 GHz uplink"""
+                        .format(oaiue_nodes))
+
+
+    extras_help = """id(s) of extra nodes to run;
+these nodes typically run a gnuradio image and X11-based graphical
+tools for demos; 
+prefer using fit10 and fit11 (B210 without duplexer)"""
+    parser.add_argument("-x", "--xterm", dest='extras', default=[], action='append',
+                        help = extras_help)
 
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
     parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
                         help='reset nodes instead of loading images')
+    parser.add_argument("-f", "--fast", dest="skip_reset_usb",
+                        default=False, action='store_true',
+                        help="""Skip resetting the USB boards if set""")
+
     parser.add_argument("--image-gw", default=def_image_gw,
-                        help="image to load in hss and epc nodes (default to {})"
+                        help="image to load in hss and epc nodes"
                         .format(def_image_gw))
     parser.add_argument("--image-enb", default=def_image_enb,
-                        help="image to load in enb node (default to {})"
+                        help="image to load in enb node"
                         .format(def_image_enb))
-    parser.add_argument("--image-extra", default=def_image_extra,
-                        help="image to load in extra nodes (default to {})"
-                        .format(def_image_extra))
-    parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
-                        help="image to load in OAI UE nodes (default to {})"
-                        .format(def_image_oai_ue))
     parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
-                        help="image to load in e3372 UE nodes (default to {})"
+                        help="image to load in e3372 UE nodes"
                         .format(def_image_e3372_ue))
-    parser.add_argument("-o", "--oai-ue", dest='oai_ue', action='store_true', default=False,
-                        help='load OAI UE image in case extra node fit06/fit19 is/are selected')
+    parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
+                        help="image to load in OAI UE nodes"
+                        .format(def_image_oai_ue))
+    parser.add_argument("--image-extra", default=def_image_extra,
+                        help="image to load in extra nodes"
+                        .format(def_image_extra))
 
-    parser.add_argument("-f", "--fast", dest="reset_usb", default=True, action='store_false')
 
-    parser.add_argument("--hss", default=def_hss,
-                        help="""id of the node that runs the HSS (defaults to {})"""
-                        .format(def_hss))
-    parser.add_argument("--epc", default=def_epc,
-                        help="""id of the node that runs the EPC (defaults to {})"""
-                        .format(def_epc))
-    parser.add_argument("--enb", default=def_enb,
-                        help='\n'.join(['id of the node that runs the eNodeB',
-                        'requires a USRP b210 and duplexer for eNodeB', 
-                        'defaults to {}']).format(def_enb))
-    parser.add_argument("-x", "--extra", dest='extras', default=[], action='append',
-                        help='\n'.join(['id of (an) extra node(s) to run;',
-                        'theses nodes are of 3 types, depending on the id number selected:',
-                        '\t2 or 26) Huawei e3372 UE extra node',
-                        '\t6 or 19) for OAI UE or uplink 2.54GHz scrambler extra node, depending on the oai-ue flag',
-                        '\t*) scrambler or observer node with gnuradio image',
-                        '\t  --prefer using fit10 and fit11 (B210 without duplexer)']))
-    parser.add_argument("-X", "--xterm", dest='spawn_xterms', default=False, action='store_true',
-                        help="if set, spawns xterm on all extra nodes")
     parser.add_argument("-N", "--n-rb", dest='n_rb',
                         default=25,
                         type=int,
                         choices=[25, 50],
                         help="specify the Number of Resource Blocks (NRB) for the downlink")
-    parser.add_argument("--nophone1", dest='phone1', action='store_false', default=True,
-                        help='Disable use of Nexus Phone, used by default')
-    parser.add_argument("--phone2", dest='phone2', action='store_true', default=False,
-                        help='Enable use of Moto E Phone')
 
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
+    parser.add_argument("-n", "--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
     
@@ -606,8 +526,6 @@ def main():
 
     # actually run it
     print("Experiment STARTING at {}".format(time.strftime("%H:%M:%S")))
-    if args.extras:
-        print("with following extras nodes {} and spawn_xterm={}".format(args.extras, args.spawn_xterms))
     if not run(**kwds):
         print("exiting")
         return
