@@ -24,26 +24,18 @@ def all_off(slice, verbose, debug):
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=debug)
 
-    scheduler = Scheduler( Sequence(
-        SshJob(
-            node = gwnode,
-            command = Run("rhubarbe", "leases", "--check"),
-            label = "check we have a current lease",
-        ),
+    scheduler = Scheduler(
         SshJob(
             node = gwnode,
             command = Run("rhubarbe", "bye"),
             label = "turn off",
         )
-    ))
+    )
         
     result = scheduler.orchestrate()
     if not result:
-        if check_for_lease.raised_exception():
-            print("slice {} does not appear to hold a valid lease".format(slice))
-        else:
-            print("RUN KO : {}".format(scheduler.why()))
-            sched.debrief()
+        print("RUN KO : {}".format(scheduler.why()))
+        sched.debrief()
     else:
         print("faraday turned off OK")
 
