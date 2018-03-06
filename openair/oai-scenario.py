@@ -258,7 +258,7 @@ def run(*,
 
     ########## run experiment per se
     
-    # the phone
+    # Manage phone(s)
     # we need to wait for the SDR firmware to be loaded
     duration = 30 if not skip_reset_usb else 8
     msg = "wait for enodeb firmware to load on the SDR device".format(duration)
