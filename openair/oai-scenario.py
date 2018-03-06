@@ -11,7 +11,7 @@ from asynciojobs import Scheduler, Job, Sequence
 from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
-from listofchoices import ListOfChoices
+from listofchoices import ListOfChoices, ListOfChoicesNegativeReset
 
 hardware_map = {
     'E3372-UE' : (2, 26),
@@ -260,10 +260,12 @@ def run(*,
     
     # Manage phone(s)
     # we need to wait for the SDR firmware to be loaded
-    duration = 30 if not skip_reset_usb else 8
-    msg = "wait for enodeb firmware to load on the SDR device".format(duration)
-    job_wait_enb = Job(
-        verbose_delay(duration, msg),
+    delay = 30 if not skip_reset_usb else 8
+    msg = "wait for {delay}s for enodeb firmware to load on the SDR device"\
+          .format(delay=delay)
+    job_wait_enb = LocalJob(
+        command="echo {msg}; sleep {delay}"\
+        .format(msg=msg, delay=delay),
         label = msg,
         required = job_service_enb,
         scheduler = sched,
@@ -328,6 +330,12 @@ def run(*,
                 print("reset of node {node}".format(node=node))
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
+    print(10*"*", "phones usage summary")
+    if phones:
+        for phone in phones:
+            print("Using phone{phone}".format(phone=phone))
+    else:
+        print("No phone involved")
 
     sched.rain_check()
     # Update the .dot and .png file for illustration purposes
@@ -336,13 +344,15 @@ def run(*,
         name = "scenario-load" if load_nodes else \
                "scenario-reset" if reset_nodes else \
                "scenario"
-        sched.export_as_dotfile("{}.dot".format(name))
-        os.system("dot -Tpng {}.dot -o {}.png".format(name, name))
+        sched.export_as_dotfile("{name}.dot".format(name=name))
+        os.system("dot -Tpng {name}.dot -o {name}.png".format(name=name))
+        print("(Over)wrote {name}.png".format(name=name))
 
     if dry_run:
         return False
         
-    input('OK ? - press control C to abort ? ')
+    if verbose:
+        input('OK ? - press control C to abort ? ')
 
     if not sched.orchestrate():
         print("RUN KO : {}".format(sched.why()))
@@ -457,9 +467,9 @@ def main():
 requires a USRP b210 and 'duplexer for eNodeB'""")
 
     parser.add_argument("-p", "--phones", dest='phones',
-                        action=ListOfChoices, type=int, choices=(1, 2),
+                        action=ListOfChoicesNegativeReset, type=int, choices=(1, 2, -1),
                         default=[1],
-                        help='Commercial phones to use')
+                        help='Commercial phones to use; use -p -1 to choose no phone')
 
     e3372_nodes = hardware_map['E3372-UE']
     parser.add_argument("-e", "--e3372", dest='e3372_ues', default=[],
