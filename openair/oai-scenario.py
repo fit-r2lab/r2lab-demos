@@ -68,7 +68,8 @@ includes = [ locate_local_script(x) for x in [
 ] ]
 
 ############################## first stage 
-def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue, 
+def run(slice, hss, epc, enb, extras,
+        load_nodes, image_gw, image_enb, image_extra, image_oai_ue, image_e3372_ue, 
         oai_ue, reset_nodes, reset_usb, spawn_xterms, n_rb, phone1, phone2, verbose):
     """
     ##########
@@ -330,6 +331,8 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
 
     e3372_ue_hostnames, oai_ue_hostnames, gnuradio_hostnames = [], [], []
     commands_e3372_ue, commands_oai_ue, commands_gnuradio = [], [], []
+    jobs_extras_stage1 = []
+    message_extras_load = ""
 
     for host in extra_hostnames:
         if host in ("fit02", "fit26"):
@@ -347,12 +350,12 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             commands_e3372_ue.append(Run("rhubarbe", "reset", *e3372_ue_hostnames))
         commands_e3372_ue.append(Run("rhubarbe", "wait", "-t", "120", *e3372_ue_hostnames))
 
-    job_load_e3372_ue = SshJob(
-        node = gwnode,
-        commands = commands_e3372_ue,
-        label = "load and wait Huawei e3372 extra nodes",
-        required = job_check_for_lease,
-    )
+        jobs_extras_stage1.append(SshJob(
+            node = gwnode,
+            commands = commands_e3372_ue,
+            label = "load and wait Huawei e3372 extra nodes",
+            required = job_check_for_lease,
+        ))
 
     if oai_ue_hostnames:
         commands_oai_ue.append(Run("rhubarbe", "usrpoff", *oai_ue_hostnames))
@@ -362,12 +365,12 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             commands_oai_ue.append(Run("rhubarbe", "reset", *oai_ue_hostnames))
         commands_oai_ue.append(Run("rhubarbe", "wait", "-t", "120", *oai_ue_hostnames))
 
-    job_load_oai_ue = SshJob(
-        node = gwnode,
-        commands = commands_oai_ue,
-        label = "load and wait OAI UE extra nodes",
-        required = job_check_for_lease,
-    )
+        jobs_extras_stage1.append(SshJob(
+            node = gwnode,
+            commands = commands_oai_ue,
+            label = "load and wait OAI UE extra nodes",
+            required = job_check_for_lease,
+        ))
 
     if gnuradio_hostnames:
         if load_nodes:
@@ -379,42 +382,29 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
             commands_gnuradio.append(Run("rhubarbe", "reset", *gnuradio_hostnames))
         commands_gnuradio.append(Run("rhubarbe", "wait", "-t", "120", *gnuradio_hostnames))
 
-    job_load_gnuradio = SshJob(
-        node = gwnode,
-        commands = commands_gnuradio,
-        label = "load and wait extra gnuradio nodes",
-        required = job_check_for_lease,
-    )
-
-    jobs_extras = []
-    extras_load = ""
-    if e3372_ue_hostnames:
-        jobs_extras.append(job_load_e3372_ue)
-        extras_load += "{} ".format(image_e3372_ue)
-    if oai_ue_hostnames:
-        jobs_extras.append(job_load_oai_ue)
-        extras_load += "{} ".format(image_oai_ue)
-    if gnuradio_hostnames:
-        jobs_extras.append(job_load_gnuradio)
-        extras_load += "{} ".format(image_extra)
+        jobs_extras_stage1.append(SshJob(
+            node = gwnode,
+            commands = commands_gnuradio,
+            label = "load and wait extra gnuradio nodes",
+            required = job_check_for_lease,
+        ))
 
     colors = [ "wheat", "gray", "white"]
 
     if spawn_xterms:
-        jobs_xterms_extras = [
+        jobs_extras_xterms = [
             SshJob(
                 node = extra_node,
                 command = Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
                               " -bg {} -geometry 90x10".format(color),
                               x11=True),
                 label = "xterm on node {}".format(extra_node.hostname),
-                required = jobs_extras,
+                required = jobs_extras_stage1,
                 # don't set forever; if we do, then these xterms get killed
                 # when all other tasks have completed
                 # forever = True,
             ) for extra_node, color in zip(extra_nodes, itertools.cycle(colors))
         ]
-        jobs_extras.append(jobs_xterms_extras)
 
     # schedule the load phases only if required
     sched = Scheduler(verbose=verbose)
@@ -423,19 +413,19 @@ def run(slice, hss, epc, enb, extras, load_nodes, image_gw, image_enb, image_ext
     sched.update(jobs_infra)
     sched.update(jobs_enb)
     sched.update(jobs_exp)
-    if jobs_extras:
-        sched.update(jobs_extras)
+    sched.update(jobs_extras_stage1)
+    sched.update(jobs_extras_xterms)
     # remove dangling requirements - if any - should not be needed but won't hurt either
     sched.sanitize()
     
     print(40*"*")
     if load_nodes:
-        if not extras_load:
+        if not message_extras_load:
             print("LOADING IMAGES: (gw->{}, enb->{} WITHOUT EXTRAS)"
                   .format(image_gw, image_enb))
         else:
             print("LOADING IMAGES: (gw->{}, enb->{}, WITH FOLLOWING EXTRAS->{})"
-                  .format(image_gw, image_enb, extras_load))
+                  .format(image_gw, image_enb, message_extras_load))
     elif reset_nodes:
         print("RESETTING NODES")
     else:
