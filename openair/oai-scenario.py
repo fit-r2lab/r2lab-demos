@@ -624,6 +624,8 @@ def main():
 
     # actually run it
     print("Experiment STARTING at {}".format(time.strftime("%H:%M:%S")))
+    if args.extras:
+        print("with following extras nodes {} and spawn_xterm={}".format(args.extras, args.spawn_xterms))
     if not run(**kwds):
         print("exiting")
         return
