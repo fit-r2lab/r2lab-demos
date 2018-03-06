@@ -143,29 +143,26 @@ def run(slice, hss, epc, enb, extras,
     # actually run this in the gateway, not on the mac
     # the ssh keys are stored in the gateway and we do not yet have
     # the tools to leverage such remote keys
-    job_stop_phone1 = SshJob(
-        node = gwnode,
-        command = RunScript(
-            locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-off",
-            includes = includes),
-        label = "stop Nexus phone",
-        required = job_check_for_lease,
-    )
-
-    job_stop_phone2 = SshJob(
-        node = gwnode,
-        command = RunScript(
-            locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-off",
-            includes = includes),
-        label = "stop Moto E phone",
-        required = job_check_for_lease,
-    )
-
     jobs_prepare = [job_check_for_lease]
     if phone1:
-        jobs_prepare.append(job_stop_phone1)
+        jobs_prepare.append(SshJob(
+                node = gwnode,
+                command = RunScript(
+                    locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-off",
+                    includes = includes),
+                label = "stop Nexus phone",
+                required = job_check_for_lease,
+                ))
     if phone2:
-        jobs_prepare.append(job_stop_phone2)
+        jobs_prepare.append(SshJob(
+                node = gwnode,
+                command = RunScript(
+                    locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-off",
+                    includes = includes),
+                label = "stop Moto E phone",
+                required = job_check_for_lease,
+                ))
+
     # turn off nodes only when --load or --reset is set
     if load_nodes or reset_nodes:
         jobs_prepare.append(job_off_nodes)
@@ -264,68 +261,69 @@ def run(slice, hss, epc, enb, extras,
 
     ########## run experiment per se
     
-    # the phone
+    # Manage phone(s)
     # we need to wait for the SDR firmware to be loaded
-    duration = 30 if reset_usb is not False else 8
-    msg = "wait for enodeb firmware to load on the SDR device".format(duration)
-    job_wait_enb = Job(
-        verbose_delay(duration, msg),
-        label = msg,
-        required = job_service_enb)
+    if phone1 or phone2:
+        duration = 30 if reset_usb is not False else 8
+        msg = "wait for enodeb firmware to load on the SDR device".format(duration)
+        job_wait_enb = Job(
+            verbose_delay(duration, msg),
+            label = msg,
+            required = job_service_enb
+            )
+        jobs_exp = [job_wait_enb,]
     
-    job_start_phone1 = SshJob(
-        node = gwnode,
-        commands = [
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-on",
-                      includes=includes),
-            RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
-                      includes=includes),
-        ],
-        label = "start Nexus phone and speedtest app",
-        required = job_wait_enb,
-    )
-
-    job_ping_phone1_from_epc = SshJob(
-        node = epcnode,
-        commands = [
-            Run("sleep 10"),
-            Run("ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"),
-            ],
-        label = "ping Nexus phone from EPC",
-        critical = False,
-        required = job_start_phone1,
-    )
-
-    job_start_phone2 = SshJob(
-        node = gwnode,
-        commands = [
-            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-on",
-                      includes=includes),
-            RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-start-app",
-                      includes=includes),
-        ],
-        label = "start Moto E phone and speedtest app",
-        required = job_wait_enb,
-    )
-
-    job_ping_phone2_from_epc = SshJob(
-        node = epcnode,
-        commands = [
-            Run("sleep 10"),
-            Run("ping -c 100 -s 100 -i .05 172.16.0.3 &> /root/ping-phone"),
-            ],
-        label = "ping Moto E phone from EPC",
-        critical = False,
-        required = job_start_phone2,
-    )
-
-    jobs_exp = [job_wait_enb,]
     if phone1:
-        jobs_exp.append(job_start_phone1)
-        jobs_exp.append(job_ping_phone1_from_epc)
+        jobs_exp.append(Sequence(
+            SshJob(
+                node = gwnode,
+                commands = [
+                    RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", "phone-on",
+                              includes=includes),
+                    RunScript(locate_local_script("faraday.sh"), "macphone", "r2lab-embedded/shell/macphone.sh", 
+                              "phone-start-app",
+                              includes=includes),
+                    ],
+                label = "start Nexus phone and speedtest app",
+                ),
+            SshJob(
+                node = epcnode,
+                commands = [
+                    Run("sleep 10"),
+                    Run("ping -c 100 -s 100 -i .05 172.16.0.2 &> /root/ping-phone"),
+                    ],
+                label = "ping Nexus phone from EPC",
+                critical = False,
+                ),
+            required = job_wait_enb,
+            )
+        )
+
     if phone2:
-        jobs_exp.append(job_start_phone2)
-        jobs_exp.append(job_ping_phone2_from_epc)
+        jobs_exp.append(Sequence(
+            SshJob(
+                node = gwnode,
+                commands = [
+                    RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", "phone-on",
+                              includes=includes),
+                    RunScript(locate_local_script("faraday.sh"), "macphone2", "r2lab-embedded/shell/macphone.sh", 
+                              "phone-start-app",
+                              includes=includes),
+                    ],
+                label = "start Moto E phone and speedtest app",
+                ),
+            SshJob(
+                node = epcnode,
+                commands = [
+                    Run("sleep 10"),
+                    Run("ping -c 100 -s 100 -i .05 172.16.0.3 &> /root/ping-phone"),
+                    ],
+                label = "ping Moto E phone from EPC",
+                critical = False,
+                ),
+            required = job_wait_enb,
+            )
+        )
 
     ########## extra nodes
 
@@ -400,9 +398,9 @@ def run(slice, hss, epc, enb, extras,
                               x11=True),
                 label = "xterm on node {}".format(extra_node.hostname),
                 required = jobs_extras_stage1,
-                # don't set forever; if we do, then these xterms get killed
-                # when all other tasks have completed
-                # forever = True,
+                # don't set forever; if we do, then these xterms get killed                                                      
+                # when all other tasks have completed                                                                            
+                # forever = True,                                                                                                
             ) for extra_node, color in zip(extra_nodes, itertools.cycle(colors))
         ]
 
@@ -414,7 +412,8 @@ def run(slice, hss, epc, enb, extras,
     sched.update(jobs_enb)
     sched.update(jobs_exp)
     sched.update(jobs_extras_stage1)
-    sched.update(jobs_extras_xterms)
+    if spawn_xterms:
+        sched.update(jobs_extras_xterms)
     # remove dangling requirements - if any - should not be needed but won't hurt either
     sched.sanitize()
     
@@ -607,7 +606,16 @@ def main():
     # actually run it
     print("Experiment STARTING at {}".format(time.strftime("%H:%M:%S")))
     if args.extras:
-        print("with following extras nodes {} and spawn_xterm={}".format(args.extras, args.spawn_xterms))
+        print("with following extras and spawn_xterm={}".format(args.spawn_xterms))
+        for x in args.extras:
+            host = r2lab_hostname(x)
+            if host in ["fit06", "fit19"]:
+                print("load image {} on {}".format(args.image_oai_ue, host)) if args.oai_ue else \
+                print("load image {} on {}".format(args.image_extra, host))
+            elif host in ["fit02", "fit26"]:
+                print("load image {} on {}".format(args.image_e3372_ue, host))
+            else:
+                print("load image {} on {}".format(args.image_extra, host))
     if not run(**kwds):
         print("exiting")
         return
