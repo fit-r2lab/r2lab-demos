@@ -283,6 +283,7 @@ def run(*,
         ],
         label = "start Nexus phone and speedtest app",
         required = job_wait_enb,
+        scheduler = sched,
     ) for id in phones ]
 
     job_ping_phones_from_epc = [ SshJob(
