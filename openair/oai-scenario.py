@@ -468,9 +468,9 @@ def main():
 requires a USRP b210 and 'duplexer for eNodeB'""")
 
     parser.add_argument("-p", "--phones", dest='phones',
-                        action=ListOfChoicesNegativeReset, type=int, choices=(1, 2, -1),
+                        action=ListOfChoicesNegativeReset, type=int, choices=(1, 2, 0),
                         default=[1],
-                        help='Commercial phones to use; use -p -1 to choose no phone')
+                        help='Commercial phones to use; use -p 0 to choose no phone')
 
     e3372_nodes = hardware_map['E3372-UE']
     parser.add_argument("-e", "--e3372", dest='e3372_ues', default=[],
