@@ -223,7 +223,7 @@ def run(*,
     job_service_epc = SshJob(
         node = epcnode,
         commands = [
-            Run("echo giving HSS {delay}s to warm up; sleep {delay}"
+            Run("echo giving HSS a headstart {delay}s to warm up; sleep {delay}"
                 .format(delay=delay)),
             RunScript(locate_local_script("oai-epc.sh"), "run-epc", hss,
                       includes = includes),
