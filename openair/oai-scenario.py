@@ -80,11 +80,13 @@ includes = [ locate_local_script(x) for x in [
 ############################## first stage 
 def run(*,
         # the pieces to use
-        slice, hss, epc, enb, phones, e3372_ues, oai_ues, extras,
+        slice, hss, epc, enb, phones,
+        e3372_ues, oai_ues, gnuradios,
+        e3372_ue_xterms, oai_ue_xterms, gnuradio_xterms,
         # boolean flags
         load_nodes, reset_nodes, skip_reset_usb,
         # the images to load
-        image_gw, image_enb, image_oai_ue, image_e3372_ue, image_extra,
+        image_gw, image_enb, image_oai_ue, image_e3372_ue, image_gnuradio,
         # miscell
         n_rb, verbose, dry_run):
     """
@@ -103,7 +105,7 @@ def run(*,
 
     * e3372_ues : list of nodes to use as a UE using e3372
     * oai_ues   : list of nodes to use as a UE using OAI
-    * extras    : list of extra nodes that will simply run an xterm
+    * gnuradios : list of nodes to load with a gnuradio image
 
     * image_* : the name of the images to load on the various nodes
 
@@ -123,7 +125,8 @@ def run(*,
 
     hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
 
-    optional_ids = e3372_ues + oai_ues + extras
+    optional_ids = e3372_ues       + oai_ues       + gnuradios + \
+                   e3372_ue_xterms + oai_ue_xterms + gnuradio_xterms
     
     hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
@@ -182,10 +185,16 @@ def run(*,
     to_load[image_enb] += [enb]
     if e3372_ues:
         to_load[image_e3372_ue] += e3372_ues
+    if e3372_ue_xterms:
+        to_load[image_e3372_ue] += e3372_ue_xterms
     if oai_ues:
         to_load[image_oai_ue] += oai_ues
-    if extras:
-        to_load[image_extra] += extras
+    if oai_ue_xterms:
+        to_load[image_oai_ue] += oai_ue_xterms
+    if gnuradios:
+        to_load[image_gnuradio] += gnuradios
+    if gnuradio_xterms:
+        to_load[image_gnuradio] += gnuradio_xterms
         
     prep_job_by_node = {}
     for image, nodes in to_load.items():
@@ -297,21 +306,23 @@ def run(*,
         required = job_start_phones,
     ) for id in phones ]
 
-    ########## extra nodes
+    ########## xterm nodes
 
     colors = [ "wheat", "gray", "white", "darkolivegreen" ]
 
-    for extra, color in zip(extras, itertools.cycle(colors)):
-        extra_node = SshNode(
-            gateway = gwnode, hostname = r2lab_hostname(extra), username='root',
+    xterms = e3372_ue_xterms + oai_ue_xterms + gnuradio_xterms
+
+    for xterm, color in zip(xterms, itertools.cycle(colors)):
+        xterm_node = SshNode(
+            gateway = gwnode, hostname = r2lab_hostname(xterm), username='root',
             formatter = ColonFormatter(verbose=verbose), debug=verbose)
         SshJob(
-            node = extra_node,
+            node = xterm_node,
             command = Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
                           " -bg {} -geometry 90x10".format(color),
                           x11=True),
-            label = "xterm on node {}".format(extra_node.hostname),
-            required = prep_job_by_node[extra],
+            label = "xterm on node {}".format(xterm_node.hostname),
+            required = prep_job_by_node[xterm],
             scheduler = sched,
             # don't set forever; if we do, then these xterms get killed
             # when all other tasks have completed
@@ -444,7 +455,7 @@ def main():
     
     def_image_gw  = "oai-cn"
     def_image_enb = "oai-enb"
-    def_image_extra = "gnuradio"
+    def_image_gnuradio = "gnuradio"
     def_image_oai_ue = "oai-ue"
     def_image_e3372_ue = "e3372-ue"
 
@@ -472,12 +483,16 @@ requires a USRP b210 and 'duplexer for eNodeB'""")
                         default=[1],
                         help='Commercial phones to use; use -p 0 to choose no phone')
 
+
     e3372_nodes = hardware_map['E3372-UE']
     parser.add_argument("-e", "--e3372", dest='e3372_ues', default=[],
                         action=ListOfChoices, type=int, choices=e3372_nodes,
                         help ="""id(s) of nodes to be used as a E3372-based UE
 choose among {}"""
                         .format(e3372_nodes))
+    parser.add_argument("-E", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
+                        action=ListOfChoices, type=int, choices=e3372_nodes,
+                        help ="""likewise, with an xterm on top""")
 
     oaiue_nodes = hardware_map['OAI-UE']
     parser.add_argument("-u", "--oai-ue", dest='oai_ues', default=[],
@@ -486,14 +501,17 @@ choose among {}"""
 choose among {} - note that these notes are also
 suitable for scrambling the 2.54 GHz uplink"""
                         .format(oaiue_nodes))
+    parser.add_argument("-U", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
+                        action=ListOfChoices, type=int, choices=oaiue_nodes,
+                        help ="""likewise, with an xterm on top""")
 
+    # xxx could use choices here too
+    parser.add_argument("-g", "--gnuradio", dest='gnuradios', default=[], action='append',
+                        help = """id(s) of nodes intended to run gnuradio;
+prefer using fit10 and fit11 (B210 without duplexer)""")
+    parser.add_argument("-G", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
+                        help ="""likewise, with an xterm on top""")
 
-    extras_help = """id(s) of extra nodes to run;
-these nodes typically run a gnuradio image and X11-based graphical
-tools for demos; 
-prefer using fit10 and fit11 (B210 without duplexer)"""
-    parser.add_argument("-x", "--xterm", dest='extras', default=[], action='append',
-                        help = extras_help)
 
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
@@ -515,9 +533,9 @@ prefer using fit10 and fit11 (B210 without duplexer)"""
     parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
                         help="image to load in OAI UE nodes"
                         .format(def_image_oai_ue))
-    parser.add_argument("--image-extra", default=def_image_extra,
-                        help="image to load in extra nodes"
-                        .format(def_image_extra))
+    parser.add_argument("--image-gnuradio", default=def_image_gnuradio,
+                        help="image to load in gnuradio nodes"
+                        .format(def_image_gnuradio))
 
 
     parser.add_argument("-N", "--n-rb", dest='n_rb',
