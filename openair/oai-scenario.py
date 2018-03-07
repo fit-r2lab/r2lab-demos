@@ -84,7 +84,7 @@ def run(*,
         e3372_ues, oai_ues, gnuradios,
         e3372_ue_xterms, oai_ue_xterms, gnuradio_xterms,
         # boolean flags
-        load_nodes, reset_nodes, skip_reset_usb,
+        load_nodes, reset_nodes, skip_reset_usb, oscillo,
         # the images to load
         image_gw, image_enb, image_oai_ue, image_e3372_ue, image_gnuradio,
         # miscell
@@ -257,7 +257,7 @@ def run(*,
             Run("echo Waiting for {delay}s for EPC to warm up; sleep {delay}"
                 .format(delay=delay)),
             RunScript(locate_local_script("oai-enb.sh"),
-                      "run-enb", epc, n_rb, not skip_reset_usb,
+                      "run-enb", epc, n_rb, not skip_reset_usb, oscillo,
                       includes = includes),
         ],
         label = "start softmodem on eNB",
@@ -511,6 +511,8 @@ suitable for scrambling the 2.54 GHz uplink"""
 prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument("-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
                         help ="""likewise, with an xterm on top""")
+    parser.add_argument("-o", "--oscillo", dest='oscillo', action='store_true', default=False,
+                        help='run eNB with oscillo function; no oscillo by default')
 
 
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
