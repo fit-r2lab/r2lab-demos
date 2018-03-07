@@ -485,31 +485,31 @@ requires a USRP b210 and 'duplexer for eNodeB'""")
 
 
     e3372_nodes = hardware_map['E3372-UE']
-    parser.add_argument("-e", "--e3372", dest='e3372_ues', default=[],
+    parser.add_argument("-E", "--e3372", dest='e3372_ues', default=[],
                         action=ListOfChoices, type=int, choices=e3372_nodes,
                         help ="""id(s) of nodes to be used as a E3372-based UE
 choose among {}"""
                         .format(e3372_nodes))
-    parser.add_argument("-E", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
+    parser.add_argument("-e", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
                         action=ListOfChoices, type=int, choices=e3372_nodes,
                         help ="""likewise, with an xterm on top""")
 
     oaiue_nodes = hardware_map['OAI-UE']
-    parser.add_argument("-u", "--oai-ue", dest='oai_ues', default=[],
+    parser.add_argument("-U", "--oai-ue", dest='oai_ues', default=[],
                         action=ListOfChoices, type=int, choices=oaiue_nodes,
                         help ="""id(s) of nodes to be used as a OAI-based UE
 choose among {} - note that these notes are also
 suitable for scrambling the 2.54 GHz uplink"""
                         .format(oaiue_nodes))
-    parser.add_argument("-U", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
+    parser.add_argument("-u", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
                         action=ListOfChoices, type=int, choices=oaiue_nodes,
                         help ="""likewise, with an xterm on top""")
 
     # xxx could use choices here too
-    parser.add_argument("-g", "--gnuradio", dest='gnuradios', default=[], action='append',
+    parser.add_argument("-G", "--gnuradio", dest='gnuradios', default=[], action='append',
                         help = """id(s) of nodes intended to run gnuradio;
 prefer using fit10 and fit11 (B210 without duplexer)""")
-    parser.add_argument("-G", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
+    parser.add_argument("-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
                         help ="""likewise, with an xterm on top""")
 
 
