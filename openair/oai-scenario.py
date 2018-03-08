@@ -9,9 +9,10 @@ from collections import defaultdict
 from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
+from apssh import LocalNode
 from apssh.formatters import ColonFormatter
 
-from listofchoices import ListOfChoices, ListOfChoicesNegativeReset
+from r2lab import ListOfChoices, ListOfChoicesNegativeReset
 
 hardware_map = {
     'E3372-UE' : (2, 26),
@@ -21,9 +22,6 @@ hardware_reverse_map = {
     id: kind for (kind, ids) in hardware_map.items()
     for id in ids
 }
-
-# to be added to apssh
-from localjob import LocalJob
 
 def r2lab_hostname(x):
     """
@@ -272,7 +270,8 @@ def run(*,
     delay = 30 if not skip_reset_usb else 8
     msg = "wait for {delay}s for enodeb firmware to load on the SDR device"\
           .format(delay=delay)
-    job_wait_enb = LocalJob(
+    job_wait_enb = SshJob(
+        node = LocalNode(),
         command="echo {msg}; sleep {delay}"\
         .format(msg=msg, delay=delay),
         label = msg,
@@ -511,9 +510,6 @@ suitable for scrambling the 2.54 GHz uplink"""
 prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument("-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
                         help ="""likewise, with an xterm on top""")
-    parser.add_argument("-o", "--oscillo", dest='oscillo', action='store_true', default=False,
-                        help='run eNB with oscillo function; no oscillo by default')
-
 
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
@@ -522,6 +518,9 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument("-f", "--fast", dest="skip_reset_usb",
                         default=False, action='store_true',
                         help="""Skip resetting the USB boards if set""")
+
+    parser.add_argument("-o", "--oscillo", dest='oscillo', action='store_true', default=False,
+                        help='run eNB with oscillo function; no oscillo by default')
 
     parser.add_argument("--image-gw", default=def_image_gw,
                         help="image to load in hss and epc nodes"
