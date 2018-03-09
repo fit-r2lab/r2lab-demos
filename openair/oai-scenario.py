@@ -12,7 +12,8 @@ from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh import LocalNode
 from apssh.formatters import ColonFormatter
 
-from r2lab import ListOfChoices, ListOfChoicesNegativeReset
+from r2lab import ListOfChoices, ListOfChoicesNullReset
+from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
 
 hardware_map = {
     'E3372-UE' : (2, 26),
@@ -22,44 +23,6 @@ hardware_reverse_map = {
     id: kind for (kind, ids) in hardware_map.items()
     for id in ids
 }
-
-def r2lab_hostname(x):
-    """
-    Return a valid hostname from a name like either
-    1 (int), 1(str), 01, fit1 or fit01 ...
-    """
-    return "fit{:02d}".format(int(str(x).replace('fit','')))
-
-def parse_slice(slice):
-    """
-    returns username and hostname from a slice
-    can be either username@hostname or just username
-    in the latter case the hostname defaults to 
-    the r2lab gateway faraday.inria.fr
-    """
-    if slice.find('@') > 0:
-        user, host = slice.split('@')
-        return user, host
-    else:
-        return slice, "faraday.inria.fr"
-
-def locate_local_script(s):
-    """
-    all the scripts are located in the same place
-    find that place among a list of possible locations
-    """
-    paths = [
-        "../../r2lab-embedded/shell/",
-        os.path.expanduser("~/git/r2lab-embedded/shell/"), 
-        os.path.expanduser("~/r2lab-embedded/shell/"),
-    ]
-    for path in paths:
-        candidate = os.path.join(path, s)
-        if os.path.exists(candidate):
-            return candidate
-    print("WARNING: could not locate local script {}".format(s))
-    for path in paths:
-        print("W: searched in {}".format(path))
 
 async def verbose_delay(duration, *print_args):
     """
@@ -71,7 +34,7 @@ async def verbose_delay(duration, *print_args):
     print("Done waiting for {} s".format(duration), *print_args)
 
 # include the set of utility scripts that are included by the r2lab kit
-includes = [ locate_local_script(x) for x in [
+includes = [ find_local_embedded_script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
 
@@ -117,7 +80,7 @@ def run(*,
     """
 
     # what argparse knows as a slice actually is a gateway (user + host)
-    gwuser, gwhost = parse_slice(slice)
+    gwuser, gwhost = r2lab_parse_slice(slice)
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = ColonFormatter(verbose=verbose), debug=verbose)
 
@@ -166,7 +129,7 @@ def run(*,
         node = gwnode,
         command = RunScript(
             # script
-            locate_local_script("faraday.sh"),
+            find_local_embedded_script("faraday.sh"),
             # arguments
             "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-off",
             # options
@@ -219,7 +182,7 @@ def run(*,
     # start services
     job_service_hss = SshJob(
         node = hssnode,
-        command = RunScript(locate_local_script("oai-hss.sh"), "run-hss", epc,
+        command = RunScript(find_local_embedded_script("oai-hss.sh"), "run-hss", epc,
                             includes = includes),
         label = "start HSS service",
         required = prep_job_by_node[hss],
@@ -232,7 +195,7 @@ def run(*,
         commands = [
             Run("echo giving HSS a headstart {delay}s to warm up; sleep {delay}"
                 .format(delay=delay)),
-            RunScript(locate_local_script("oai-epc.sh"), "run-epc", hss,
+            RunScript(find_local_embedded_script("oai-epc.sh"), "run-epc", hss,
                       includes = includes),
         ],
         label = "start EPC services",
@@ -254,9 +217,11 @@ def run(*,
         commands = [
             Run("echo Waiting for {delay}s for EPC to warm up; sleep {delay}"
                 .format(delay=delay)),
-            RunScript(locate_local_script("oai-enb.sh"),
+            RunScript(find_local_embedded_script("oai-enb.sh"),
                       "run-enb", epc, n_rb, not skip_reset_usb, oscillo,
-                      includes = includes),
+                      includes = includes,
+                      x11 = oscillo                      
+            ),
         ],
         label = "start softmodem on eNB",
         required = (prep_job_by_node[enb], job_service_hss, job_service_epc),
@@ -282,10 +247,10 @@ def run(*,
     job_start_phones = [ SshJob(
         node = gwnode,
         commands = [
-            RunScript(locate_local_script("faraday.sh"),
+            RunScript(find_local_embedded_script("faraday.sh"),
                       "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-on",
                       includes=includes),
-            RunScript(locate_local_script("faraday.sh"),
+            RunScript(find_local_embedded_script("faraday.sh"),
                       "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                       includes=includes),
         ],
@@ -406,8 +371,8 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     capturers = [
         SshJob(
             node = node,
-            command = RunScript(locate_local_script("oai-common.sh"), "capture-{}".format(function), run_name,
-                                includes = [locate_local_script("oai-{}.sh".format(function))]),
+            command = RunScript(find_local_embedded_script("oai-common.sh"), "capture-{}".format(function), run_name,
+                                includes = [find_local_embedded_script("oai-{}.sh".format(function))]),
             label = "capturer on {}".format(function),
             # capture-enb will run oai-as-enb and thus requires oai-enb.sh
         )
@@ -450,7 +415,7 @@ def main():
     def_slice = "inria_oai@faraday.inria.fr"
     # WARNING: initially we used 37 and 36 for hss and epc,
     # but these boxes now have a USRP N210 and can't use the data network anymore
-    def_hss, def_epc, def_enb, def_scr = 7, 8, 23, 6
+    def_hss, def_epc, def_enb = 7, 8, 23
     
     def_image_gw  = "oai-cn"
     def_image_enb = "oai-enb"
@@ -468,17 +433,15 @@ def main():
                         help="slice to use for entering")
 
     parser.add_argument("--hss", default=def_hss,
-                        help="""id of the node that runs the HSS"""
-                        .format(def_hss))
+                        help="id of the node that runs the HSS")
     parser.add_argument("--epc", default=def_epc,
-                        help="""id of the node that runs the EPC"""
-                        .format(def_epc))
+                        help="id of the node that runs the EPC")
     parser.add_argument("--enb", default=def_enb,
                         help="""id of the node that runs the eNodeB',
 requires a USRP b210 and 'duplexer for eNodeB'""")
 
     parser.add_argument("-p", "--phones", dest='phones',
-                        action=ListOfChoicesNegativeReset, type=int, choices=(1, 2, 0),
+                        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=[1],
                         help='Commercial phones to use; use -p 0 to choose no phone')
 
@@ -519,24 +482,20 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
                         default=False, action='store_true',
                         help="""Skip resetting the USB boards if set""")
 
-    parser.add_argument("-o", "--oscillo", dest='oscillo', action='store_true', default=False,
+    parser.add_argument("-o", "--oscillo", dest='oscillo',
+                        action='store_true', default=False,
                         help='run eNB with oscillo function; no oscillo by default')
 
     parser.add_argument("--image-gw", default=def_image_gw,
-                        help="image to load in hss and epc nodes"
-                        .format(def_image_gw))
+                        help="image to load in hss and epc nodes")
     parser.add_argument("--image-enb", default=def_image_enb,
-                        help="image to load in enb node"
-                        .format(def_image_enb))
+                        help="image to load in enb node")
     parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
-                        help="image to load in e3372 UE nodes"
-                        .format(def_image_e3372_ue))
+                        help="image to load in e3372 UE nodes")
     parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
-                        help="image to load in OAI UE nodes"
-                        .format(def_image_oai_ue))
+                        help="image to load in OAI UE nodes")
     parser.add_argument("--image-gnuradio", default=def_image_gnuradio,
-                        help="image to load in gnuradio nodes"
-                        .format(def_image_gnuradio))
+                        help="image to load in gnuradio nodes")
 
 
     parser.add_argument("-N", "--n-rb", dest='n_rb',
