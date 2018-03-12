@@ -12,31 +12,48 @@ from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh import LocalNode
 from apssh.formatters import ColonFormatter
 
-from r2lab import ListOfChoices, ListOfChoicesNullReset
+### illustrating the r2lab library
+# utils 
 from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
+# argument parsing
+from r2lab import ListOfChoices, ListOfChoicesNullReset
+# probing for details on the testbed
+from r2lab import R2labSidecar
 
-hardware_map = {
-    'E3372-UE' : (2, 26),
-    'OAI-UE' : (6, 19),
-}
-hardware_reverse_map = {
-    id: kind for (kind, ids) in hardware_map.items()
-    for id in ids
-}
-
-async def verbose_delay(duration, *print_args):
-    """
-    a coroutine that just sleeps for some time - and says so
-    print_args are passed to print
-    """
-    print(20*'*', "Waiting for {} s".format(duration), *print_args)
-    await asyncio.sleep(duration)
-    print("Done waiting for {} s".format(duration), *print_args)
 
 # include the set of utility scripts that are included by the r2lab kit
 includes = [ find_local_embedded_script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ] ]
+
+
+# build our hardware map: we compute the ids of the nodes
+# that have the characteristics that we want
+def build_hardware_map():
+    with R2labSidecar() as sidecar:
+        nodes_hash = sidecar.nodes_status()
+
+    if not nodes_hash:
+        print("Could not probe testbed status - exiting")
+        exit(1)
+
+    # debug 
+    #for id in sorted(nodes_hash.keys()):
+    #    print("node[{}] = {}".format(id, nodes_hash[id]))
+
+    # we search for the nodes that have usrp_type == 'e3372'
+    e3372_ids = [id for id, node in nodes_hash.items()
+                 if node['usrp_type'] == 'e3372']
+    # and here the ones that have a b210 with a 'for UE' duplexer
+    oaiue_ids = [id for id, node in nodes_hash.items()
+                 if node['usrp_type'] == 'b210'
+                    and 'ue' in node['usrp_duplexer'].lower()]
+
+    return {
+        'E3372-UE' : e3372_ids,
+        'OAI-UE' :  oaiue_ids,
+    }
+
 
 ############################## first stage 
 def run(*,
@@ -411,6 +428,8 @@ def collect(run_name, slice, hss, epc, enb, verbose):
             
         
 def main():
+
+    hardware_map = build_hardware_map()
 
     def_slice = "inria_oai@faraday.inria.fr"
     # WARNING: initially we used 37 and 36 for hss and epc,
