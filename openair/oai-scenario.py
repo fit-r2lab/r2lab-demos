@@ -9,7 +9,6 @@ from collections import defaultdict
 from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
-from apssh import LocalNode
 from apssh.formatters import ColonFormatter
 
 ### illustrating the r2lab library
@@ -222,6 +221,7 @@ def run(*,
 
     ########## enodeb
 
+    enb_requirements = (prep_job_by_node[enb], job_service_hss, job_service_epc)
     # start service
     
     # this longer delay is required to avoid cx issue occuring when loading images
@@ -241,7 +241,7 @@ def run(*,
             ),
         ],
         label = "start softmodem on eNB",
-        required = (prep_job_by_node[enb], job_service_hss, job_service_epc),
+        required = enb_requirements,
         scheduler = sched,
     )
 
@@ -252,18 +252,12 @@ def run(*,
     delay = 30 if not skip_reset_usb else 8
     msg = "wait for {delay}s for enodeb firmware to load on the SDR device"\
           .format(delay=delay)
-    job_wait_enb = SshJob(
-        node = LocalNode(),
-        command="echo {msg}; sleep {delay}"\
-        .format(msg=msg, delay=delay),
-        label = msg,
-        required = job_service_enb,
-        scheduler = sched,
-    )
-    
+    wait_command = "echo {msg}; sleep {delay}".format(msg=msg, delay=delay)
+
     job_start_phones = [ SshJob(
         node = gwnode,
         commands = [
+            Run(wait_command),
             RunScript(find_local_embedded_script("faraday.sh"),
                       "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-on",
                       includes=includes),
@@ -272,7 +266,7 @@ def run(*,
                       includes=includes),
         ],
         label = "start Nexus phone and speedtest app",
-        required = job_wait_enb,
+        required = job_service_enb,
         scheduler = sched,
     ) for id in phones ]
 
