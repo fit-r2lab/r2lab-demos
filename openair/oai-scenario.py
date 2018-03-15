@@ -12,7 +12,7 @@ from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh.formatters import ColonFormatter
 
 ### illustrating the r2lab library
-# utils 
+# utils
 from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
 # argument parsing
 from r2lab import ListOfChoices, ListOfChoicesNullReset
@@ -36,7 +36,7 @@ def build_hardware_map():
         print("Could not probe testbed status - exiting")
         exit(1)
 
-    # debug 
+    # debug
     #for id in sorted(nodes_hash.keys()):
     #    print("node[{}] = {}".format(id, nodes_hash[id]))
 
@@ -54,7 +54,7 @@ def build_hardware_map():
     }
 
 
-############################## first stage 
+############################## first stage
 def run(*,
         # the pieces to use
         slice, hss, epc, enb, phones,
@@ -104,7 +104,7 @@ def run(*,
 
     optional_ids = e3372_ues       + oai_ues       + gnuradios + \
                    e3372_ue_xterms + oai_ue_xterms + gnuradio_xterms
-    
+
     hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
                 formatter = ColonFormatter(verbose=verbose), debug=verbose)
@@ -121,7 +121,7 @@ def run(*,
         scheduler = sched,
     )
 
-    # turn off all nodes 
+    # turn off all nodes
     turn_off_command = [ "rhubarbe", "off", "-a"]
 
     # except our 3 nodes and the optional ones
@@ -172,7 +172,7 @@ def run(*,
         to_load[image_gnuradio] += gnuradios
     if gnuradio_xterms:
         to_load[image_gnuradio] += gnuradio_xterms
-        
+
     prep_job_by_node = {}
     for image, nodes in to_load.items():
         commands = []
@@ -223,7 +223,7 @@ def run(*,
 
     enb_requirements = (prep_job_by_node[enb], job_service_hss, job_service_epc)
     # start service
-    
+
     # this longer delay is required to avoid cx issue occuring when loading images
     delay = 40 if load_nodes else 15
 
@@ -237,7 +237,7 @@ def run(*,
             RunScript(find_local_embedded_script("oai-enb.sh"),
                       "run-enb", epc, n_rb, not skip_reset_usb, oscillo,
                       includes = includes,
-                      x11 = oscillo                      
+                      x11 = oscillo
             ),
         ],
         label = "start softmodem on eNB",
@@ -246,7 +246,7 @@ def run(*,
     )
 
     ########## run experiment per se
-    
+
     # Manage phone(s)
     # we need to wait for the SDR firmware to be loaded
     delay = 30 if not skip_reset_usb else 8
@@ -305,7 +305,7 @@ def run(*,
             )
 #    # remove dangling requirements - if any - should not be needed but won't hurt either
     sched.sanitize()
-    
+
     print(20*"*", "nodes usage summary")
     if load_nodes:
         for image, nodes in to_load.items():
@@ -337,7 +337,7 @@ def run(*,
 
     if dry_run:
         return False
-        
+
     if verbose:
         input('OK ? - press control C to abort ? ')
 
@@ -352,13 +352,13 @@ def run(*,
 # use the same signature in addition to run_name by convenience
 def collect(run_name, slice, hss, epc, enb, verbose):
     """
-    retrieves all relevant logs under a common name 
+    retrieves all relevant logs under a common name
     otherwise, same signature as run() for convenience
 
     retrieved stuff will be 3 compressed tars named
     <run_name>-(hss|epc|enb).tar.gz
 
-    xxx - todo - it would make sense to also unwrap them all 
+    xxx - todo - it would make sense to also unwrap them all
     in a single place locally, like what "logs.sh unwrap" does
     """
 
@@ -369,7 +369,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     functions = "hss", "epc", "enb"
 
     hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
-    
+
     nodes = hssnode, epcnode, enbnode = [
         SshNode(gateway = gwnode, hostname = hostname, username = 'root',
                 formatter = ColonFormatter(verbose=verbose), debug=verbose)
@@ -388,7 +388,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
             # capture-enb will run oai-as-enb and thus requires oai-enb.sh
         )
         for (node, function) in zip(nodes, functions) ]
-        
+
     collectors = [
         SshJob(
             node = node,
@@ -402,7 +402,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     sched = Scheduler(verbose=verbose)
     sched.update(capturers)
     sched.update(collectors)
-    
+
     if verbose:
         sched.list()
 
@@ -419,8 +419,8 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     for tar in local_tars:
         print("Untaring {} in {}".format(tar, run_name))
         os.system("tar -C {} -xzf {}".format(run_name, tar))
-            
-        
+
+
 def main():
 
     hardware_map = build_hardware_map()
@@ -429,7 +429,7 @@ def main():
     # WARNING: initially we used 37 and 36 for hss and epc,
     # but these boxes now have a USRP N210 and can't use the data network anymore
     def_hss, def_epc, def_enb = 7, 8, 23
-    
+
     def_image_gw  = "oai-cn"
     def_image_enb = "oai-enb"
     def_image_gnuradio = "gnuradio"
@@ -441,7 +441,7 @@ def main():
     class RawAndDefaultsFormatter(ArgumentDefaultsHelpFormatter, RawTextHelpFormatter):
         pass
     parser = ArgumentParser(formatter_class=RawAndDefaultsFormatter)
-    
+
     parser.add_argument("-s", "--slice", default=def_slice,
                         help="slice to use for entering")
 
@@ -521,7 +521,7 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument("-n", "--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
-    
+
     # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
@@ -541,7 +541,7 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
         collect(run_name, args.slice, args.hss, args.epc, args.enb, args.verbose)
     except KeyboardInterrupt as e:
         print("OK, skipped collection, bye")
-    
+
     # this should maybe be taken care of in asynciojobs
     asyncio.get_event_loop().close()
 
