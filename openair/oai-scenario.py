@@ -9,6 +9,7 @@ from collections import defaultdict
 from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
+from apssh import LocalNode
 from apssh.formatters import ColonFormatter
 
 ### illustrating the r2lab library
@@ -221,36 +222,55 @@ def run(*,
 
     ########## enodeb
 
-    enb_requirements = (prep_job_by_node[enb], job_service_hss, job_service_epc)
-    # start service
+    job_warm_enb = SshJob(
+        node = enbnode,
+        commands = [
+            RunScript(find_local_embedded_script("oai-enb.sh"),
+                      "warm-enb", epc, n_rb, not skip_reset_usb,
+                      includes = includes),
+        ],
+        label = "Warm eNB",
+        required = prep_job_by_node[enb],
+        scheduler = sched,
+    )
 
-    # this longer delay is required to avoid cx issue occuring when loading images
-    delay = 40 if load_nodes else 15
+    enb_requirements = (job_warm_enb, job_service_hss, job_service_epc)
+
+    # wait everything is ready and add an extra grace delay
+
+    grace = 10
+    grace_delay = SshJob(
+        node = LocalNode(),
+        command = "echo Allowing grace grace of {grace} seconds; sleep {grace}"\
+            .format(grace=grace),
+        required = enb_requirements,
+        scheduler = sched,
+    )
+
+    # start services
 
     job_service_enb = SshJob(
         node = enbnode,
         # run-enb expects the id of the epc as a parameter
         # n_rb means number of resource blocks for DL, set to either 25 or 50.
         commands = [
-            Run("echo Waiting for {delay}s for EPC to warm up; sleep {delay}"
-                .format(delay=delay)),
             RunScript(find_local_embedded_script("oai-enb.sh"),
-                      "run-enb", epc, n_rb, not skip_reset_usb, oscillo,
+                      "run-enb", oscillo,
                       includes = includes,
                       x11 = oscillo
             ),
         ],
         label = "start softmodem on eNB",
-        required = enb_requirements,
+        required = grace_delay,
         scheduler = sched,
     )
 
     ########## run experiment per se
-
     # Manage phone(s)
-    # we need to wait for the SDR firmware to be loaded
-    delay = 30 if not skip_reset_usb else 8
-    msg = "wait for {delay}s for enodeb firmware to load on the SDR device"\
+    # this starts at the same time as the eNB, but some
+    # headstart is needed so that eNB actually is ready to serve
+    delay = 12
+    msg = "wait for {delay}s for enodeb to start up"\
           .format(delay=delay)
     wait_command = "echo {msg}; sleep {delay}".format(msg=msg, delay=delay)
 
@@ -266,7 +286,7 @@ def run(*,
                       includes=includes),
         ],
         label = "start Nexus phone and speedtest app",
-        required = job_service_enb,
+        required = grace_delay,
         scheduler = sched,
     ) for id in phones ]
 
