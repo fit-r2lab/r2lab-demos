@@ -250,12 +250,12 @@ def run(*,
 
     enb_requirements = (job_warm_enb, job_service_hss, job_service_epc)
 
-    # wait everything is ready and add an extra grace delay
+    # wait for everything to be ready, and add an extra grace delay
 
-    grace = 10
+    grace = 30 if load_nodes else 10
     grace_delay = SshJob(
         node = LocalNode(formatter=TimeColonFormatter()),
-        command = "echo Allowing grace grace of {grace} seconds; sleep {grace}"\
+        command = "echo Allowing grace of {grace} seconds; sleep {grace}"\
             .format(grace=grace),
         required = enb_requirements,
         scheduler = sched,
