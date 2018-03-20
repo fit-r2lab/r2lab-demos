@@ -8,7 +8,8 @@ from asynciojobs import Job, Scheduler, PrintJob
 from apssh import SshNode, SshJob, Run
 from apssh import RunString, RunScript, TimeColonFormatter
 
-from listofchoices import ListOfChoices
+# make sure to pip install r2lab
+from r2lab import ListOfChoices
 
 ##########
 default_gateway  = 'faraday.inria.fr'

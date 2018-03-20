@@ -31,9 +31,9 @@ while true; do
 
 ## used on the phone
 
-* gmail: `demodianainria@gmail.com` / `007ddi007`
+* gmail: `demodianainria@gmail.com`
 * skype: `demor2lab`
-* this google account has a indefinite licence to use vysor pro - acquired on Oct. 28 2016
+* see macphone-private.md for more details
 
 # Phone(s)
 

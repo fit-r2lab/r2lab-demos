@@ -14,9 +14,11 @@ from apssh import SshNode, SshJob
 from apssh import Run, RunScript, Pull
 from apssh import TimeColonFormatter
 
+# make sure to pip install r2lab
+from r2lab import ListOfChoices
+
 # helpers
 from processmap import Aggregator
-from listofchoices import ListOfChoices
 from channels import channel_frequency
 
 ##########
