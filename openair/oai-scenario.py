@@ -17,8 +17,6 @@ from apssh.formatters import ColonFormatter
 from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
 # argument parsing
 from r2lab import ListOfChoices, ListOfChoicesNullReset
-# probing for details on the testbed
-from r2lab import R2labSidecar
 
 
 # include the set of utility scripts that are included by the r2lab kit
@@ -27,9 +25,20 @@ includes = [ find_local_embedded_script(x) for x in [
 ] ]
 
 
+### harware map
+# the python code for interacting with sidecar is too fragile for now
+# to be invoked every time; plus, it takes time; so:
+def hardwired_hardware_map():
+    return {
+            'E3372-UE' : [2, 26],
+            'OAI-UE' :  [6, 19],
+    }
+
 # build our hardware map: we compute the ids of the nodes
 # that have the characteristics that we want
-def build_hardware_map():
+def probe_hardware_map():
+    # import here so depend on socketIO_client only if needed
+    from r2lab import R2labSidecar
     with R2labSidecar() as sidecar:
         nodes_hash = sidecar.nodes_status()
 
@@ -54,6 +63,11 @@ def build_hardware_map():
         'OAI-UE' :  oaiue_ids,
     }
 
+def show_hardware_map(map):
+    print("Nodes that can be used as E3372 UEs (suitable for -E/-e):",
+          ', '.join([str(id) for id in sorted(map['E3372-UE'])]))
+    print("Nodes that can be used as OpenAirInterface UEs (suitable for -U/-u)",
+          ', '.join([str(id) for id in sorted(map['OAI-UE'])]))
 
 ############################## first stage
 def run(*,
@@ -443,7 +457,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
 
 def main():
 
-    hardware_map = build_hardware_map()
+    hardware_map = hardwired_hardware_map()
 
     def_slice = "inria_oai@faraday.inria.fr"
     # WARNING: initially we used 37 and 36 for hss and epc,
@@ -537,10 +551,20 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
                         choices=[25, 50],
                         help="specify the Number of Resource Blocks (NRB) for the downlink")
 
+    parser.add_argument("-m", "--map", default=False, action='store_true',
+                        help="""Probe the testbed to get an updated hardware map
+that shows the nodes that currently embed the
+capabilities to run as either E3372- and
+OpenAirInterface-based UE. Does nothing else.""")
+
     parser.add_argument("-v", "--verbose", action='store_true', default=False)
     parser.add_argument("-n", "--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
+
+    if args.map:
+        show_hardware_map(probe_hardware_map())
+        exit(0)
 
     # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
