@@ -76,7 +76,7 @@ def run(*,
         e3372_ues, oai_ues, gnuradios,
         e3372_ue_xterms, oai_ue_xterms, gnuradio_xterms,
         # boolean flags
-        load_nodes, reset_nodes, skip_reset_usb, oscillo,
+        load_nodes, skip_reset_usb, oscillo,
         # the images to load
         image_gw, image_enb, image_oai_ue, image_e3372_ue, image_gnuradio,
         # miscell
@@ -105,8 +105,6 @@ def run(*,
     * load_nodes: whether to load images or not - in which case
                   image_gw, image_enb and image_*
                   are used to tell the image names
-    * reset_nodes: if load_nodes is false and reset_nodes is true, the nodes are reset - i.e. rebooted
-    * otherwise (both load_nodes and reset_nodes are False): do nothing
     * skip_reset_usb : the USRP board will be reset as well unless this is set
     """
 
@@ -142,8 +140,8 @@ def run(*,
     # except our 3 nodes and the optional ones
     turn_off_command += [ "~{}".format(x) for x in [hss,  epc, enb] + optional_ids]
 
-    # only do the turn-off thing if load_nodes or reset_nodes
-    if load_nodes or reset_nodes:
+    # only do the turn-off thing if load_nodes
+    if load_nodes:
         job_off_nodes = SshJob(
             node = gwnode,
             # switch off all nodes but the ones we use
@@ -195,8 +193,6 @@ def run(*,
             commands.append(Run("rhubarbe", "usrpoff", *nodes))
             commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
             commands.append(Run("rhubarbe", "usrpon", *nodes))
-        elif reset_nodes:
-            commands.append(Run("rhubarbe", "reset", *nodes))
         # always do this
         commands.append(Run("rhubarbe", "wait", "-t",  120, *nodes))
         job = SshJob(
@@ -345,10 +341,6 @@ def run(*,
         for image, nodes in to_load.items():
             for node in nodes:
                 print("node {node} : {image}".format(node=node, image=image))
-    elif reset_nodes:
-        for image, nodes in to_load.items():
-            for node in nodes:
-                print("reset of node {node}".format(node=node))
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
     print(10*"*", "phones usage summary")
@@ -363,7 +355,6 @@ def run(*,
     if verbose or dry_run:
         sched.list()
         name = "scenario-load" if load_nodes else \
-               "scenario-reset" if reset_nodes else \
                "scenario"
         sched.export_as_dotfile("{name}.dot".format(name=name))
         os.system("dot -Tpng {name}.dot -o {name}.png".format(name=name))
@@ -523,8 +514,6 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
 
     parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
                         help='load images as well')
-    parser.add_argument("-r", "--reset", dest='reset_nodes', action='store_true', default=False,
-                        help='reset nodes instead of loading images')
     parser.add_argument("-f", "--fast", dest="skip_reset_usb",
                         default=False, action='store_true',
                         help="""Skip resetting the USB boards if set""")
