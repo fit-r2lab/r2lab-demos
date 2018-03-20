@@ -387,7 +387,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
     in a single place locally, like what "logs.sh unwrap" does
     """
 
-    gwuser, gwhost = parse_slice(slice)
+    gwuser, gwhost = r2lab_parse_slice(slice)
     gwnode = SshNode(hostname = gwhost, username = gwuser,
                      formatter = TimeColonFormatter(verbose=verbose), debug=verbose)
 
