@@ -566,6 +566,9 @@ OpenAirInterface-based UE. Does nothing else.""")
         show_hardware_map(probe_hardware_map())
         exit(0)
 
+    # map is not a recognized parameter in run()
+    delattr(args, 'map')
+
     # we pass to run and collect exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
