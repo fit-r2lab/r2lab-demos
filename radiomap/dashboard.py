@@ -5,7 +5,7 @@ Was initially right in the notebook, but the added value has been
 deemed minor compared to its relatively long contents; so we store it
 in this module instead
 
-The dasboard() function returns a widget suitable 
+The dasboard() function returns a widget suitable
 as a second argument to interactive_output
 """
 
@@ -20,11 +20,11 @@ from IPython.display import display
 from channels import channel_frequency, channel_options
 
 
-def dashboard(datadir):
+def dashboard(datadir, continuous_sender=False):
     """
-    some contorsions with ipywidgets to show controls in 
+    some contorsions with ipywidgets to show controls in
     a compact way
-    create and display a dashboard 
+    create and display a dashboard
     return a dictionary name->widget suitable for interactive_output
     """
     # dashboard pieces as widgets
@@ -38,7 +38,8 @@ def dashboard(datadir):
                      layout=l25)
     w_sender = IntSlider(description="sender node",
                          min=1, max=37, step=1, value=21,
-                         continuous_update=False, layout=l75)
+                         continuous_update=continuous_sender,
+                         layout=l75)
     w_power = Dropdown(options=list(range(0, 16)),
                        value=14, description="tx power in dBm", layout=l32)
     w_rate = Dropdown(options=[1, 54], value=1,
