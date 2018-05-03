@@ -19,7 +19,7 @@ def readRTT(filename):
                     *values, time ,ms = line.split()
                     junk, time = time.split("=")
                     pings_time.append(time)
-
+            pings_file.close()
 
     except IOError as e:
         file = str(filename)
@@ -36,7 +36,7 @@ def readRTT(filename):
                         *values, time ,ms = line.split()
                         junk, time = time.split("=")
                         pings_time.append(time)
-
+                revert_pings_file.close()
         except IOError as e2:
                 print("Cannot open file {}: {}" .format(inverted_file_name, e2))
                 print("Nor file {}: {}".format(filename, e))
@@ -58,6 +58,7 @@ def readPDR(filename):
             for line in pings_file:
                 if "%" in line:
                     pdr = patern.findall(line)
+            pings_file.close()
     except IOError as e:
         file = str(filename)
         *rest, pingfile = file.split("/")
@@ -69,6 +70,7 @@ def readPDR(filename):
                 for line in revert_pings_file:
                     if "%" in line:
                         pdr = patern.findall(line)
+                revert_pings_file.close()
 
         except IOError as e2:
             print("Cannot open file {}: {}" .format(inverted_file_name, e2))
@@ -86,7 +88,7 @@ def getRoutes(filename):
             for line in routes_file:
                 if isValidRoute(line):
                     routes.append(line.rstrip())
-
+            routes_file.close()
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
     return routes
@@ -97,10 +99,11 @@ def getAllRoutes(filename):
         with open(filename) as routes_file:
             for line in routes_file:
                     routes.append(line.rstrip())
-
+            routes_file.close()
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
     return routes
+
 def getSourceDestFromRoute(route):
     src , *values , dest = route.split(" -- ")
     return src, dest
@@ -168,7 +171,7 @@ def getEdgesFromRoutes(dot, routes):
             for i in range(0 , len(nodes)-1):
                 dot.edge(nodes[i], nodes[i+1])
     return dot
-def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source):
+def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source, sampleNum = None):
     dot = Digraph(comment='Routing table for fit{:02d}'.format(source))
     dot.attr(rankdir='LR')
     dot.attr('node', shape='doublecircle')
@@ -176,7 +179,10 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
     directory =naming_scheme(run_name=run_name, tx_power=tx_power,
                              phy_rate=phy_rate, antenna_mask=antenna_mask,
                              channel=channel, interference = interference, protocol = protocol)
-    routes = getAllRoutes( directory/ "ROUTES-{:02d}".format(source))
+    if sampleNum is None:
+        routes = getAllRoutes( directory/ "ROUTES-{:02d}".format(source))
+    else:
+        routes = getAllRoutes( directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE{}".format(source,sampleNum))
     nodes = getNodesFromRoutes(routes)
     nodes = list(set(nodes)- set(['0']))
     if len(nodes) > 0 :
@@ -185,4 +191,5 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
         dot = getEdgesFromRoutes(dot, routes)
         #dot.render(directory / "ROUTES-DIAGRAM-{:02d}".format(source), view=False)
         return dot#str(directory / "ROUTES-DIAGRAM-{:02d}.png".format(source))
+
 
