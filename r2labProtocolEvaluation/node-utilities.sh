@@ -308,7 +308,7 @@ EOT
 function kill-olsr (){
 
     echo "Kill olsr daemon"
-    pkill -9 olsrd
+    pkill  olsrd
     return 0
 }
 
@@ -380,7 +380,8 @@ function route-sample-olsr(){
 function kill-batman (){
 
     echo "Kill batman daemon"
-    pkill -9 batmand
+    pkill  batman
+    
     return 0
 }
 function kill-tcpdump (){

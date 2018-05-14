@@ -85,7 +85,6 @@ class Aggregator:
                     rssis = [int(x) for x in comma_rssis.split(',')]
                     averager = self.RSSI[sender_id, receiver_id]
                     averager.record_point(rssis)
-                result_file.close()
         # consolidated file is called RSSI.txt
         aggragate_name = self.run_root / "RSSI.txt"
         with aggragate_name.open("w") as aggregate_file:
@@ -96,4 +95,3 @@ class Aggregator:
                     sender, receiver)
                 line += "\t".join("{0:.2f}".format(v) for v in avgs)
                 aggregate_file.write(line + "\n")
-            aggregate_file.close()

@@ -48,9 +48,20 @@ def dashboard(datadir, continuous_sender = False):
                               description="number of antennas: ", layout=l50)
     w_channel = Dropdown(options=channel_options,
                          value=10, description="channel", layout=l32)
-    w_interference = Dropdown(options = OrderedDict([("None", "None"), ("1", 1), ("2", 2), ("3", 3), ("4", 4)
-                                                     , ("5", 5), ("6", 6), ("7", 7)]), value="None",
-                            description="Interference power in dBm: ", layout=l50)
+    w_interference = Dropdown(
+                               options = OrderedDict([("-12", -12),("-11", -11)
+                                                      ,("-10", -10)
+                                                    ,("-9", -9),("-8", -8)
+                                                      ,("-7", -7)
+                                                      ,("None", "None")
+                                                      , ("1", 1)
+                                                      , ("2", 2), ("3", 3)
+                                                      , ("4", 4)
+                                                      , ("5", 5)
+                                                      , ("6", 6)
+                                                      , ("7", 7)])
+                                , value="None",
+                                description="Interference power in dBm: ", layout=l50)
     # make up a dashboard
     dashboard = VBox([HBox([w_datadir, w_sender]),
                       HBox([w_power, w_rate, w_channel]),

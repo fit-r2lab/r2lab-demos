@@ -20,7 +20,7 @@ from processroute import ProcessRoutes
 from listofchoices import ListOfChoices
 from channels import channel_frequency
 
-
+from subprocess import call
 
 ##########
 default_gateway      = 'faraday.inria.fr'
@@ -232,6 +232,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         critical=True,
         label="rhubarbe check lease",
         command=Run("rhubarbe leases --check", label = "rlease"),
+        #keep_connection = True
     )
 
     # load images if requested
@@ -253,7 +254,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         green_light = SshJob(
                          node=faraday,
                          required=check_lease,
-                         critical=True,
+                         #critical=True,
                          scheduler=scheduler,
                          verbose=verbose_jobs,
                              label="rhubarbe load/wait on nodes {}".format(load_ids),
@@ -263,7 +264,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                    Run("rhubarbe", "load", "-i", "gnuradio_batman", scrambler_id,
                                        label = "load gnuradio batman on {}".format(scrambler_id)),
                                    Run("rhubarbe", "wait", *load_ids, label = "rwait")
-                                   ]
+                                   ],
+                         #keep_connection = True
                          )
 
     ##########
@@ -291,12 +293,15 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                  command=RunScript("node-utilities.sh", "init-ad-hoc-network-{}".format(wireless_driver),
                                                    wireless_driver, "foobar", frequency, phy_rate,
                                                    antenna_mask, tx_power_driver,
-                                                   label = "init add-hoc network")
+                                                   label = "init add-hoc network"),
+                                 #keep_connection = True
                                  )
                           for id, node in node_index.items()]
     init_wireless_jobs= Scheduler(*init_wireless_sshjobs,
                                     scheduler = scheduler,
                                     required = green_light,
+                                  #critical = True,
+                                    verbose=verbose_jobs,
                                     label = "Initialisation of wireless chips")
 
     green_light_prot= init_wireless_jobs
@@ -312,12 +317,15 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                 command=RunScript("node-utilities.sh",
                                                   "init-scrambler", interference,
                                                   frequency_str,
-                                                  label = "init scambler")
+                                                  label = "init scambler"),
+                                #keep_connection = True
                                 )]
         init_scrambler = Scheduler(*init_scrambler_job,
                              scheduler = scheduler,
                              required = green_light,
-                             forever = True,
+                                   #forever = True,
+                             #critical = True,
+                             verbose=verbose_jobs,
                              label = "Running interference")
     # then install and run batman on fit nodes
     run_protocol_job = [
@@ -328,41 +336,48 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             label="init and run {} on fit node {}".format(protocol, i),
             verbose=verbose_jobs,
             command=RunScript("node-utilities.sh", "run-{}".format(protocol),
-                              label= "run {}".format(protocol))
+                              label= "run {}".format(protocol)),
+            #keep_connection = True
             )
         for i, node in node_index.items()]
 
     run_protocol = Scheduler(*run_protocol_job,
                               scheduler = scheduler,
                               required = green_light_prot,
+                              #critical = True,
+                              verbose=verbose_jobs,
                               label = "init and run routing protocols")
         
     # after that, run tcpdump on fit nodes, this job never ends...
-    run_tcpdump_job = [
-        SshJob(
-               #scheduler=scheduler_monitoring,
-            node=node,
+    if tshark:
+        run_tcpdump_job = [
+            SshJob(
+                   #scheduler=scheduler_monitoring,
+                node=node,
+                forever = True,
+                label="run tcpdump on fit node".format(i),
+                verbose=verbose_jobs,
+                commands=[
+                          RunScript("node-utilities.sh", "run-tcpdump", wireless_driver, i,
+                                    label = "run tcpdump")
+                ],
+                #keep_connection = True
+                )
+            for i, node in node_index.items()]
+        run_tcpdump = Scheduler(*run_tcpdump_job,
+            scheduler = scheduler,
+            required = run_protocol,
             forever = True,
-            label="run tcpdump on fit node".format(i),
+            #critical = True,
             verbose=verbose_jobs,
-            commands=[
-                      RunScript("node-utilities.sh", "run-tcpdump", wireless_driver, i,
-                                label = "run tcpdump")
-            ]
-            )
-        for i, node in node_index.items()]
-    run_tcpdump = Scheduler(*run_tcpdump_job,
-        scheduler = scheduler,
-        required = run_protocol,
-        forever = True,
-        label = "Monitoring (tcpdum) Jobs")
+            label = "Monitoring (tcpdum) Jobs")
     # let the wireless network settle
     settle_wireless_job = PrintJob(
         "Let the wireless network settle",
         sleep=settle_delay,
         scheduler=scheduler,
         required=run_protocol,
-        label="settling")
+        label="settling for {} sec".format(settle_delay))
 
     green_light_experiment=settle_wireless_job
 
@@ -379,7 +394,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                         RunScript("node-utilities.sh", "my-ping",
                                                   "10.0.0.{}".format(j), ping_timeout, ping_interval,
                                                   ping_size, ping_number, label = "")
-                                        ]
+                                        ],
+                              #keep_connection = True
                               )
                        #for each selected experiment nodes
                        for e in exp_ids
@@ -398,13 +414,15 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         warmup_pings = Scheduler(Sequence(*warmup_pings_job),
                                                 scheduler = scheduler,
                                                 required = green_light_experiment,
+                                                #critical = True,
+                                                verbose=verbose_jobs,
                                                 label = "Warmup ping")
         settle_wireless_job2 = PrintJob(
                                           "Let the wireless network settle",
                                           sleep=settle_delay/2,
                                           scheduler=scheduler,
                                           required=warmup_pings,
-                                          label="settling-warmup")
+                                          label="settling-warmup for {} sec".format(settle_delay/2))
         
         green_light_experiment=settle_wireless_job2
     ##########
@@ -424,13 +442,16 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                             label = "get route table"),
                                   Pull(remotepaths="ROUTE-TABLE-{:02d}".format(i), localpath=str(run_root),
                                        label = "")
-                       ]
+                                  ],
+                       #keep_connection = True
                        )
                        for i, nodei in node_index.items()
             ]
         routes = Scheduler(*routes_job,
                            scheduler = scheduler,
                            required = green_light_experiment,
+                           #critical = True,
+                           verbose=verbose_jobs,
                            label = "Snapshoting route files")
         green_light_experiment=routes
 
@@ -440,13 +461,14 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                      node=nodei,
                                      label="Route sampling service for prot {} on node {}".format(protocol, i),
                                      verbose=False,
-                                     forever = True,
+                                     #forever = True,
                                      commands=[
                                                Push( localpaths = [ "route_sample_service.sh" ],
                                                     remotepath = ".", label = ""),
                                                Run("source","route_sample_service.sh;", "route-sample"                                                         , "ROUTE-TABLE-{:02d}-SAMPLED".format(i), "{}".format(protocol),
                                                    label = "run route sampling service"),
-                                               ]
+                                               ],
+                                     #keep_connection = True
                                      )
                               for i, nodei in node_index.items()
                               ]
@@ -456,21 +478,26 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                      label="Route sampling service for prot {} on node {}".format(protocol, i),
                                      verbose=False,
                                      forever = True,
+                                     #critical = True,
+                                     #required = green_light_experiment,
+                                     #scheduler = scheduler,
                                      commands=[
-                                               RunScript("node-utilities.sh", "route-sample-{}"\
-                                                         .format(protocol),
-                                                         ">", "ROUTE-TABLE-{:02d}-SAMPLED".format(i),
+                                               RunScript("route_sample_service.sh", "route-sample",
+                                                         "ROUTE-TABLE-{:02d}-SAMPLED".format(i)
+                                                         , "{}".format(protocol),
                                                          label = "run route sampling service"),
-                                               ]
+                                               ],
+                                     #keep_connection = True
                                      )
                               for i, nodei in node_index.items()
                               ]
-        routes_sampling = Scheduler(*routes_sampling_job2,
-                                  scheduler = scheduler,
-                                  verbose = False,
-                                  forever = True,
-                                  label = "Route Sampling services launch",
-                                  required= green_light_experiment)
+        routes_sampling = Scheduler(*routes_sampling_job,
+                                    scheduler = scheduler,
+                                    verbose = False,
+                                    forever = True,
+                                    #critical = True,
+                                    label = "Route Sampling services launch",
+                                    required= green_light_experiment)
     ##########
     # create all the ping jobs, i.e. max*(max-1)/2
     # this again is a python list comprehension
@@ -494,7 +521,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                           ">", "PING-{:02d}-{:02d}".format(i, j), label = ""),
                 Pull(remotepaths="PING-{:02d}-{:02d}".format(i, j),
                      localpath=str(run_root), label = ""),
-            ]
+                      ],
+            #keep_connection = True
         )
         #for each selected experiment nodes
         for e in exp_ids
@@ -511,34 +539,62 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     ]
     pings = Scheduler(scheduler = scheduler,
                      label = "PINGS",
-                     required= green_light_experiment)
+                     #critical = True,
+                     verbose=verbose_jobs,
+             required= green_light_experiment)
 
     # retrieve all pcap files from fit nodes
-    retrieve_tcpdump_job = [
-        SshJob(
-               #scheduler=scheduler,
-            node=nodei,
-               #required=pings,
-            label="retrieve pcap trace from fit{:02d}".format(i),
-            verbose=verbose_jobs,
-            critical = False,
-            commands=[
-                
-                RunScript("node-utilities.sh", "kill-{}".format(protocol), label = "kill-{}".format(protocol)),
-                RunScript("node-utilities.sh", "kill-tcpdump", label = "kill-tcpdump"),
-                      #Run("sleep 1"),
-                Run(
-                    "echo retrieving pcap trace and result-{i}.txt from fit{i:02d}".format(i=i), label = ""),
-                Pull(remotepaths=["/tmp/fit{}.pcap".format(i)],localpath=str(run_root), label = ""),
-            ]
-        )
-        for i, nodei in node_index.items()
-    ]
-    retrieve_tcpdump = Scheduler(*retrieve_tcpdump_job,
+    stop_protocol_job = [
+                     SshJob(
+                            #scheduler=scheduler,
+                            node=nodei,
+                            #required=pings,
+                            label="retrieve pcap trace from fit{:02d}".format(i),
+                            verbose=verbose_jobs,
+                            #critical = True,
+                            commands=[
+                                      
+                                      RunScript("node-utilities.sh", "kill-{}".format(protocol), label = "kill-{}".format(protocol)),
+                                      ],
+                            #keep_connection = False
+                            )
+                     for i, nodei in node_index.items()
+                     ]
+    stop_protocol = Scheduler(*stop_protocol_job,
+                                 scheduler = scheduler,
+                                 required=pings,
+                                 #critical = True,
+                                 label = "Stop routing protocols",
+                                 )
+    
+    if tshark:
+        retrieve_tcpdump_job = [
+            SshJob(
+                   #scheduler=scheduler,
+                node=nodei,
+                   #required=pings,
+                label="retrieve pcap trace from fit{:02d}".format(i),
+                verbose=verbose_jobs,
+                #critical = True,
+                commands=[
+                    
+                          # RunScript("node-utilities.sh", "kill-{}".format(protocol), label = "kill-{}".format(protocol)),
+                    RunScript("node-utilities.sh", "kill-tcpdump", label = "kill-tcpdump"),
+                          #Run("sleep 1"),
+                    Run(
+                        "echo retrieving pcap trace and result-{i}.txt from fit{i:02d}".format(i=i), label = ""),
+                    Pull(remotepaths=["/tmp/fit{}.pcap".format(i)],localpath=str(run_root), label = ""),
+                          ],
+               #keep_connection = True
+            )
+            for i, nodei in node_index.items()
+        ]
+        retrieve_tcpdump = Scheduler(*retrieve_tcpdump_job,
                              scheduler = scheduler,
                              required=pings,
+                             #critical = True,
                              label = "Retrieve tcpdump",
-                             )
+                         )
     if route_sampling:
         retrieve_sampling_job = [
                              SshJob(
@@ -547,22 +603,27 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                     #required=pings,
                                     label="retrieve sampling trace from fit{:02d}".format(i),
                                     verbose=verbose_jobs,
-                                    critical = False,
+                                    #critical = True,
                                     commands=[
-                                              RunScript("node-utilities.sh", "kill-route-sample", protocol,
-                                                        label = "kill route sample"),
+                                              #RunScript("node-utilities.sh", "kill-route-sample", protocol,
+                                              #          label = "kill route sample"),
+                                              RunScript("route_sample_service.sh", "kill-route-sample",
+                                                  label = "kill route sample"),
                                               Run(
                                                   "echo retrieving sampling trace from fit{i:02d}".format(i=i),
                                                   label = ""),
                                               Pull(remotepaths=["ROUTE-TABLE-{:02d}-SAMPLED".format(i)],
                                                    localpath=str(run_root), label = ""),
-                                              ]
+                                              ],
+                                    #keep_connection = True
                                     )
                              for i, nodei in node_index.items()
                              ]
         retrieve_sampling = Scheduler(*retrieve_sampling_job,
                              scheduler = scheduler,
                              required=pings,
+                             #critical=True,
+                             verbose=verbose_jobs,
                              label = "Retrieve & stopping route sampling",
                              )
     if tshark:
@@ -578,13 +639,15 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                 "-R", "'(ip.dst==10.0.0.{node} && icmp) && radiotap.dbm_antsignal'".format(node=i), "-Tfields", "-e",
                                 "'ip.src'", "-e" "'ip.dst'", "-e", "'radiotap.dbm_antsignal'", ">",
                                 "{path}/result-{node}.txt".format(path=run_root, node=i),
-                                label = "parse pcap locally")]
+                                label = "parse pcap locally")],
+                   #keep_connection = True
             )
             for i in node_ids
         ]
         parse_pcaps = Scheduler(*parse_pcaps_job,
                                scheduler = scheduler,
                                required=retrieve_tcpdump,
+                               #critical=True,
                                label = "Parse pcap",
                                )
 #TODO: TURN OFF USRP
@@ -596,9 +659,10 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                  required = pings,
                                  label="killing uhd_siggen on the scrambler node {}".format(scrambler_id),
                                  verbose=verbose_jobs,
-                                 critical = False,
+                                 #critical = True,
                                  commands=[Run("pkill", "uhd_siggen")
-                                           ]
+                                           ],
+                                 #keep_connection = True
                                  )
         kill_2_uhd_siggen = SshJob(
                                    scheduler=scheduler,
@@ -606,13 +670,14 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                    required = kill_uhd_siggen,
                                    label="turning off usrp on the scrambler node {}".format(scrambler_id),
                                    verbose=verbose_jobs,
-                                   commands=[Run("rhubarbe", "usrpoff", "fit{}".format(scrambler_id))]
+                                   commands=[Run("rhubarbe", "usrpoff", "fit{}".format(scrambler_id))],
+                                   #keep_connection = True
                                    )
 #if map:
         #scheduler.add(Sequence(*tracepaths, scheduler=scheduler))
-    if warmup:
-        scheduler.add(Sequence(*warmup_pings_job, scheduler=scheduler))
-    pings.add(Sequence(*pings_job, scheduler=scheduler))
+#if warmup:
+#       scheduler.add(Sequence(*warmup_pings_job, scheduler=scheduler))
+    pings.add(Sequence(*pings_job))
         # for running sequentially we impose no limit on the scheduler
         # that will be limitied anyways by the very structure
         # of the required graph
@@ -650,8 +715,26 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         jobs_window = parallel
     """
     # if not in dry-run mode, let's proceed to the actual experiment
-    ok = scheduler.orchestrate(jobs_window=jobs_window)
+
+    ok = scheduler.orchestrate()#jobs_window=jobs_window)
+#TODO ===> SHUTDOWN SCHED
+#File "evalprot.py", line 719, in one_run
+#    scheduler.shutdown()
+#        File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 597, in shutdown
+#return loop.run_until_complete(self.co_shutdown(depth=0))
+#    File "/usr/local/Cellar/python/3.6.4_4/Frameworks/Python.framework/Versions/3.6/lib/python3.6/asyncio/base_events.py", line 467, in run_until_complete
+#    return future.result()
+#        File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 617, in co_shutdown
+#for job in self.jobs]
+#   File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 617, in <listcomp>
+#    for job in self.jobs]
+#TypeError: co_shutdown() takes 1 positional argument but 2 were given
+
+#    scheduler.shutdown()
+    scheduler.export_as_dotfile(run_name+"/experitment_graph")
+
 #ok=True
+    call(["dot",  "-Tpng", run_name+"/experitment_graph", "-o", run_name+"/experitment_graph.png"])
 #ok = False
     # give details if it failed
     if not ok:
@@ -664,6 +747,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     if ok and route_sampling:
         post_processor= ProcessRoutes(run_root, exp_ids, node_ids)
         post_processor.run_sampled()
+    print("END of creation for ROUTES FILES")
     # data acquisition is done, let's aggregate results
     # i.e. compute averages
     if ok and tshark:

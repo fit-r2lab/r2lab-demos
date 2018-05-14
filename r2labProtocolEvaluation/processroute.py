@@ -36,7 +36,6 @@ class ProcessRoutes:
                     dest_id = int(dest_ip.split(".")[-1])
                     hop_id = int(hop_ip.split(".")[-1])
                     self.Allroutes[source_id, dest_id]= hop_id
-                file_routes.close()
         #print(self.Allroutes)
 
         #generate route map file for each selected nodes:
@@ -49,13 +48,37 @@ class ProcessRoutes:
                     line_to_write = line_start
                     src = e
                     if dest != e:
+                        loop_detector = 0
                         while( src !=0 and self.Allroutes[src, dest] != dest ):
                             next_hop = self.Allroutes[src, dest]
                             line_to_write += " {} --".format(next_hop)
                             src = next_hop
+                            loop_detector = loop_detector + 1
+                            if loop_detector > len(self.node_ids):
+                                #print (result_name)
+                                #print ("SAMPLE {}".format(sample))
+                                #print(" dest : {}".format( dest))
+                                #print("LOOP")
+                                hops = line_to_write.split("--")
+                                hops.remove('')
+                                read_hops = []
+                                
+                                for hop in hops:
+                                    if int(hop) not in read_hops:
+                                        read_hops.append(int(hop))
+                                    else:
+                                        read_hops.append(int(hop))
+                                        #print (read_hops)
+                                        line_to_write = "{} --".format(e)
+                                        read_hops.remove(read_hops[0])
+                                        for i in read_hops:
+                                            line_to_write += " {} --".format(i)
+                                        line_to_write += " {} --".format("-1")
+                                        #print (line_to_write)
+                                        break
+                                break
                         line_to_write += " {}".format(dest)
                         result_file.write(line_to_write+ "\n")
-                result_file.close()
     def run_sampled(self):
         #Generating Src,Dest : next_hop  table
         print ("Generation global routing map")
@@ -100,27 +123,60 @@ class ProcessRoutes:
                                 goToNextSample = True
                 dict_maps[sampleNum] = self.Allroutes.copy()
                 #print(self.Allroutes)
-                file_routes.close()
 
         #get sample num and write routing parsed to file sample num -1
         
-        for sample in range(0, sampleNum):
+        
             
-            for e in self.exp_nodes:
-                result_name= self.run_root / "SAMPLES" /"ROUTES-{:02d}-SAMPLE{}"\
-                    .format(e,sample)
-                line_start= "{} --".format(e)
-                with result_name.open("w") as result_file:
+        for e in self.exp_nodes:
+            result_name= self.run_root / "SAMPLES" /"ROUTES-{:02d}-SAMPLE"\
+                .format(e)
+            line_start= "{} --".format(e)
+            with result_name.open("w") as result_file:
+                for sample in range(0, sampleNum):
+                    result_file.write("SAMPLE {}".format(sample) + "\n")
                     for dest in self.node_ids:
                         line_to_write = line_start
                         src = e
                         if dest != e:
+                            loop_detector = 0
                             while( src !=0 and dict_maps[sample][src, dest] != dest ):
                                 next_hop = dict_maps[sample][src, dest]
+                                #print("------------------------------------")
+                                #print("Source : {}".format(e))
+                                #print ("Sample : {}".format(sample))
+                                #print (result_name)
+                                #print("src : {} dest : {}".format(src, dest))
+                                #print ("next hop: {}".format(next_hop))
+                                #print("------------------------------------")
                                 line_to_write += " {} --".format(next_hop)
                                 src = next_hop
+                                loop_detector = loop_detector + 1
+                                if loop_detector > len(self.node_ids):
+                                    #print (result_name)
+                                    #print ("SAMPLE {}".format(sample))
+                                    #print(" dest : {}".format( dest))
+                                    #print("LOOP")
+                                    hops = line_to_write.split("--")
+                                    hops.remove('')
+                                    read_hops = []
+                                    
+                                    for hop in hops:
+                                        if int(hop) not in read_hops:
+                                            read_hops.append(int(hop))
+                                        else:
+                                            read_hops.append(int(hop))
+                                            #print (read_hops)
+                                            line_to_write = "{} --".format(e)
+                                            read_hops.remove(read_hops[0])
+                                            for i in read_hops:
+                                                line_to_write += " {} --".format(i)
+                                            line_to_write += " {} --".format("-1")
+                                            #print (line_to_write)
+                                            break
+                                    break
+                        
                             line_to_write += " {}".format(dest)
                             result_file.write(line_to_write+ "\n")
-                result_file.close()
 
 

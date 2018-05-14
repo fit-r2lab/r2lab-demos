@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import re
-from r2labProtocolEval import naming_scheme
+from evalprot import naming_scheme
 from graphviz import Digraph
-
 def readRTT(filename):
     """
         Will generate a list of time (in ms) by parsing the output of the ping command.
@@ -19,7 +18,6 @@ def readRTT(filename):
                     *values, time ,ms = line.split()
                     junk, time = time.split("=")
                     pings_time.append(time)
-            pings_file.close()
 
     except IOError as e:
         file = str(filename)
@@ -36,7 +34,6 @@ def readRTT(filename):
                         *values, time ,ms = line.split()
                         junk, time = time.split("=")
                         pings_time.append(time)
-                revert_pings_file.close()
         except IOError as e2:
                 print("Cannot open file {}: {}" .format(inverted_file_name, e2))
                 print("Nor file {}: {}".format(filename, e))
@@ -51,14 +48,14 @@ def readPDR(filename):
         592 packets transmitted, 0 received, 100% packet loss, time 5994ms
     """
 
-    pdr = 0
+    pdr = [100]
     patern = re.compile('(\d{1,3}(?=%))')
     try:
         with open(filename) as pings_file:
             for line in pings_file:
                 if "%" in line:
                     pdr = patern.findall(line)
-            pings_file.close()
+        
     except IOError as e:
         file = str(filename)
         *rest, pingfile = file.split("/")
@@ -70,7 +67,6 @@ def readPDR(filename):
                 for line in revert_pings_file:
                     if "%" in line:
                         pdr = patern.findall(line)
-                revert_pings_file.close()
 
         except IOError as e2:
             print("Cannot open file {}: {}" .format(inverted_file_name, e2))
@@ -88,7 +84,6 @@ def getRoutes(filename):
             for line in routes_file:
                 if isValidRoute(line):
                     routes.append(line.rstrip())
-            routes_file.close()
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
     return routes
@@ -99,7 +94,22 @@ def getAllRoutes(filename):
         with open(filename) as routes_file:
             for line in routes_file:
                     routes.append(line.rstrip())
-            routes_file.close()
+    except IOError as e:
+        print("Cannot open file {}: {}" .format(filename, e))
+    return routes
+def getAllRoutes_sample(filename, sampleNum):
+    routes = []
+    cursorOK = False
+    try:
+        with open(filename) as routes_file:
+            for line in routes_file:
+                if "SAMPLE" in line and cursorOK:
+                    cursorOK = False
+                    break
+                if cursorOK:
+                    routes.append(line.rstrip())
+                if "SAMPLE {}".format(sampleNum) in line:
+                    cursorOK = True
     except IOError as e:
         print("Cannot open file {}: {}" .format(filename, e))
     return routes
@@ -168,10 +178,16 @@ def getEdgesFromRoutes(dot, routes):
     for route in routes:
         if("-- 0 --" not in route):
             nodes = route.split(" -- ")
-            for i in range(0 , len(nodes)-1):
-                dot.edge(nodes[i], nodes[i+1])
+            if("-- -1 --" not in route):
+                for i in range(0 , len(nodes)-1):
+                    dot.edge(nodes[i], nodes[i+1])
+            else:
+                nodes.remove('-1')
+                for i in range(0 , len(nodes)-2):
+                    dot.edge(nodes[i], nodes[i+1], color = "red")
+                dot.edge(nodes[len(nodes)-3], nodes[len(nodes) - 1], label = "LOOP FOR ROUTES TO THIS DEST", color = "red" )
     return dot
-def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source, sampleNum = None):
+def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source, sample = None):
     dot = Digraph(comment='Routing table for fit{:02d}'.format(source))
     dot.attr(rankdir='LR')
     dot.attr('node', shape='doublecircle')
@@ -179,10 +195,10 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
     directory =naming_scheme(run_name=run_name, tx_power=tx_power,
                              phy_rate=phy_rate, antenna_mask=antenna_mask,
                              channel=channel, interference = interference, protocol = protocol)
-    if sampleNum is None:
+    if sample is None:
         routes = getAllRoutes( directory/ "ROUTES-{:02d}".format(source))
     else:
-        routes = getAllRoutes( directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE{}".format(source,sampleNum))
+        routes = getAllRoutes_sample( directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source), sample)
     nodes = getNodesFromRoutes(routes)
     nodes = list(set(nodes)- set(['0']))
     if len(nodes) > 0 :
@@ -191,5 +207,18 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
         dot = getEdgesFromRoutes(dot, routes)
         #dot.render(directory / "ROUTES-DIAGRAM-{:02d}".format(source), view=False)
         return dot#str(directory / "ROUTES-DIAGRAM-{:02d}.png".format(source))
-
-
+def get_sample_count(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source):
+     directory =naming_scheme(run_name=run_name, tx_power=tx_power,
+                         phy_rate=phy_rate, antenna_mask=antenna_mask,
+                         channel=channel, interference = interference, protocol = protocol)
+     filename = directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source)
+     samplenumber = 0
+     try:
+                     with open(filename) as routes_file:
+                        for line in routes_file:
+                            if "SAMPLE" in line:
+                                samplenumber = samplenumber+1
+     
+     except IOError as e:
+                     return None
+     return samplenumber
