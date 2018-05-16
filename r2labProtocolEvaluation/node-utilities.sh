@@ -31,7 +31,7 @@ function init-ad-hoc-network-ath9k (){
     # make sure to use the latest code on the node
     git-pull-r2lab
 
-    . ~/.bashrc
+    . ~/.bashrc > /dev/null
 
 
     turn-off-wireless
@@ -160,8 +160,7 @@ function init-ad-hoc-network-iwlwifi (){
     # make sure to use the latest code on the node
     git-pull-r2lab
 
-    . ~/.bashrc
-
+    . ~/.bashrc > /dev/null
     turn-off-wireless
 
     echo "Setting regulatory domain to CR"
@@ -272,11 +271,11 @@ function init-scrambler (){
     white_noise_power=$1; shift
     channel=$1; shift
 
-    . ~/.bashrc
+    . ~/.bashrc > /dev/null
 
     enable-usrp-ethernet
     usrp-reset
-    sleep 15
+    sleep 20
     echo " noise : $white_noise_power  channel : $channel"
     uhd_siggen -a usrp -g $white_noise_power -f $channel --gaussian
     return 0
@@ -309,7 +308,7 @@ EOT
 function kill-olsr (){
 
     echo "Kill olsr daemon"
-    pkill -9 olsrd
+    pkill  olsrd
     return 0
 }
 
@@ -340,15 +339,57 @@ function route-batman (){
     ip route ls table 66 | grep src
     return 0
 }
+function kill-route-sample(){
+    prot=$1; shift
+    sleep 1
+    kill -s SIGINT $(ps -aex | grep route-sample-$prot | head -n 1 | awk -F" "  '{print $1}')
+    sleep 1
+    return 0
+}
+function end-route-sample(){
+    prot=$1; shift
+    route-$prot
+    exit 0
+    return 0
+}
+function route-sample-batman(){
+    sample="0"
 
+    while [ 1 ]
+    do
+    echo "SAMPLE : $sample "
+    ip route ls table 66 | grep src
+    sleep 1
+    sample=$[$sample+1]
+    done
 
+    return 0
+}
+function route-sample-olsr(){
+    sample="0"
+#trap 'end-route-sample olsr' INT
+    while [ 1 ]
+    do
+    echo "SAMPLE : $sample "
+    route -n | grep 10.0.0.* | grep UGH
+    sleep 1
+    sample=$[$sample+1]
+    done
+    return 0
+}
 function kill-batman (){
 
     echo "Kill batman daemon"
-    pkill -9 batmand
+    pkill  batman
+    
     return 0
 }
+function kill-tcpdump (){
 
+    echo "Kill tcpdump"
+    sleep 1;pkill tcpdump; sleep 1
+    return 0
+}
 
 function my-ping (){
     dest=$1; shift
