@@ -5,6 +5,7 @@ Data acquistition script for gather radiomap data on R2lab
 See visumap.ipynb for how to use it
 """
 
+# pylint: disable=c0111, c0103, c0326, r0913, r0914
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
@@ -56,9 +57,6 @@ ping_size = 64
 ping_interval = 0.015
 ping_number = 500
 
-# wireless driver
-wireless_driver = default_driver
-
 # convenience
 
 
@@ -89,7 +87,7 @@ def naming_scheme(run_name, tx_power, phy_rate, antenna_mask, channel,
     return run_root
 
 
-def one_run(wireless_driver, 
+def one_run(wireless_driver,
             tx_power, phy_rate, antenna_mask, channel, *,
             run_name=default_run_name, slicename=default_slicename,
             load_images=False, node_ids=None,
@@ -207,7 +205,7 @@ def one_run(wireless_driver,
             label="init {}".format(id),
             command=RunScript(
                 "node-utilities.sh", "init-ad-hoc-network",
-                wireless_driver, "foobar", frequency, phy_rate, 
+                wireless_driver, "foobar", frequency, phy_rate,
                 antenna_mask, tx_power_driver
             ))
         for id, node in node_index.items()]
@@ -222,7 +220,8 @@ def one_run(wireless_driver,
             verbose=verbose_jobs,
             commands=[
                 Run("echo run tcpdump on fit{:02d}".format(i)),
-                Run("tcpdump -U -i moni-{} -y ieee802_11_radio -w /tmp/fit{}.pcap".format(wireless_driver, i))
+                Run("tcpdump -U -i moni-{} -y ieee802_11_radio -w /tmp/fit{}.pcap"
+                    .format(wireless_driver, i))
             ]
         )
         for i, node in node_index.items()
