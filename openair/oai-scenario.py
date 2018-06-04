@@ -350,7 +350,7 @@ def run(*,
     else:
         print("No phone involved")
 
-    sched.rain_check()
+    sched.check_cycles()
     # Update the .dot and .png file for illustration purposes
     if verbose or dry_run:
         sched.list()
