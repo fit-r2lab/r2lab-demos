@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+# pylint: disable=c0111, r0913, r0914
+
 """
 This script is a rewrite of an experiment initially based on NEPI
-This version relies on what we call nepi-ng, that is to say a combination of 
+This version relies on what we call nepi-ng, that is to say a combination of
 * asynciojobs
 * and apssh's jobs plugins SshJob*
 
@@ -13,15 +15,15 @@ of a wireless flow between
 * a receiver that uses 3 aligned antennas, iso-spaced by 3cm:
 
      (1) <-- 3cm --> (2) <-- 3cm --> (3)
-  
+
 You can see this python script as a description of the dependencies between
 * initializations, i.e. setting up wireless drivers, devices,
   antennas and monitoring for data capture
 * running (actually sending traffic)
-* data retrieval 
+* data retrieval
 
 The details of each of these steps are written as a single shell
-script code (angle-measure.sh) that gives the details of each of these steps 
+script code (angle-measure.sh) that gives the details of each of these steps
 on a single host (either sender or receiver)
 
 So e.g.
@@ -32,28 +34,25 @@ would cause the sender node to send 50000 random packets of 100 bytes every mill
 NOTES on images
 ====================
 
-* contrary to other demo scripts like e.g. ../oai-skype, 
+* contrary to other demo scripts like e.g. ../oai-skype,
   this script does not take care of loading images on the nodes
-  nodes are thus expected to have been loaded with an 
+  nodes are thus expected to have been loaded with an
   appropriate image before you run this script
 
 * as of beg. 2017, there have been reports that our latest
-  intelcsi images would not work for this experiment, 
+  intelcsi images would not work for this experiment,
   but that 'intelcsi-v1' was working fine as an image
 
 """
 
 ########################################
-import os, os.path
-import time
-import logging
 from argparse import ArgumentParser
 
 # the Scheduler object is the core of asynciojobs
 from asynciojobs import Scheduler
 
 # we use only ssh-oriented jobs in this script
-from apssh import SshNode, SshJob, Run, RunScript, Pull
+from apssh import SshNode, SshJob, RunScript, Pull
 from apssh import load_agent_keys
 
 # output formats
@@ -69,7 +68,7 @@ from apssh.formatters import TimeColonFormatter, SubdirFormatter
 def r2lab_nodes(parser_args):
     """
     normalize a list of nodenames as provided on the command line
-    with e.g. 
+    with e.g.
     parser.add_argument("-r", "--receivers", action='append', default=[])
     """
 
@@ -78,12 +77,12 @@ def r2lab_nodes(parser_args):
         return [x for father in grandpa for x in father if x]
     nodenames = []
     for arg in parser_args:
-        args = [ arg ]
-        args = flatten([ arg.split(' ') for arg in args])
-        args = flatten([ arg.split(',') for arg in args])
-        args = [ arg.replace('fit', '') for arg in args]
-        args = [ int(arg) for arg in args ]
-        args = [ "fit{:02d}".format(arg) for arg in args]
+        args = [arg]
+        args = flatten([arg.split(' ') for arg in args])
+        args = flatten([arg.split(',') for arg in args])
+        args = [arg.replace('fit', '') for arg in args]
+        args = [int(arg) for arg in args]
+        args = ["fit{:02d}".format(arg) for arg in args]
         nodenames += args
     return nodenames
 
@@ -101,73 +100,73 @@ def one_run(gwhost, gwuser, keys,
     # we keep all 'environment' data for one run in a dedicated subdir
     # using this name scheme to store results locally
     # xxx inherited from the NEPI version - unused for now
-    dataname = os.path.join("csi-{}-{}-{}-{}-{}"
-                            .format(receivername, sendername, packets, size, period))
+    dataname = ("csi-{}-{}-{}-{}-{}"
+                .format(receivername, sendername, packets, size, period))
 
     # we have reused the shell script from the NEPI version as-is
     auxiliary_script = "./angle-measure.sh"
 
     # the proxy to enter faraday
     r2lab_gateway = SshNode(
-        hostname = gwhost,
-        username = gwuser,
-        keys = keys,
-        formatter = formatter,
+        hostname=gwhost,
+        username=gwuser,
+        keys=keys,
+        formatter=formatter,
     )
 
     # the sender node
     sender = SshNode(
         # specifying the gateway attribute means this node will be reached
         # through the ssh connection to the gateway
-        gateway = r2lab_gateway,
+        gateway=r2lab_gateway,
         # hostname needs to make sense in the context of the gateway; so e.g. 'fit01' is fine
-        hostname = sendername,
+        hostname=sendername,
         # from the gateway we enter the R2lab nodes as root
-        username = 'root',
-        formatter = formatter,
+        username='root',
+        formatter=formatter,
     )
 
     # the receiver node - ditto
     receiver = SshNode(
-        hostname = receivername,
-        username = 'root',
-        gateway = r2lab_gateway,
-        formatter = formatter,
+        hostname=receivername,
+        username='root',
+        gateway=r2lab_gateway,
+        formatter=formatter,
     )
 
     # one initialization job per node
     init_sender = SshJob(
         # on what node to run the command
-        node = sender,
+        node=sender,
         # the command to run; being a JobSshScript, the first item in this
         # list is expected to be a **LOCAL** script that gets puhed remotely
         # before being run
         # a simple JobSsh is more suitable to issue standard Unix commands for instance
-        command = RunScript( auxiliary_script, "init-sender", 64, "HT20" ),
+        command=RunScript(auxiliary_script, "init-sender", 64, "HT20"),
         # for convenience purposes
-        label = "init-sender")
+        label="init-sender")
 
     init_receiver = SshJob(
-        node = receiver,
-        command = RunScript( auxiliary_script, "init-receiver", 64, "HT20" ),
-        label = "init-receiver")
+        node=receiver,
+        command=RunScript(auxiliary_script, "init-receiver", 64, "HT20"),
+        label="init-receiver")
 
     # ditto for actually running the experiment
     run_sender = SshJob(
-        node = sender,
-        command = RunScript( auxiliary_script, "run-sender", packets, size, period ),
-        label = "run-sender")
+        node=sender,
+        command=RunScript(auxiliary_script, "run-sender", packets, size, period),
+        label="run-sender")
 
     # run the sender only once both nodes are ready
     run_sender.requires(init_sender, init_receiver)
 
     run_receiver = SshJob(
-        node = receiver,
-        commands = [
-            RunScript( auxiliary_script, "run-receiver", packets, size, period),
-            Pull(remotepaths = 'rawdata', localpath = dataname),
+        node=receiver,
+        commands=[
+            RunScript(auxiliary_script, "run-receiver", packets, size, period),
+            Pull(remotepaths='rawdata', localpath=dataname),
         ],
-        label = "run-receiver")
+        label="run-receiver")
     # ditto
     run_receiver.requires(init_sender, init_receiver)
 
@@ -177,19 +176,22 @@ def one_run(gwhost, gwuser, keys,
     print(10*'-', summary)
 
     # create an Scheduler object that will orchestrate this scenario
-    e = Scheduler(init_sender, init_receiver,
-                  run_sender, run_receiver,
-                  verbose = verbose)
+    scheduler = Scheduler(
+        init_sender, init_receiver, run_sender, run_receiver,
+        verbose=verbose)
 
     print(20*'*', "before run")
-    e.list(details=verbose)
+    scheduler.list(details=verbose)
     print(20*'*')
-    
-    if  e.orchestrate(timeout = 3*60):
+
+    scheduler.export_as_pngfile("orion")
+
+    scheduler.timeout = 3*60
+    if  scheduler.orchestrate():
         print("========== experiment OK")
     else:
         print("!!!!!!!!!! orchestration KO")
-        e.debrief()
+        scheduler.debrief()
 
         # still missing as compared to the NEPI equivalent
 ###     # collect data
@@ -216,7 +218,7 @@ def main():
                         help="hostnames for the receiver nodes, additive")
     parser.add_argument("-s", "--senders", action='append', default=[],
                         help="hostnames for the sender node, additive")
-    
+
     parser.add_argument("-d", "--storage-dir", default=None,
                         help="specify a directory for storing all results")
     # select how many packets, and how often they are sent
@@ -239,7 +241,7 @@ def main():
     size = args.size
     period = args.period
     verbose = args.verbose
-    
+
     # nodes to use
     if not args.receivers or not args.senders:
         parser.print_help()
@@ -248,14 +250,17 @@ def main():
     # parse gateway argument expected to be user@hostname
     gwslice, gwhost = args.gateway.split('@')
 
-    # locate nodes - normalizing 
+    # locate nodes - normalizing
     receivernames, sendernames = r2lab_nodes(args.receivers), r2lab_nodes(args.senders)
 
     # initialize formatter
     # TimeColonFormatter shows stuff on stdout, with a format like
     # 17-14-24:fit31:actual output from the remote command
-    formatter = TimeColonFormatter(verbose = verbose) if args.storage_dir is None \
-                else SubdirFormatter(args.storage_dir, verbose = verbose)
+    formatter = (
+        TimeColonFormatter(verbose=verbose)
+        if args.storage_dir is None \
+        else SubdirFormatter(args.storage_dir, verbose=verbose)
+        )
 
 ###     if args.dry_run:
 ###         print(10*'-', "Using gateway {gwhost} with account {gwuser} and key {key}"
