@@ -694,17 +694,17 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         # that will be limitied anyways by the very structure
         # of the required graph
 #jobs_window = None
-    if dry_run:
+    dot_file = run_root/"experiment_graph"
+    if not dot_file.is_file():
         scheduler.export_as_pngfile(run_root/"experiment_graph")
+    if dry_run:
         return True
     # if not in dry-run mode, let's proceed to the actual experiment
 
     ok = scheduler.orchestrate()#jobs_window=jobs_window)
 
     scheduler.shutdown()
-    dot_file = run_root/"experiment_graph"
-    if not dot_file.is_file():
-        scheduler.export_as_dotfile(dot_file)
+
         #TODO : Is it necessary? if the user want to see it he can just do it?
         #call(["dot",  "-Tpng", dot_file, "-o", run_root / "experitment_graph.png"])
 #ok=True
@@ -712,7 +712,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     # give details if it failed
     if not ok:
         scheduler.debrief()
-        scheduler.export_as_dotfile("debug")
+        scheduler.export_as_pngfile("debug")
     if ok and map:
         print("Creation of ROUTES files")
         post_processor= ProcessRoutes(run_root, exp_ids, node_ids)
