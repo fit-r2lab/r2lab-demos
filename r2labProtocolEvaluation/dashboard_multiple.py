@@ -12,7 +12,7 @@ as a second argument to interactive_output
 from collections import OrderedDict
 
 from ipywidgets import (interactive_output, fixed,
-                        IntSlider, Dropdown, Layout, HBox, VBox, Text, SelectionSlider)
+                        IntSlider, Dropdown, Layout, HBox, VBox, Text, SelectionRangeSlider, SelectionSlider, Checkbox, Label, SelectMultiple)
 from IPython.display import display
 
 
@@ -32,12 +32,13 @@ def dashboard(datadir, onnodes,continuous_sender = False):
     l50 = Layout(width='50%')
     l32 = Layout(width='32%')
     l25 = Layout(width='25%')
+    l10 = Layout(width='10%')
     # all space
     w_datadir = Text(description="run name", value=datadir,
                      layout=l25)
     w_sender = SelectionSlider(description="sender node",
-                                options = onnodes,
-                                continuous_update=continuous_sender, layout=l75)
+                         options = onnodes,
+                         continuous_update=continuous_sender, layout=l75)
     w_power = Dropdown(options=list(range(1, 15)),
                        value=1, description="tx power in dBm", layout=l32)
     w_rate = Dropdown(options=[54], value=54,
@@ -62,13 +63,31 @@ def dashboard(datadir, onnodes,continuous_sender = False):
                                                       , ("7", 7)])
                                 , value="None",
                                 description="Interference power in dBm: ", layout=l50)
+    options = [(f"fit{i:02d}", i) for i in range(1, 38)]
+    
+    w_selectMultiple = SelectMultiple(
+                                      options=onnodes,
+                                      value=[3],
+                                      description='Destinations: ',
+                                      disabled=False
+                                 )
+    
+    w_maxcount = Text(description="Max different data: ", value="5",
+                     )
+    
     # make up a dashboard
+    
     dashboard = VBox([HBox([w_datadir, w_sender]),
                       HBox([w_power, w_rate, w_channel]),
-                      HBox([w_antenna_mask, w_interference])])
+                      HBox([w_antenna_mask, w_interference]),
+                      HBox([w_selectMultiple, w_maxcount], layout=Layout(width='100%',display='inline-flex',flex_flow='row wrap'))],
+                     )
     display(dashboard)
+    
     return dict(datadir=w_datadir,
                 tx_power=w_power, phy_rate=w_rate, channel=w_channel,
                 antenna_mask=w_antenna_mask,
                 interference=w_interference,
-                source=w_sender)
+                source=w_sender,
+                dests=w_selectMultiple,
+                maxdata=w_maxcount)

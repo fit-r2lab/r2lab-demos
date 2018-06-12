@@ -7,6 +7,7 @@ Script to run batman or olsr routing protocol on R2lab
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
+import shutil
 
 from asynciojobs import Scheduler, Sequence, PrintJob, Job
 
@@ -103,12 +104,16 @@ def naming_scheme(protocol,run_name, tx_power, phy_rate, antenna_mask, channel, 
             run_root.mkdir(parents=True, exist_ok=True)
     return run_root
 
-
+def purgedir(path):
+    """
+    Delete everything in the given directory
+    """
+    shutil.rmtree(path)
 def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             protocol, *,run_name=default_run_name, slicename=default_slicename,
             load_images=False, node_ids=None,
             verbose_ssh=False, verbose_jobs=False, dry_run=False, tshark=False, map=False, warmup=False,
-            exp= default_exp, ping_number = default_ping_number, route_sampling = False):
+            exp= default_exp, dest = default_node_ids ,ping_number = default_ping_number, route_sampling = False):
     """
     Performs data acquisition on all nodes with the following settings
 
@@ -138,6 +143,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 for id in node_ids] if node_ids is not None else default_node_ids
     exp_ids = [int(id)
                 for id in exp] if exp is not None else default_exp
+    dest_ids = [int(id)
+                for id in dest] if dest is not None else default_node_ids
     #
     # dry-run mode
     # just display a one-liner with parameters
@@ -155,24 +162,11 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 for e in exp_ids
                 # and on the destination
                 for j in node_ids
-                if  e != j and not
-                (j in exp_ids and j < e)
+                if  e != j #and not
+                #(j in exp_ids and j < e)
                 
                 ]
-        """
-        tracepathst=[ "TRACEPATHS {}-->{}".format(i,j)
-                    # looping on the source, now only fit01 is source
-                    for i in node_ids
-                    # and on the destination
-                    for j in node_ids
-                    # and keep only half of the couples
-                    if i==min(exp_ids) and i!=j
-                     
         
-        
-        
-                ]
-        """
         print("dry-run:{protocol} {run_name}{load_msg} -"
               " t{tx_power} r{phy_rate} a{antenna_mask} ch{channel} I{interference}-"
               "nodes {nodes}"
@@ -194,14 +188,32 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         #post_processor.run()
         #print("\nList of tracepaths generated:\n{}".format(tracepathst))
         # in dry-run mode we are done
-        return True
 
 
 
     ###
     # create the logs directory based on input parameters
     run_root = naming_scheme(protocol,run_name, tx_power, phy_rate,
+                             antenna_mask, channel, interference ,autocreate=False)
+    if(run_root.is_dir()):
+        purgedir(run_root)
+    run_root = naming_scheme(protocol,run_name, tx_power, phy_rate,
                              antenna_mask, channel, interference ,autocreate=True)
+    exp_info_file_name = run_root / "info.txt"
+    with exp_info_file_name.open("w") as info_file:
+        info_file.write("Selected nodes : \n")
+        for node in node_ids[:-1]:
+            info_file.write(f"{node} ")
+        info_file.write(f"{node_ids[-1]}")
+        info_file.write("\nSources : \n")
+        for src in exp_ids[:-1]:
+            info_file.write(f"{src} ")
+        info_file.write(f"{exp_ids[-1]}")
+        info_file.write("\nDestinations : \n")
+        for dest in dest_ids[:-1]:
+            info_file.write(f"{dest} ")
+        info_file.write(f"{dest_ids[-1]}"+ "\n")
+
 
     # the nodes involved
     faraday = SshNode(hostname=default_gateway, username=slicename,
@@ -341,7 +353,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             )
         for i, node in node_index.items()]
 
-    run_protocol = Scheduler(*run_protocol_job,
+    run_protocol = Scheduler(* run_protocol_job,
                               scheduler = scheduler,
                               required = green_light_prot,
                               #critical = True,
@@ -529,7 +541,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         # looping on the source (to get the correct sshnodes)
         for i, nodei in node_index.items()
         # and on the destination
-        for j, nodej in node_index.items()
+        for j in dest_ids
         # and keep only sources that are in the selected experiment nodes and remove destination that are themselves
         # and remove the couples that have already be done
         if  (i == e) and e != j and not
@@ -549,7 +561,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                             #scheduler=scheduler,
                             node=nodei,
                             #required=pings,
-                            label="retrieve pcap trace from fit{:02d}".format(i),
+                            label="kill routing protocol on fit{:02d}".format(i),
                             verbose=verbose_jobs,
                             #critical = True,
                             commands=[
@@ -681,60 +693,21 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         # for running sequentially we impose no limit on the scheduler
         # that will be limitied anyways by the very structure
         # of the required graph
-    jobs_window = None
-    """
-    TODO Delete --> Not signifient in the experiment
-    # xxx this is a little fishy
-    # should we not just consider that the default is parallel=1 ?
-    if parallel is None:
-        # with the sequential strategy, we just need to
-        # create a Sequence out of the list of pings
-        # Sequence will add the required relationships
-        if map:
-            scheduler.add(Sequence(*tracepaths, scheduler=scheduler))
-        
-        scheduler.add(Sequence(*pings, scheduler=scheduler))
-        # for running sequentially we impose no limit on the scheduler
-        # that will be limitied anyways by the very structure
-        # of the required graph
-        jobs_window = None
-    else:
-        # with the parallel strategy
-        # we just need to insert all the ping jobs
-        # as each already has its required OK
-        #TRACEPATH should also be in parallel
-    # asyncssh.misc.ChannelOpenError: Channel Open Error: open failed
-        if map:
-            scheduler.update(tracepaths)
-        #scheduler.add(Sequence(*tracepaths, scheduler=scheduler))
-
-
-        scheduler.update(pings)
-        # this time the value in parallel is the one
-        # to use as the jobs_limit; if 0 then inch'allah
-        jobs_window = parallel
-    """
+#jobs_window = None
+    if dry_run:
+        scheduler.export_as_pngfile(run_root/"experiment_graph")
+        return True
     # if not in dry-run mode, let's proceed to the actual experiment
 
     ok = scheduler.orchestrate()#jobs_window=jobs_window)
-#TODO ===> SHUTDOWN SCHED
-#File "evalprot.py", line 719, in one_run
-#    scheduler.shutdown()
-#        File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 597, in shutdown
-#return loop.run_until_complete(self.co_shutdown(depth=0))
-#    File "/usr/local/Cellar/python/3.6.4_4/Frameworks/Python.framework/Versions/3.6/lib/python3.6/asyncio/base_events.py", line 467, in run_until_complete
-#    return future.result()
-#        File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 617, in co_shutdown
-#for job in self.jobs]
-#   File "/usr/local/lib/python3.6/site-packages/asynciojobs/purescheduler.py", line 617, in <listcomp>
-#    for job in self.jobs]
-#TypeError: co_shutdown() takes 1 positional argument but 2 were given
 
-#    scheduler.shutdown()
-    scheduler.export_as_dotfile(run_name+"/experitment_graph")
-
+    scheduler.shutdown()
+    dot_file = run_root/"experiment_graph"
+    if not dot_file.is_file():
+        scheduler.export_as_dotfile(dot_file)
+        #TODO : Is it necessary? if the user want to see it he can just do it?
+        #call(["dot",  "-Tpng", dot_file, "-o", run_root / "experitment_graph.png"])
 #ok=True
-    call(["dot",  "-Tpng", run_name+"/experitment_graph", "-o", run_name+"/experitment_graph.png"])
 #ok = False
     # give details if it failed
     if not ok:
@@ -776,6 +749,7 @@ def all_runs(tx_powers, phy_rates, antenna_masks, channels, interferences, proto
     #     all() is lazy and would stop at the first failure
     # (*) we need to set load_images to false after the first run
     overall = True
+    
     for protocol in protocols:
         for tx_power in tx_powers:
             for phy_rate in phy_rates:
@@ -833,7 +807,7 @@ def main():
                         default=default_exp, choices=[
                         str(x) for x in default_node_ids],
                         nargs='+',
-                        help="specify the ids of the node you want to run the experiment from")
+                        help="specify the ids of the node you want to run the experiment from (sources of the pings)")
     parser.add_argument("-I", "--interference", dest ='interference',
                         default=default_interference, choices=choices_interference,
                         nargs='+',
@@ -850,7 +824,15 @@ def main():
                             str(x) for x in default_node_ids],
                         nargs ='+',
                         # action=ListOfChoices,
-                        help="specify as many node ids as you want to run the scenario against")
+                        help="specify as many node ids as you want to run the scenario against.\
+                        These will be on and sending route info")
+    parser.add_argument("-D", "--destination", dest='dest',
+                        default=default_node_ids, choices=[
+                                                           str(x) for x in default_node_ids],
+                        nargs ='+',
+                        # action=ListOfChoices,
+                        help="specify as many node ids as you want to be the destination of the ping")
+    
     #should either be none (sequencial command) or parallel > 2*nbnodes
     #(since at a point we run a tcpdump command (that never ends) on each node end we have the pings jobs)
     # No sense to do it considering the experiment
@@ -867,7 +849,7 @@ def main():
     parser.add_argument("-n", "--ping-number", default=default_ping_number,
                         help="specify number of ping packets to send")
 
-    parser.add_argument("-D", "--dry-run", default=False, action='store_true',
+    parser.add_argument("-b", "--dry-run", default=False, action='store_true',
                         help="do not run anything, just print out scheduler,"
                         " and generate .dot file")
     parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
@@ -906,6 +888,7 @@ def main():
                     map=args.map,
                     warmup=args.warmup,
                     exp=args.exp,
+                    dest = args.dest,
                     # ping_timeout = args.ping_timeout
                     # ping_interval = args.ping_interval
                     # ping_size = args.ping_size
