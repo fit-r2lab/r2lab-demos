@@ -5,7 +5,7 @@ Was initially right in the notebook, but the added value has been
 deemed minor compared to its relatively long contents; so we store it
 in this module instead
 
-The dasboard() function returns a widget suitable 
+The dasboard() function returns a widget suitable
 as a second argument to interactive_output
 """
 
@@ -20,11 +20,11 @@ from IPython.display import display
 from channels import channel_frequency, channel_options
 
 
-def dashboard(datadir, onnodes,continuous_sender = False):
+def dashboard(datadir, onnodes, continuous_sender=False):
     """
-    some contorsions with ipywidgets to show controls in 
+    some contorsions with ipywidgets to show controls in
     a compact way
-    create and display a dashboard 
+    create and display a dashboard
     return a dictionary name->widget suitable for interactive_output
     """
     # dashboard pieces as widgets
@@ -36,8 +36,8 @@ def dashboard(datadir, onnodes,continuous_sender = False):
     w_datadir = Text(description="run name", value=datadir,
                      layout=l25)
     w_sender = SelectionSlider(description="sender node",
-                                options = onnodes,
-                                continuous_update=continuous_sender, layout=l75)
+                               options=onnodes,
+                               continuous_update=continuous_sender, layout=l75)
     w_power = Dropdown(options=list(range(1, 15)),
                        value=1, description="tx power in dBm", layout=l32)
     w_rate = Dropdown(options=[54], value=54,
@@ -49,19 +49,12 @@ def dashboard(datadir, onnodes,continuous_sender = False):
     w_channel = Dropdown(options=channel_options,
                          value=10, description="channel", layout=l32)
     w_interference = Dropdown(
-                               options = OrderedDict([("-12", -12),("-11", -11)
-                                                      ,("-10", -10)
-                                                    ,("-9", -9),("-8", -8)
-                                                      ,("-7", -7)
-                                                      ,("None", "None")
-                                                      , ("1", 1)
-                                                      , ("2", 2), ("3", 3)
-                                                      , ("4", 4)
-                                                      , ("5", 5)
-                                                      , ("6", 6)
-                                                      , ("7", 7)])
-                                , value="None",
-                                description="Interference power in dBm: ", layout=l50)
+        options=OrderedDict(
+            [("-12", -12), ("-11", -11),
+             ("-10", -10), ("-9", -9), ("-8", -8), ("-7", -7), ("None", "None"),
+             ("1", 1), ("2", 2), ("3", 3), ("4", 4), ("5", 5), ("6", 6), ("7", 7)]),
+        value="None",
+        description="Interference power in dBm: ", layout=l50)
     # make up a dashboard
     dashboard = VBox([HBox([w_datadir, w_sender]),
                       HBox([w_power, w_rate, w_channel]),
