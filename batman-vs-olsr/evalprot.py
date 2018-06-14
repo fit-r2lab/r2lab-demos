@@ -202,7 +202,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     # create the logs directory based on input parameters
     run_root = naming_scheme(protocol, run_name, tx_power, phy_rate,
                              antenna_mask, channel, interference, autocreate=False)
-    if(run_root.is_dir()):
+    if(run_root.is_dir() and not dry_run):
         purgedir(run_root)
     run_root = naming_scheme(protocol, run_name, tx_power, phy_rate,
                              antenna_mask, channel, interference, autocreate=True)
@@ -279,7 +279,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             commands=[
                 Run("rhubarbe", "off", "-a", *negated_node_ids,
                     label="roff {}".format(negated_node_ids)),
-                Run("rhubarbe", "load", *node_ids, label="rload {}".format(node_ids)),
+                Run("rhubarbe", "load", "-i", "batman_node", *node_ids,
+                    label="rload {}".format(node_ids)),
                 Run("rhubarbe", "load", "-i", "gnuradio_batman", scrambler_id,
                     label="load gnuradio batman on {}".format(scrambler_id)),
                 Run("rhubarbe", "wait", *load_ids, label="rwait")
