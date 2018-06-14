@@ -642,12 +642,13 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             )
             for i, nodei in node_index.items()
         ]
-        retrieve_sampling = Scheduler(*retrieve_sampling_job,
-                                      scheduler=scheduler,
-                                      required=pings,
-                                      verbose=verbose_jobs,
-                                      label="Retrieve & stopping route sampling",
-                                      )
+        retrieve_sampling = Scheduler(
+            *retrieve_sampling_job,
+            scheduler=scheduler,
+            required=pings,
+            verbose=verbose_jobs,
+            label="Stop & retrieve route sampling",
+            )
     if tshark:
         parse_pcaps_job = [
             SshJob(
