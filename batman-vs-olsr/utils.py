@@ -2,6 +2,7 @@
 import re
 from evalprot import naming_scheme
 from graphviz import Digraph
+from r2labmap import maps
 import glob
 def readRTT(filename):
     """
@@ -312,9 +313,12 @@ def getEdgesFromRoutes(dot, routes):
                 dot.edge(nodes[len(nodes)-3], nodes[len(nodes) - 1], label = "LOOP FOR ROUTES TO THIS DEST", color = "red" )
     return dot
 def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source, sample = None):
-    dot = Digraph(comment='Routing table for fit{:02d}'.format(source))
+    node_to_pos, dump1, holes = maps(lambda x : x+1, lambda y : 5-y)
+    #print (node_to_pos)
+    dot = Digraph(comment='Routing table for fit{:02d}'.format(source), engine = 'fdp')
+    dot.attr(splines = 'true')
     dot.attr(rankdir='LR')
-    dot.attr('node', shape='doublecircle')
+    #dot.attr('node', shape='doublecircle')
     #dot.format = 'png'
     directory =naming_scheme(run_name=run_name, tx_power=tx_power,
                              phy_rate=phy_rate, antenna_mask=antenna_mask,
@@ -325,12 +329,25 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
         routes = getAllRoutes_sample( directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source), sample)
     nodes = getNodesFromRoutes(routes)
     nodes = list(set(nodes)- set(['0']))
+    
+    dot.node("  ", pos = "4,4!", shape = "box")
+    dot.node(" ", pos = "6,4!", shape = "box")
+    for node_id in range(1, 38):
+        if node_id == 5:
+            dot.node("Interference", pos = "1,1!", shape = "tripleoctagon")
+            continue
+        if str(node_id) not in nodes:
+            dot.node(str(node_id), 'fit{:02d}'.format(node_id),
+                     pos = "{},{}!".format(node_to_pos[node_id][0],node_to_pos[node_id][1]),
+                     shape = 'point')
+        else:
+            dot.node(str(node_id), 'fit{:02d}'.format(node_id),
+                     pos = "{},{}!".format(node_to_pos[node_id][0],node_to_pos[node_id][1]),
+                     shape = 'doublecircle')
     if len(nodes) > 0 :
-        for node in nodes:
-            dot.node(node, 'fit{:02d}'.format(int(node)))
         dot = getEdgesFromRoutes(dot, routes)
-        #dot.render(directory / "ROUTES-DIAGRAM-{:02d}".format(source), view=False)
-        return dot#str(directory / "ROUTES-DIAGRAM-{:02d}.png".format(source))
+        
+        return dot
 def get_sample_count(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source):
      directory =naming_scheme(run_name=run_name, tx_power=tx_power,
                          phy_rate=phy_rate, antenna_mask=antenna_mask,
