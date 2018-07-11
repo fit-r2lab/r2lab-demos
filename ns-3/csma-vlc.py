@@ -69,13 +69,15 @@ if args.load_images:
 # setting up the data interface on both fit01 and fit02  
 # setting up routing on fit01
 
-server_script = """
+server_init = """
+turn-on-data
 route add -net 10.1.1.0 gw 192.168.2.11 netmask 255.255.255.0 dev data
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
 wget https://cinelerra-cv.org/footage/rassegna2.avi
 """
 
-client_script = """
+client_init = """
+turn-on-data
 ifconfig data promisc up
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
 sudo tunctl -t tap0
@@ -92,33 +94,21 @@ video_script= """
 cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1.2,port=1234,mux=ts}'
 """
 
-init_node_01 = SshJob(
-    node = node1,
-    command = Run("turn-on-data"),
-    required = green_light,
-    scheduler = scheduler,
-)
-init_node_02 = SshJob(
-    node = node2,
-    command = Run("turn-on-data"),
-    required = green_light,
-    scheduler = scheduler,
-)
-final_node_01 = SshJob(
+init_server = SshJob(
     node = node1,
     command = RunString(
-        server_script,
+        server_init,
     ),
-    required = (init_node_01, init_node_02),
+    required = green_light,
     scheduler = scheduler,
 )
 
-final_node_02 = SshJob(
+init_client = SshJob(
     node = node2,
     command = RunString(
-        client_script,
+        client_init,
     ),
-    required = final_node_01,
+    required = green_light,
     scheduler = scheduler,
 )
 
