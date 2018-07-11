@@ -97,7 +97,7 @@ cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1.2,port=1234,mux=ts}'
 init_server = SshJob(
     node = node1,
     command = RunString(
-        server_init,
+        server_init, label="init server node1",
     ),
     required = green_light,
     scheduler = scheduler,
@@ -106,31 +106,82 @@ init_server = SshJob(
 init_client = SshJob(
     node = node2,
     command = RunString(
-        client_init,
+        client_init, label="init client node2",
     ),
     required = green_light,
     scheduler = scheduler,
 )
 
-waf_action = SshJob(
-   node = node2,
-    commands = [
-    Run("tcpdump -i tap0 -s 65535 -w tap.txt"),
-    Run("cvlc --miface-addr 10.1.2.1 rtp://"),
-    RunString(waf_script,),
-    ],
-    required = final_node_02,
+run_tcpdump_job = [
+    SshJob(
+        #scheduler=scheduler
+        node=node2,
+        forever=True,
+        label="run tcpdump tap0 on node2",
+        commands = Run("tcpdump -i tap0 -s 65535 -w tap.txt"),
+        )
+]
+run_tcpdump = Scheduler(*run_tcpdump_job,
+                         scheduler=scheduler,
+                         required=(init_server,init_client),
+                         label="Run tcpdump on node2")
+
+run_vlc_sender_job = [
+    SshJob(
+        #scheduler=scheduler
+        node=node1,
+        forever=True,
+        command = RunString(video_script,label="vlc --sout '#rtp{dst=10.1.1.2,port=1234,mux=ts}'"),
+        )
+]
+run_vlc_sender = Scheduler(*run_vlc_sender_job,
+                            scheduler=scheduler,
+                            required=(init_server,init_client),
+                            label="Run cvlc sender on node1")
+
+
+run_vlc_receiver_job = [
+    SshJob(
+        #scheduler=scheduler
+        node=node2,
+        forever=True,
+        command = Run("cvlc --miface-addr 10.1.2.1 rtp://",
+                      label="vlc --miface-addr 10.1.2.1 rtp://"),
+        )
+]
+run_vlc_receiver = Scheduler(*run_vlc_receiver_job,
+                              scheduler=scheduler,
+                              required=(init_server,init_client),
+                              label="Run vlc receiver on ns-3 at node2")
+
+run_ns3 = SshJob(
     scheduler = scheduler,
+    node = node2,
+    command = RunString(waf_script, label="Run ns-3 script on node2"),
+    required = (init_server,init_client),
 )
 
-video_action = SshJob(
-   node = node1,
-    command = RunString(
-    video_script,
-    ),
-    required = waf_action,
-    scheduler = scheduler,
-)
+stop_all_job = [
+    SshJob(
+        #scheduler=scheduler,
+        node = node1,
+        label = "kill vlc sender at node1",
+        command = Run("pkill vlc; echo 'pkill vlc'"),
+        ),
+    SshJob(
+        #scheduler=scheduler,
+        node = node2,
+        label = "kill vlc receiver and tcpdump at node2",
+        commands=[
+            Run("pkill vlc; echo 'pkill vlc'"),
+            Run("pkill tcpdump; echo 'pkill tcpdump'"),
+            ],
+        ),
+]
+stop_all = Scheduler(*stop_all_job,
+                      scheduler=scheduler,
+                      required=run_ns3,
+                      label="Stop tcpdump and vlc sender/receiver",)
 
 ##########
 # run the scheduler
@@ -142,6 +193,7 @@ ok or scheduler.debrief()
 success = ok 
 
 # producing a dot file for illustration
-scheduler.export_as_dotfile("vlc.dot")
+scheduler.export_as_pngfile("vlc-csma")
+
 
 exit(0 if success else 1)
