@@ -60,8 +60,7 @@ if args.load_images:
         critical = True,
         scheduler = scheduler,
         commands = [
-            Run("rhubarbe load -i ns-3 10"),
-            Run("rhubarbe load -i ns-3 11"),
+            Run("rhubarbe load -i ns-3-dev 10 11"),
             Run("rhubarbe wait 10-11"),
         ]
     )
