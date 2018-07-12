@@ -179,6 +179,6 @@ ok or scheduler.debrief()
 success = ok 
 
 # producing a png file for illustration
-scheduler.export_as_pngfile("multicast-csma")
+scheduler.export_as_pngfile("mc-vlc-csma")
 
 exit(0 if success else 1)
