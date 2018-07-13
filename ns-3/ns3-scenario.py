@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 
-from asynciojobs import Scheduler
+from asynciojobs import Scheduler, PrintJob
 
 from apssh import SshNode, LocalNode, SshJob
 from apssh import Run, RunString, Pull
@@ -24,12 +24,14 @@ def_server, def_client = 3, 4
 # Default ns-3 duration
 def_duration = 25
 # Default ns-3 node target in which the tap device is created
-def_target = 3
+def_target = 2
 
+# Delay to wait for ns-3 network settle before running sender
+settle_delay = 5
 
 # Images names for server and client                                                                                                       
 image_server = "ubuntu"
-image_client = "u16.04-ns-3-dev"
+image_client = "ubuntu-ns-3"
 
 parser = ArgumentParser()
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -63,17 +65,21 @@ olsr_mode = args.olsr
 vlc_mode = args.vlc
 target_node = args.target
 
-if olsr_mode:
-    waf_script = "cd ns-3-dev; ./waf --run scratch/olsr-r2lab {} {} {} {}".format(args.server,args.client,target_node,duration)
+if olsr_mode and multicast_mode:
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/multicast-olsr --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+elif olsr_mode:
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+elif multicast_mode:
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/multicast-csma --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
 else:
-    waf_script = "cd ns-3-dev; ./waf --run scratch/csma-r2lab {} {} {} {}".format(args.server,args.client,target_node,duration)
-
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
 
 if vlc_mode:
     if multicast_mode:
-        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:rtp{dst=225.1.2.4:1234}'"
+#        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:rtp{dst=225.1.2.4:1234}'"
+        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:udp{dst=225.1.2.4:1234}'"
     else:
-        send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1.{},port=1234,mux=ts}'".format(target_node)
+        send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
     stop_sender_script= "pkill vlc; echo 'pkill vlc'"
     stop_client_script="pkill vlc; echo 'pkill vlc'; pkill tcpdump; echo 'pkill tcpdump'"
 else: # not vlc
@@ -92,7 +98,7 @@ if vlc_mode:
     else:
         recv_script= "cvlc rtp://"
 else:
-    recv_script= "ping localhost" # hack for now
+    recv_script= "cvlc rtp://" # hack for now
 
 server, client = fitname(args.server), fitname(args.client)
 
@@ -143,44 +149,76 @@ if args.load_images:
     )
 
 ##########
-# setting up the data interface on both fit01 and fit02  
-# setting up routing on fit01
+# setting up the data interface on both server and client
+# setting up routing on server only
 
-server_init_script = """
+# NOTE: If for a second experiment, you wish to change the client node while 
+# keeping the server node the same; delete the existing route to 10.1.1.0 on 
+# the server node and other problematic routes.
+
+server_init_script = """                                                                                       
 apt install -y vlc smcroute
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
 wget https://cinelerra-cv.org/footage/rassegna2.avi
-route add -net 10.1.1.0 gw 192.168.2.2 netmask 255.255.255.0 dev data
 route add -net 224.0.0.0 netmask 240.0.0.0 dev data
-"""
+route add -net 10.1.1.0 gw 192.168.2.{} netmask 255.255.255.0 dev data
+""".format(args.client)
+#for debug
+print("server_init_script is {}".format(server_init_script))
 
 client_init_script = """
-apt install -y vlc
+apt install -y vlc uml-utilities
+sudo tunctl -t tap0
+sudo ifconfig tap0 hw ether 08:00:2e:00:00:01
+sudo ifconfig tap0 10.1.2.1 netmask 255.255.255.0 up
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
 ifconfig data promisc up
 """
 
 
 # following two inits should be done only when load_images is true
-init_server = SshJob(
-    node = server,
-    scheduler = scheduler,
-    required = green_light,
-    commands = [
-        Run("turn-on-data"),
-        RunString(server_init_script, label="init server node"),
-    ],
+if args.load_images:
+    init_server = SshJob(
+        node = server,
+        scheduler = scheduler,
+        required = green_light,
+        commands = [
+            Run("turn-on-data"),
+            RunString(server_init_script, label="init server node"),
+        ],
+    )
+
+    init_client = SshJob(
+        node = client,
+        scheduler = scheduler,
+        required = green_light,
+        commands = [
+            Run("turn-on-data"),
+            RunString(client_init_script, label="init client node"),
+        ],
+    )
+
+if args.load_images:
+    init_done = (init_server,init_client)
+else:
+    init_done = green_light
+
+# let the ns-3 network settle before starting vlc server and client
+settle_ns3 = PrintJob(
+    "Let the ns-3 network settle before starting vlc",
+    sleep=settle_delay,
+    scheduler=scheduler,
+    required=init_done,
+    label="settling for {} seconds".format(settle_delay)
 )
 
-init_client = SshJob(
+run_ns3 = SshJob(
     node = client,
     scheduler = scheduler,
-    required = green_light,
-    commands = [
-        Run("turn-on-data"),
-        RunString(client_init_script, label="init client node"),
-    ],
+    command = RunString(waf_script, label="Run ns-3 script on client"),
+    required = init_done,
 )
+
 
 
 run_tcpdump_job = [
@@ -188,14 +226,14 @@ run_tcpdump_job = [
         #scheduler=scheduler
         node=client,
         forever=True,
-        critical=False,
+#        critical=False,
         label="run tcpdump tap0 on client",
         commands = Run("tcpdump -i data -s 65535 -w tap.txt"),
     )
 ]
 run_tcpdump = Scheduler(*run_tcpdump_job,
                          scheduler=scheduler,
-                         required=(init_server,init_client),
+                         required=init_done,
                          label="Run tcpdump on client")
 
 run_sender_job = [
@@ -209,7 +247,7 @@ run_sender_job = [
 ]
 run_sender = Scheduler(*run_sender_job,
                         scheduler=scheduler,
-                        required=(init_server,init_client),
+                        required=settle_ns3,
                         label="Run the sender on server")
 
 
@@ -223,15 +261,8 @@ run_vlc_receiver_job = [
 ]
 run_vlc_receiver = Scheduler(*run_vlc_receiver_job,
                               scheduler=scheduler,
-                              required=(init_server,init_client),
+                              required=settle_ns3,
                               label="Run vlc receiver on ns-3 at client")
-
-run_ns3 = SshJob(
-    node = client,
-    scheduler = scheduler,
-    command = RunString(waf_script, label="Run ns-3 script on client"),
-    required = (init_server,init_client),
-)
 
 stop_all_job = [
     SshJob(
@@ -254,7 +285,7 @@ stop_all = Scheduler(*stop_all_job,
 
 pull_files = SshJob(
     node = client,
-    command = Pull (remotepaths="ns-3-dev/csma-multicast-2-0.pcap",localpath="."),
+    command = Pull (remotepaths="ns-3-dev/packets-{}-0.pcap".format(def_target),localpath="."),
     required = run_ns3,
     scheduler = scheduler,
 )
@@ -268,7 +299,7 @@ ok or scheduler.debrief()
 
 success = ok 
 
-# producing a png file for illustration                                                                                                    
+# producing a png file for illustration                                                                                         
 scheduler.export_as_pngfile("ns3-scenario")
 
 exit(0 if success else 1)
