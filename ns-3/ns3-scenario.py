@@ -8,8 +8,8 @@ from apssh import SshNode, LocalNode, SshJob
 from apssh import Run, RunString, Pull
 
 def fitname(node_id):
-    """                                                                                                                                    
-    Return a valid hostname from a node number - either str or int                                                                         
+    """
+    Return a valid hostname from a node number - either str or int
     """
     int_id = int(node_id)
     return "fit{:02d}".format(int_id)
@@ -19,7 +19,7 @@ gateway_hostname  = 'faraday.inria.fr'
 gateway_username  = 'inria_ns3'
 verbose_ssh = False
 
-# Default fit ids for server and client                                                                                                    
+# Default fit ids for server and client
 def_server, def_client = 3, 4
 # Default ns-3 duration
 def_duration = 25
@@ -29,7 +29,7 @@ def_target = 2
 # Delay to wait for ns-3 network settle before running sender
 settle_delay = 5
 
-# Images names for server and client                                                                                                       
+# Images names for server and client
 image_server = "ubuntu"
 image_client = "ubuntu-ns-3"
 
@@ -81,16 +81,19 @@ if vlc_mode:
     else:
         send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
     stop_sender_script= "pkill vlc; echo 'pkill vlc'"
-    stop_client_script="pkill vlc; echo 'pkill vlc'; pkill tcpdump; echo 'pkill tcpdump'"
 else: # not vlc
     if multicast_mode:
-        send_script= "mcsender -t16 -idata 225.1.2.4:1234"
+        # Hack to avoid usage of Critical=False to fix the issue...
+        send_script= "(mcsender -t16 -idata 225.1.2.4:1234 ; ret=$?; if [ $ret -eq '143' ]; then exit 0; fi; exit $ret)"
+        #send_script= "mcsender -t16 -idata 225.1.2.4:1234"
         stop_sender_script= "pkill mcsender; echo 'pkill mcsender'"
     else:
-        send_script= "ping 10.1.1.{}".format(target_node)
+        send_script= "(ping 10.1.1.{} ; ret=$?; if [ $ret -eq '143' ]; then exit 0; fi; exit $ret)".format(target_node)
         stop_sender_script= "pkill ping; echo 'pkill ping'"
-    stop_client_script="pkill tcpdump; echo 'pkill tcpdump'"
 
+stop_client_script="pkill vlc; echo 'pkill vlc'; pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
+
+tcpdump_script= "(tcpdump -i tap0 -w tap0.pcap; ret=$?; if [ $ret -eq '140' ]; then exit 0; fi; exit $ret)"
 
 if vlc_mode:
     if multicast_mode:
@@ -135,7 +138,7 @@ check_lease = SshJob(
 green_light = check_lease
 
 if args.load_images:
-    # replace green_light in this case                                                                                                     
+    # replace green_light in this case
     green_light = SshJob(
         node = faraday,
         required = check_lease,
@@ -156,15 +159,13 @@ if args.load_images:
 # keeping the server node the same; delete the existing route to 10.1.1.0 on 
 # the server node and other problematic routes.
 
-server_init_script = """                                                                                       
+server_init_script = """
 apt install -y vlc smcroute
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
 wget https://cinelerra-cv.org/footage/rassegna2.avi
 route add -net 224.0.0.0 netmask 240.0.0.0 dev data
 route add -net 10.1.1.0 gw 192.168.2.{} netmask 255.255.255.0 dev data
 """.format(args.client)
-#for debug
-print("server_init_script is {}".format(server_init_script))
 
 client_init_script = """
 apt install -y vlc uml-utilities
@@ -226,22 +227,20 @@ run_tcpdump_job = [
         #scheduler=scheduler
         node=client,
         forever=True,
-#        critical=False,
-        label="run tcpdump tap0 on client",
-        commands = Run("tcpdump -i data -s 65535 -w tap.txt"),
+        command = RunString(tcpdump_script,label="run tcpdump tap0 on client"),
     )
 ]
 run_tcpdump = Scheduler(*run_tcpdump_job,
                          scheduler=scheduler,
                          required=init_done,
-                         label="Run tcpdump on client")
+                         label="Run tcpdump on tap0 client")
 
 run_sender_job = [
     SshJob(
         #scheduler=scheduler
         node=server,
         forever=True,
-        critical=False,
+#        critical=False,
         command = RunString(send_script,label=send_script),
     )
 ]
@@ -281,13 +280,18 @@ stop_all_job = [
 stop_all = Scheduler(*stop_all_job,
                       scheduler=scheduler,
                       required=run_ns3,
-                      label="Stop tcpdump and vlc sender/receiver",)
+                      label="Stop tcpdump, sender and vlc receiver",)
 
 pull_files = SshJob(
     node = client,
-    command = Pull (remotepaths="ns-3-dev/packets-{}-0.pcap".format(def_target),localpath="."),
-    required = run_ns3,
     scheduler = scheduler,
+    critical=False,
+    commands = [
+        Pull (remotepaths="ns-3-dev/packets-{}-0.pcap".format(def_target),localpath="."),
+        Pull (remotepaths="tap0.pcap",localpath="."),
+    ],
+    required = run_ns3,
+    label="Retrieve the pcap traces",
 )
 
 ##########
@@ -299,7 +303,7 @@ ok or scheduler.debrief()
 
 success = ok 
 
-# producing a png file for illustration                                                                                         
+# producing a png file for illustration
 scheduler.export_as_pngfile("ns3-scenario")
 
 exit(0 if success else 1)
