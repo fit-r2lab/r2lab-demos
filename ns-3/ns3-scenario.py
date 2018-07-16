@@ -26,12 +26,9 @@ def_duration = 25
 # Default ns-3 node target in which the tap device is created
 def_target = 2
 
-# Delay to wait for ns-3 network settle before running sender
-settle_delay = 5
-
 # Images names for server and client
 image_server = "ubuntu"
-image_client = "ubuntu-ns-3"
+image_client = "ubuntu-ns3-dev"
 
 parser = ArgumentParser()
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -66,13 +63,13 @@ vlc_mode = args.vlc
 target_node = args.target
 
 if olsr_mode and multicast_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/multicast-olsr --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
 elif olsr_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=false" """.format(args.server,args.client,target_node,duration)
 elif multicast_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/multicast-csma --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
 else:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={}" """.format(args.server,args.client,target_node,duration)
+    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={} --multicast=false" """.format(args.server,args.client,target_node,duration)
 
 if vlc_mode:
     if multicast_mode:
@@ -91,7 +88,10 @@ else: # not vlc
         send_script= "(ping 10.1.1.{} ; ret=$?; if [ $ret -eq '143' ]; then exit 0; fi; exit $ret)".format(target_node)
         stop_sender_script= "pkill ping; echo 'pkill ping'"
 
-stop_client_script="pkill vlc; echo 'pkill vlc'; pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
+if vlc_mode:
+    stop_client_script="pkill vlc; echo 'pkill vlc'; pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
+else:
+    stop_client_script="pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
 
 tcpdump_script= "(tcpdump -i tap0 -w tap0.pcap; ret=$?; if [ $ret -eq '140' ]; then exit 0; fi; exit $ret)"
 
@@ -100,10 +100,15 @@ if vlc_mode:
         recv_script= "cvlc --miface-addr 10.1.2.1 rtp://"
     else:
         recv_script= "cvlc rtp://"
-else:
-    recv_script= "cvlc rtp://" # hack for now
 
 server, client = fitname(args.server), fitname(args.client)
+
+# Wait 5s before running vlc sender on the server to avoid congestion on the link before waf starts
+if vlc_mode:
+    settle_delay = 5
+else:
+    settle_delay = 0
+
 
 print("Running scenario with server {} and client {}".format(server,client))
 print("with following sender script: {}".format(send_script))
@@ -249,19 +254,20 @@ run_sender = Scheduler(*run_sender_job,
                         required=settle_ns3,
                         label="Run the sender on server")
 
+if vlc_mode:
+    run_vlc_receiver_job = [
+        SshJob(
+            #scheduler=scheduler
+            node=client,
+            forever=True,
+            command = RunString(recv_script,label=recv_script),
+            )
+    ]
+    run_vlc_receiver = Scheduler(*run_vlc_receiver_job,
+                                  scheduler=scheduler,
+                                  required=settle_ns3,
+                                  label="Run vlc receiver on ns-3 at client")
 
-run_vlc_receiver_job = [
-    SshJob(
-        #scheduler=scheduler
-        node=client,
-        forever=True,
-        command = RunString(recv_script,label=recv_script),
-    )
-]
-run_vlc_receiver = Scheduler(*run_vlc_receiver_job,
-                              scheduler=scheduler,
-                              required=settle_ns3,
-                              label="Run vlc receiver on ns-3 at client")
 
 stop_all_job = [
     SshJob(
@@ -269,14 +275,16 @@ stop_all_job = [
         node = server,
         label = "kill sender on the server",
         command = RunString(stop_sender_script,label=stop_sender_script),
-        ),
+    ),
     SshJob(
         node = client,
         #scheduler=scheduler,
         label = "kill apps on the client",
         command = RunString(stop_client_script,label=stop_client_script),
-        ),
+    ),
 ]
+
+
 stop_all = Scheduler(*stop_all_job,
                       scheduler=scheduler,
                       required=run_ns3,
@@ -290,7 +298,7 @@ pull_files = SshJob(
         Pull (remotepaths="ns-3-dev/packets-{}-0.pcap".format(def_target),localpath="."),
         Pull (remotepaths="tap0.pcap",localpath="."),
     ],
-    required = run_ns3,
+    required = stop_all,
     label="Retrieve the pcap traces",
 )
 
