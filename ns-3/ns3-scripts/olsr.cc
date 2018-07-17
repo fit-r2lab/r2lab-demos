@@ -180,8 +180,8 @@ RoutingExperiment::Run (int nSinks, double txp, std::string remote, std::string 
   std::string phyMode ("DsssRate11Mbps");
   int nodeSpeed = 1; //in m/s
   int nodePause = 0; //in s
-  std::string mode = "ConfigureLocal";
-  std::string tapName = "thetap";
+  std::string mode = "UseLocal";
+  std::string tapName = "tap0";
 
   std::string deviceName ("data");
   //Set Non-unicastMode rate to unicast mode
