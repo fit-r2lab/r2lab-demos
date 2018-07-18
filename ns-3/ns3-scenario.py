@@ -74,9 +74,11 @@ else:
 if vlc_mode:
     if multicast_mode:
 #        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:rtp{dst=225.1.2.4:1234}'"
-        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:udp{dst=225.1.2.4:1234}'"
+#        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:udp{dst=225.1.2.4:1234}'"
+        send_script= "cvlc /root/big_buck_bunny.mp4 --ttl=16 --sout '#transcode{acodec=none}:rtp{mux=ts,dst=225.1.2.4,port=1234}'"
     else:
-        send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
+#        send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
+        send_script= "cvlc /root/big_buck_bunny.mp4 --sout '#transcode{acodec=none}:rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
     stop_sender_script= "pkill vlc; echo 'pkill vlc'"
 else: # not vlc
     if multicast_mode:
@@ -97,9 +99,9 @@ tcpdump_script= "(tcpdump -i tap0 -w tap0.pcap; ret=$?; if [ $ret -eq '140' ]; t
 
 if vlc_mode:
     if multicast_mode:
-        recv_script= "cvlc --miface-addr 10.1.2.1 rtp://"
+        recv_script= "cvlc --miface-addr=10.1.2.1 rtp://@225.1.2.4 --sout file/ps:video.mpg" 
     else:
-        recv_script= "cvlc rtp://"
+        recv_script= "cvlc --miface-addr=10.1.2.1 rtp:// --sout file/ps:video.mpg"
 
 server, client = fitname(args.server), fitname(args.client)
 
@@ -167,6 +169,7 @@ if args.load_images:
 server_init_script = """
 apt install -y vlc smcroute
 sed -i 's/geteuid/getppid/' /usr/bin/vlc
+wget http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4
 wget https://cinelerra-cv.org/footage/rassegna2.avi
 route add -net 224.0.0.0 netmask 240.0.0.0 dev data
 route add -net 10.1.1.0 gw 192.168.2.{} netmask 255.255.255.0 dev data
@@ -297,9 +300,10 @@ pull_files = SshJob(
     commands = [
         Pull (remotepaths="ns-3-dev/packets-{}-0.pcap".format(def_target),localpath="."),
         Pull (remotepaths="tap0.pcap",localpath="."),
+        Pull (remotepaths="video.mpg",localpath="."),
     ],
     required = stop_all,
-    label="Retrieve the pcap traces",
+    label="Retrieve the pcap traces and received video",
 )
 
 ##########
