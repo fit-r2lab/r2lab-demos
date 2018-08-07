@@ -1,0 +1,9 @@
+10.0.0.1 via 10.0.0.19 dev atheros  proto static  src 10.0.0.31 
+10.0.0.3 via 10.0.0.19 dev atheros  proto static  src 10.0.0.31 
+10.0.0.12 via 10.0.0.19 dev atheros  proto static  src 10.0.0.31 
+10.0.0.14 via 10.0.0.19 dev atheros  proto static  src 10.0.0.31 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.31 
+10.0.0.22 via 10.0.0.19 dev atheros  proto static  src 10.0.0.31 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.31 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.31 
+10.0.0.37 dev atheros  proto static  scope link  src 10.0.0.31 

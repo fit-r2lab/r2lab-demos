@@ -1,0 +1,2 @@
+ping -W 6 -c 500 -i 0.001 -s 64 -q 10.0.0.37 >& /tmp/ping.txt
+fit01 -> 10.0.0.37: 12 packets transmitted, 0 received, +12 errors, 100% packet loss, time 2991ms

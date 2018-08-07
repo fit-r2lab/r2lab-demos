@@ -1,0 +1,471 @@
+SAMPLE : 0 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 1 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 2 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 3 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 4 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 5 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 via 10.0.0.33 dev atheros  proto static  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 6 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 7 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 8 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 9 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 10 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 11 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 12 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 13 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 14 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 15 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 16 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 17 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 18 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 19 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 20 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 21 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 22 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 23 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 24 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 25 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 26 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 27 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 28 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 29 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 30 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 31 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 32 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 33 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 34 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 35 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 36 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 37 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 38 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 39 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 40 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 41 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 42 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 43 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 44 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 45 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 46 
+10.0.0.1 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.3 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.12 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.14 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.19 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.27 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.31 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.33 dev atheros  proto static  scope link  src 10.0.0.22 
+10.0.0.37 via 10.0.0.27 dev atheros  proto static  src 10.0.0.22 
+SAMPLE : 47 
