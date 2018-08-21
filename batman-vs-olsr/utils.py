@@ -73,7 +73,7 @@ def readPDR(filename):
             for line in pings_file:
                 if "%" in line:
                     pdr = patern.findall(line)
-        
+
     except IOError as e:
         file = str(filename)
         *rest, pingfile = file.split("/")
@@ -184,7 +184,7 @@ def graphDataRTT(run_name, tx_power, phy_rate, antenna_mask, channel, interferen
                 RTT_dic[(source_id, destination_id)].extend(  [float(value)
                                                     for value in readRTT(directory
                         / "PING-{:02d}-{:02d}".format(source_id, destination_id))])
-            
+
             if len(RTT_dic[(source_id, destination_id)]) == 0:
                 RTT_dic[(source_id, destination_id)]=[0]
                                                                                       #print(RTT_dic[(source_id, destination_id)])
@@ -194,12 +194,12 @@ def graphDataRTT(run_name, tx_power, phy_rate, antenna_mask, channel, interferen
             source, destination = getSourceDestFromRoute(route)
             source_id = int(source)
             destination_id = int(destination)
-            
+
             RTT_dic[(source_id, destination_id)] = [float(value) for value in readRTT(naming_scheme(run_name=run_name, tx_power=tx_power,
                                     phy_rate=phy_rate, antenna_mask=antenna_mask,
                                     channel=channel, interference = interference, protocol = protocol)
                 / "PING-{:02d}-{:02d}".format(source_id, destination_id))]
-            
+
             if len(RTT_dic[(source_id, destination_id)]) == 0:
                 RTT_dic[(source_id, destination_id)]=[0]
             #print(RTT_dic[(source_id, destination_id)])
@@ -212,12 +212,12 @@ def graphDataRTT(run_name, tx_power, phy_rate, antenna_mask, channel, interferen
 
 def graphDataMultipleRTT(run_name_family, tx_power, phy_rate, antenna_mask, channel,
                          interference, protocol, source, dests, maxdata):
-    
+
     xValues = []
     yValues = []
     RTT_dic = {}
     countmax = 0
-    
+
     for run_name in glob.glob(f"{run_name_family}*/"):
         if countmax >= maxdata:
             break
@@ -229,7 +229,7 @@ def graphDataMultipleRTT(run_name_family, tx_power, phy_rate, antenna_mask, chan
                                   protocol = protocol)
                                   #dests = getInfo( directory, "Destinations")
         for destination in dests:
-            
+
             source_id = int(source)
             destination_id = int(destination)
             if source_id == destination_id:
@@ -242,7 +242,7 @@ def graphDataMultipleRTT(run_name_family, tx_power, phy_rate, antenna_mask, chan
                 RTT_dic[(source_id, destination_id)].extend(  [float(value)
                                                                for value in readRTT(directory
                                                                                     / "PING-{:02d}-{:02d}".format(source_id, destination_id))])
-            
+
             if len(RTT_dic[(source_id, destination_id)]) == 0:
                 RTT_dic[(source_id, destination_id)]=[0]
                 #print(RTT_dic[(source_id, destination_id)])
@@ -269,17 +269,17 @@ def graphDataPDR(run_name, tx_power, phy_rate, antenna_mask, channel, interferen
          PDR_dic[(source_id, destination_id)] = [100 - int(value)
                                                  for value in readPDR( directory / "PING-{:02d}-{:02d}".format(source_id, destination_id))]
          xValues.extend( [generatSourceDestRouteString(source_id, destination_id)])
-                                                                                                                   
+
          yValues.extend( PDR_dic[source_id, destination_id])
     return xValues, yValues
-def graphDataMultiplePDR(run_name_family, tx_power, phy_rate, antenna_mask, channel,
+def graphDataMultiplePDRCount(run_name_family, tx_power, phy_rate, antenna_mask, channel,
                          interference, protocol, source, dest, maxdata):
     yValues = [0] * 101
     xValues = list(range(0,101))
     #FOR EVERY DATA WITH RUN_NAME_FAMILY
     countmax = 0
-    
-    for run_name in glob.glob(f"{run_name_family}*/"):
+
+    for run_name in glob.glob(f"{run_name_family}/*/"):
         if countmax >= maxdata:
             break
         countmax+=1
@@ -291,7 +291,31 @@ def graphDataMultiplePDR(run_name_family, tx_power, phy_rate, antenna_mask, chan
                                     .format(source, dest))]
         if pdr[0] != -1:
             yValues[pdr[0]] += 1
-    
+
+    return xValues, yValues
+def graphDataMultiplePDR(run_name_family, tx_power, phy_rate, antenna_mask, channel,
+                         interference, protocol, source, dest, maxdata):
+    yValues = []
+    xValues = [generatSourceDestRouteString(int(source),int(dest))] * maxdata
+    #FOR EVERY DATA WITH RUN_NAME_FAMILY
+    countmax = 0
+
+    for run_name in glob.glob(f"{run_name_family}/*/"):
+        if countmax >= maxdata:
+            break
+        countmax+=1
+        directory =naming_scheme(run_name=run_name, tx_power=tx_power,
+                                 phy_rate=phy_rate, antenna_mask=antenna_mask,
+                                 channel=channel, interference = interference,
+                                 protocol = protocol)
+        pdr = [100 - int(value)
+               for value in readPDR(directory / "PING-{:02d}-{:02d}"\
+                                    .format(source, dest))]
+        if pdr[0] != -1:
+            yValues.append(pdr[0])
+        else:
+            yValues.append(0)
+
     return xValues, yValues
 def getNodesFromRoutes(routes):
     nodes = []
@@ -329,7 +353,7 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
         routes = getAllRoutes_sample( directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source), sample)
     nodes = getNodesFromRoutes(routes)
     nodes = list(set(nodes)- set(['0']))
-    
+
     dot.node("  ", pos = "4,4!", shape = "box")
     dot.node(" ", pos = "6,4!", shape = "box")
     for node_id in range(1, 38):
@@ -346,7 +370,7 @@ def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask, channel, inte
                      shape = 'doublecircle')
     if len(nodes) > 0 :
         dot = getEdgesFromRoutes(dot, routes)
-        
+
         return dot
 def get_sample_count(run_name, tx_power, phy_rate, antenna_mask, channel, interference, protocol, source):
      directory =naming_scheme(run_name=run_name, tx_power=tx_power,
@@ -359,7 +383,53 @@ def get_sample_count(run_name, tx_power, phy_rate, antenna_mask, channel, interf
                         for line in routes_file:
                             if "SAMPLE" in line:
                                 samplenumber = samplenumber+1
-     
+
      except IOError as e:
                      return None
      return samplenumber
+
+def generateRouteGraphData(run_name_family, tx_power, phy_rate, antenna_mask, channel,
+                       interference, protocol, source, dests=[],
+                       maxdata=1):
+
+    xValues = []
+    yValues = []
+    dic_hop_dest = {}
+    destinations = [int(dest) for dest in dests]
+    countmax = 1
+
+    for run_name in glob.glob(f"{run_name_family}/*/"):
+
+        if countmax > maxdata:
+            break
+        countmax += 1
+        directory = naming_scheme(run_name=run_name, tx_power=tx_power,
+                                  phy_rate=phy_rate, antenna_mask=antenna_mask,
+                                  channel=channel, interference=interference,
+                                  protocol=protocol)
+        routes = getAllRoutes(directory / 
+                                     "ROUTES-{:02d}".format(source)
+                                     )
+        dic_hop_dest = {}
+        for route in routes:
+            nodes = route.split(" -- ")
+            counter = 0
+            target = nodes[-1]
+            if int(target) in destinations:
+                if "-- 0 --" in route or "-- -1 --" in route:
+                    dic_hop_dest[
+                    generatSourceDestRouteString(int(source),
+                                                 int(nodes[-1]))] = 0
+
+                    continue
+                for node in nodes:
+                    if counter > 0 and target == node:
+                        dic_hop_dest[
+                                    generatSourceDestRouteString(int(source),
+                                                        int(node))] = counter
+
+                    counter += 1
+        for route, hops in dic_hop_dest.items():
+            xValues.append(route)
+            yValues.append(hops)
+    return xValues, yValues

@@ -40,7 +40,7 @@ def dashboard(datadir, onnodes,continuous_sender = False):
                          options = onnodes,
                          continuous_update=continuous_sender, layout=l75)
     w_power = Dropdown(options=list(range(1, 15)),
-                       value=1, description="tx power in dBm", layout=l32)
+                       value=5, description="tx power in dBm", layout=l32)
     w_rate = Dropdown(options=[54], value=54,
                       description="phy rate", layout=l32)
     # yeah, this is a little weird all right

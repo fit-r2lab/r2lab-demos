@@ -109,7 +109,7 @@ function init-ad-hoc-network-ath9k (){
 
     #configuring frequency on monitor interface
 #iw dev $moniname set freq $freq
-
+    iw dev $ifname set mesh_param mesh_fwding 0
 
     if test $freq -le 3000
       then

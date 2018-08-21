@@ -151,6 +151,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                if exp is not None else default_exp)
     dest_ids = ([int(id) for id in dest]
                 if dest is not None else default_node_ids)
+    node_ids = list(set(node_ids).union(set(exp_ids).union(set(dest_ids))))
+
     #
     # dry-run mode
     # just display a one-liner with parameters
@@ -167,7 +169,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
 
                   for e in exp_ids
                   # and on the destination
-                  for j in node_ids
+                  for j in dest_ids
                   if e != j  # and not
                   #(j in exp_ids and j < e)
 
