@@ -13,7 +13,7 @@ import shutil
 from asynciojobs import Scheduler, Sequence, PrintJob
 
 from apssh import SshNode, SshJob, LocalNode
-from apssh import Run, RunScript, Pull, Push
+from apssh import Run, RunScript, Pull, Push, util
 from apssh import TimeColonFormatter
 
 # helpers
@@ -118,7 +118,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             verbose_ssh=False, verbose_jobs=False, dry_run=False,
             tshark=False, map=False, warmup=False,
             exp=default_exp, dest=default_node_ids,
-            ping_number=default_ping_number, route_sampling=False):
+            ping_number=default_ping_number, route_sampling=False,
+            iperf=False):
     """
     Performs data acquisition on all nodes with the following settings
 
@@ -339,6 +340,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             node=node_scrambler,
             verbose=verbose_jobs,
             label="init scrambler on node {}".format(scrambler_id),
+            #TODO : If exit-signal patch is done add exit-signal=["TERM"]
+            #       to this run object and call uhd_siggen directly
             command=RunScript("node-utilities.sh",
                               "init-scrambler", interference,
                               frequency_str,
@@ -449,6 +452,111 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             label="settling-warmup for {} sec".format(settle_delay/2))
 
         green_light_experiment = settle_wireless_job2
+
+    if iperf:
+        iperf_serv = [
+            SshJob(
+                node=nodei,
+                label="iperf serv on {}".format(i, j),
+                verbose=verbose_jobs,
+                forever=True,
+                commands=[
+                    Run("iperf -s -p 1234  -u",
+                         label="iperf serv on {}".format(j)),
+                ],
+            )
+            for i, nodei in node_index.items()
+            for j in dest_ids
+            if (i == j)
+
+
+        ]
+        iperf_serv_sched = Scheduler(*iperf_serv,
+                                     verbose=verbose_jobs,
+                                     label="Iperf Servers")
+
+        iperf_cli =[SshJob(node=nodei,
+                           verbose=verbose_jobs,
+                           label="iperf {}->{}".format(i, j),
+                           commands=[
+                                     Run("sleep 7", label=""),
+                                     Run("iperf",
+                                         "-c 10.0.0.{} -p 1234".format(j),
+                                         "-u -b {}M -t 60".format(phy_rate),
+                                         "-l 1024 > IPERF-{:02d}-{:02d}"
+                                         .format(e, j),
+                                         label="iperf {}->{}".format(i, j))
+                            ]
+                            )
+
+                      # for each selected experiment nodes
+                      for e in exp_ids
+                      # looping on the source (to get the correct sshnodes)
+                      for i, nodei in node_index.items()
+                      # and on the destination
+                      for j in dest_ids
+                      # and keep only sources that are in the selected experiment nodes
+                      # and remove destination that are themselves
+                      # and remove the couples that have already be done
+                      if (i == e) and (e != j)
+
+                    ]
+        iperf_cli_sched = Scheduler(Sequence(*iperf_cli),
+                                     verbose=verbose_jobs,
+                                     label="Iperf Clients")
+        iperf_stop = [
+                        SshJob(node=nodei,
+                               verbose=verbose_jobs,
+                               label="Stop iperf server",
+                               commands=[
+                                            Run("pkill iperf")
+                               ]
+                               )
+                        for i, nodei in node_index.items()
+                        for j in dest_ids
+                        if i == j
+                    ]
+        iperf_stop_sched = Scheduler(*iperf_stop,
+                                     required=iperf_cli_sched,
+                                     verbose=verbose_jobs,
+                                     label="Iperf server stop")
+        iperf_fetch = [
+                        SshJob(node=nodei,
+                               verbose=verbose_jobs,
+                               label="fetch iperf report",
+                               commands=[
+                                            Pull(remotepaths=
+                                                    ["IPERF-{:02d}-{:02d}"
+                                                     .format(i, j)],
+                                                 localpath=str(run_root),
+                                                 label="fetch iperf report")
+                                          ]
+                               )
+                        for e in exp_ids
+                        for i, nodei in node_index.items()
+                        for j in dest_ids
+                        if e == i and e != j
+
+                      ]
+        iperf_fetch_sched = Scheduler(*iperf_fetch,
+                                      required=iperf_stop_sched,
+                                      verbose=verbose_jobs,
+                                      label="Iperf fetch report")
+        iperf_jobs = [iperf_serv_sched, iperf_cli_sched,
+                      iperf_stop_sched, iperf_fetch_sched]
+        iperf_sched = Scheduler(*iperf_jobs,
+                  scheduler=scheduler,
+                  required=green_light_experiment,
+                  verbose=verbose_jobs,
+                  label="Iperf Module")
+        settle_wireless_job_iperf = PrintJob(
+            "Let the wireless network settle",
+            sleep=settle_delay,
+            scheduler=scheduler,
+            required=iperf_sched,
+            label="settling-iperf for {} sec".format(settle_delay))
+
+        green_light_experiment = settle_wireless_job_iperf
     ##########
     # create all the tracepath jobs from the first node in the list
     #
@@ -602,18 +710,14 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 label="retrieve pcap trace from fit{:02d}".format(i),
                 verbose=verbose_jobs,
                 commands=[
-
-                    # RunScript("node-utilities.sh", "kill-{}".format(protocol), label = "kill-{}".format(protocol)),
                     RunScript("node-utilities.sh", "kill-tcpdump",
                               label="kill-tcpdump"),
-                    #Run("sleep 1"),
                     Run(
                         "echo retrieving pcap trace and result-{i}.txt from fit{i:02d}".format(i=i),
                          label=""),
                     Pull(remotepaths=["/tmp/fit{}.pcap".format(i)],
                          localpath=str(run_root), label=""),
                 ],
-                #keep_connection = True
             )
             for i, nodei in node_index.items()
         ]
@@ -683,7 +787,6 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                 required=retrieve_tcpdump,
                                 label="Parse pcap",
                                 )
-# TODO: TURN OFF USRP
 
     if interference != "None":
         kill_uhd_siggen = SshJob(
@@ -726,12 +829,10 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
 
     ok = scheduler.orchestrate()  # jobs_window=jobs_window)
 
-    scheduler.shutdown()
+    #TODO : Call ssh connection close :
+    #util.close_ssh_from_sched(scheduler)
 
-    # TODO : Is it necessary? if the user want to see it he can just do it?
-    #call(["dot",  "-Tpng", dot_file, "-o", run_root / "experitment_graph.png"])
-# ok=True
-#ok = False
+
     # give details if it failed
     if not ok:
         scheduler.debrief()
@@ -905,6 +1006,9 @@ def main():
         help="do a ping as a warmup to try to stabilise routes and then "
              "settle again before getting routes and register results")
     parser.add_argument(
+        "-p", "--iperf", default=False, action='store_true',
+        help="[BONUS]do an iperf for the sources and destinations ")
+    parser.add_argument(
         "-S", "--route-sampling", default=False, action='store_true',
         help="observe and recolt the routing table over time during the experiment")
     args = parser.parse_args()
@@ -935,7 +1039,8 @@ def main():
         # ping_interval = args.ping_interval
         # ping_size = args.ping_size
         ping_number=args.ping_number,
-        route_sampling=args.route_sampling
+        route_sampling=args.route_sampling,
+        iperf=args.iperf
         # wireless_driver   = args.wifi_driver
         )
 
