@@ -27,11 +27,11 @@ function init-ad-hoc-network-ath9k (){
     # load the r2lab utilities - code can be found here:
     # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
     source /root/r2lab/infra/user-env/nodes.sh
-
+    source /root/r2lab-embedded/shell/nodes.sh
     # make sure to use the latest code on the node
     git-pull-r2lab
 
-    . ~/.bashrc > /dev/null
+    #. ~/.bashrc > /dev/null
 
 
     turn-off-wireless
@@ -43,8 +43,8 @@ function init-ad-hoc-network-ath9k (){
 
 #    echo loading module $driver
     modprobe $driver
-    
-    # sleep some random time for udev to trigger its rules and prevent 
+
+    # sleep some random time for udev to trigger its rules and prevent
     # errors when all nodes simulataneously want to apt-get install tshark
     #TODO :really need tshark? Why not just get the pcap and parse them on laptop directly?
 #sleep $[($RANDOM % 10)+1]
@@ -61,7 +61,7 @@ function init-ad-hoc-network-ath9k (){
     ip address flush dev $ifname
     ip link set $ifname down
     # Warning! if $moniname interface is up, it will prevent following configurations...
-    echo "Removing monitor interface $moniname if it exists" 
+    echo "Removing monitor interface $moniname if it exists"
     ip address flush dev $moniname 2>/dev/null
     ip link set $moniname down 2>/dev/null
 
@@ -128,8 +128,8 @@ function init-ad-hoc-network-ath9k (){
     echo "List of authorized frequencies on $phyname:"
     iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
 
-    # then, run tcpdump with the right parameters 
-    
+    # then, run tcpdump with the right parameters
+
 #    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
 
 
@@ -156,11 +156,12 @@ function init-ad-hoc-network-iwlwifi (){
     # load the r2lab utilities - code can be found here:
     # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
     source /root/r2lab/infra/user-env/nodes.sh
+    source /root/r2lab-embedded/shell/nodes.sh
 
     # make sure to use the latest code on the node
     git-pull-r2lab
 
-    . ~/.bashrc > /dev/null
+    #. ~/.bashrc > /dev/null
     turn-off-wireless
 
     echo "Setting regulatory domain to CR"
@@ -270,14 +271,19 @@ function init-ad-hoc-network-iwlwifi (){
 function init-scrambler (){
     white_noise_power=$1; shift
     channel=$1; shift
+    source /root/r2lab-embedded/shell/nodes.sh
 
-    . ~/.bashrc > /dev/null
+    #. ~/.bashrc > /dev/null
 
     enable-usrp-ethernet
     usrp-reset
     sleep 20
-    echo " noise : $white_noise_power  channel : $channel"
+    #echo " noise : $white_noise_power  channel : $channel"
     uhd_siggen -a usrp -g $white_noise_power -f $channel --gaussian
+
+    if [ $? -eq "143" ]; then
+      exit 0
+    fi
     return 0
 }
 function run-olsr (){
@@ -298,7 +304,7 @@ EOT
     fi
     #    olsrd -d 2
     echo "Run olsr daemon"
-    olsrd 
+    olsrd
     sleep 5
     iwconfig atheros
     return 0
@@ -381,7 +387,7 @@ function kill-batman (){
 
     echo "Kill batman daemon"
     pkill  batman
-    
+
     return 0
 }
 function kill-tcpdump (){
@@ -397,7 +403,7 @@ function my-ping (){
     pint=$1; shift
     psize=$1; shift
     pnumber=$1; shift
-    
+
     echo "ping -W $ptimeout -c $pnumber -i $pint -s $psize -q $dest >& /tmp/ping.txt"
     ping -w $ptimeout -c $pnumber -i $pint -s $psize $dest >& /tmp/ping.txt
     result=$(grep "ms" /tmp/ping.txt)
