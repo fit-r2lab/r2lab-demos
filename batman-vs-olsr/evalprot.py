@@ -280,14 +280,16 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             label="rhubarbe load/wait on nodes {}".format(load_ids),
             commands=[
                 Run("rhubarbe", "off", "-a", *negated_node_ids,
-                    label="roff {}".format(negated_node_ids)),
-                Run("rhubarbe", "load", "-i", "batman_node", *node_ids,
+                    label="",),
+                Run("rhubarbe", "load", "-i",
+                    "/home/inria_batman/bat_nodes.ndz",
+                    *node_ids,
                     label="rload {}".format(node_ids)),
-                Run("rhubarbe", "load", "-i", "gnuradio_batman", scrambler_id,
-                    label="load gnuradio batman on {}".format(scrambler_id)),
+                Run("rhubarbe", "load", "-i",
+                    "/home/inria_batman/gnuradio_batman", scrambler_id,
+                    label="load gnuradio on {}".format(scrambler_id)),
                 Run("rhubarbe", "wait", *load_ids, label="rwait")
-            ],
-            #keep_connection = True
+            ]
         )
 
     ##########
