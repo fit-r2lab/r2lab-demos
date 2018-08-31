@@ -867,9 +867,9 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     print("END of creation for ROUTES FILES")
     # data acquisition is done, let's aggregate results
     # i.e. compute averages
-    if ok and tshark:
-        post_processor = Aggregator(run_root, node_ids, antenna_mask)
-        post_processor.run()
+    #if ok and tshark:
+        #post_processor = Aggregator(run_root, node_ids, antenna_mask)
+        #post_processor.run()
 
     return ok
 
