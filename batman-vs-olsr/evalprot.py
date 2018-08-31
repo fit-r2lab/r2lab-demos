@@ -271,8 +271,6 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                     if node_ids is not None else default_node_ids)
         load_ids.append(scrambler_id)
         # replace green_light in this case
-        # We use a modified image of gnuradio where uhd_siggen
-        # handles the SIGTERM signal in order to finish properly
         green_light = SshJob(
             node=faraday,
             required=check_lease,
@@ -287,7 +285,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                     *node_ids,
                     label="rload {}".format(node_ids)),
                 Run("rhubarbe", "load", "-i",
-                    "/home/inria_batman/gnuradio_batman", scrambler_id,
+                    "/home/inria_batman/gnuradio_batman.ndz", scrambler_id,
                     label="load gnuradio on {}".format(scrambler_id)),
                 Run("rhubarbe", "wait", *load_ids, label="rwait")
             ]
@@ -307,6 +305,24 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
     # tx_power_in_mBm not in dBm
     tx_power_driver = tx_power * 100
 
+    #just in case somme services failed in the previous experiment
+    reset_failed_services_job = [
+        SshJob(
+                node=node,
+                verbose=verbose_jobs,
+                label="reset failed services",
+                command=Run("systemctl reset-failed",
+                            label="reset-failed services")
+        )
+        for id, node in node_index.items()
+
+    ]
+    reset_failed_services = Scheduler(
+        *reset_failed_services_job,
+        scheduler=scheduler,
+        required=green_light,
+        verbose=verbose_jobs,
+        label="Reset failed services")
     init_wireless_sshjobs = [
         SshJob(
             # scheduler=scheduler,
@@ -330,7 +346,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         verbose=verbose_jobs,
         label="Initialisation of wireless chips")
 
-    green_light_prot = init_wireless_jobs
+    green_light_prot = [init_wireless_jobs, reset_failed_services]
     if interference != "None":
         # Run uhd_siggen with the chosen power
         frequency_str = frequency/1000
@@ -342,10 +358,13 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             label="init scrambler on node {}".format(scrambler_id),
             #TODO : If exit-signal patch is done add exit-signal=["TERM"]
             #       to this run object and call uhd_siggen directly
-            command=RunScript("node-utilities.sh",
-                              "init-scrambler", interference,
-                              frequency_str,
-                              label="init scambler"),
+            commands=[RunScript("node-utilities.sh",
+                                "init-scrambler",
+                                label="init scambler"),
+                      Run("systemd-run --unit=uhd_siggen -t ",
+                          "uhd_siggen -a usrp -g {}".format(interference),
+                          "-f {} --gaussian".format(frequency_str)),
+                      ]
             #keep_connection = True
         )]
         init_scrambler = Scheduler(*init_scrambler_job,
@@ -362,6 +381,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             # required=green_light_prot,
             label="init and run {} on fit node {}".format(protocol, i),
             verbose=verbose_jobs,
+            # CAREFUL : These ones use sytemd-run
+            #            with the ----service-type=forking option!
             command=RunScript("node-utilities.sh", "run-{}".format(protocol),
                               label="run {}".format(protocol)),
             #keep_connection = True
@@ -376,6 +397,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
 
     # after that, run tcpdump on fit nodes, this job never ends...
     if tshark:
+
         run_tcpdump_job = [
             SshJob(
                 # scheduler=scheduler_monitoring,
@@ -384,13 +406,20 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 label="run tcpdump on fit node".format(i),
                 verbose=verbose_jobs,
                 commands=[
-                    RunScript(
-                        "node-utilities.sh", "run-tcpdump", wireless_driver, i,
-                        label="run tcpdump")
-                ],
+                            Run("systemd-run -t  --unit=tcpdump",
+                                "tcpdump -U -i moni-{}".format(wireless_driver),
+                                "-y ieee802_11_radio -w /tmp/fit{}.pcap".format(i),
+                                label="run tcpdump")
+                         ]
+                    #RunScript(
+                    #    "node-utilities.sh", "run-tcpdump", wireless_driver, i,
+                    #    label="run tcpdump")
+                ,
                 #keep_connection = True
             )
-            for i, node in node_index.items()]
+            for i, node in node_index.items()
+            ]
+
         run_tcpdump = Scheduler(*run_tcpdump_job,
                                 scheduler=scheduler,
                                 required=run_protocol,
@@ -461,8 +490,9 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 verbose=verbose_jobs,
                 forever=True,
                 commands=[
-                    Run("iperf -s -p 1234  -u",
-                         label="iperf serv on {}".format(j)),
+                    Run("systemd-run -t  --unit=iperf",
+                        "iperf -s -p 1234  -u",
+                        label="iperf serv on {}".format(j)),
                 ],
             )
             for i, nodei in node_index.items()
@@ -509,7 +539,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                                verbose=verbose_jobs,
                                label="Stop iperf server",
                                commands=[
-                                            Run("pkill iperf")
+                                            Run("systemctl stop iperf")
                                ]
                                )
                         for i, nodei in node_index.items()
@@ -589,25 +619,6 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         green_light_experiment = routes
 
     if route_sampling:
-        routes_sampling_job2 = [
-            SshJob(
-                node=nodei,
-                label="Route sampling service for prot {} on node {}"
-                      .format(protocol, i),
-                verbose=False,
-                #forever = True,
-                commands=[
-                    Push(localpaths=["route_sample_service.sh"],
-                         remotepath=".", label=""),
-                    Run("source", "route_sample_service.sh;", "route-sample",
-                        "ROUTE-TABLE-{:02d}-SAMPLED".format(i),
-                        "{}".format(protocol),
-                        label="run route sampling service"),
-                ],
-                #keep_connection = True
-            )
-            for i, nodei in node_index.items()
-        ]
         routes_sampling_job = [
             SshJob(
                 node=nodei,
@@ -618,10 +629,14 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 #required = green_light_experiment,
                 #scheduler = scheduler,
                 commands=[
-                    RunScript("route_sample_service.sh", "route-sample",
-                              "ROUTE-TABLE-{:02d}-SAMPLED".format(i),
-                              "{}".format(protocol),
-                              label="run route sampling service"),
+                    Push(localpaths=["route_sample_service.sh"],
+                         remotepath=".", label=""),
+                    Run("chmod +x route_sample_service.sh"),
+                    Run("systemd-run -t  --unit=route_sample",
+                        "/root/route_sample_service.sh", "route-sample",
+                        "ROUTE-TABLE-{:02d}-SAMPLED".format(i),
+                        "{}".format(protocol),
+                        label="run route sampling service"),
                 ],
                 #keep_connection = True
             )
@@ -710,8 +725,11 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 label="retrieve pcap trace from fit{:02d}".format(i),
                 verbose=verbose_jobs,
                 commands=[
-                    RunScript("node-utilities.sh", "kill-tcpdump",
-                              label="kill-tcpdump"),
+
+                    Run("systemctl stop tcpdump"),
+                    #Run("systemctl reset-failed tcpdump"),
+                    #RunScript("node-utilities.sh", "kill-tcpdump",
+                    #          label="kill-tcpdump"),
                     Run(
                         "echo retrieving pcap trace and result-{i}.txt from fit{i:02d}".format(i=i),
                          label=""),
@@ -737,8 +755,9 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                 commands=[
                     # RunScript("node-utilities.sh", "kill-route-sample", protocol,
                     #          label = "kill route sample"),
-                    RunScript("route_sample_service.sh", "kill-route-sample",
-                              label="kill route sample"),
+                    #RunScript("route_sample_service.sh", "kill-route-sample",
+                    #          label="kill route sample"),
+                    Run("systemctl stop route_sample"),
                     Run(
                         "echo retrieving sampling trace from fit{i:02d}".format(
                             i=i),
@@ -796,7 +815,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             label="killing uhd_siggen on the scrambler node {}"\
                   .format(scrambler_id),
             verbose=verbose_jobs,
-            commands=[Run("pkill", "uhd_siggen")
+            commands=[Run("systemctl", "stop", "uhd_siggen"),
+                      #Run("systemctl reset-failed tcpdump"),
                       ],
             #keep_connection = True
         )
