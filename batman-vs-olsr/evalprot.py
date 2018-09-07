@@ -892,7 +892,8 @@ def all_runs(tx_powers, phy_rates, antenna_masks,
     #     all() is lazy and would stop at the first failure
     # (*) we need to set load_images to false after the first run
     overall = True
-
+    if interferences is None:
+        interferences = ["None"]
     for protocol in protocols:
         for tx_power in tx_powers:
             for phy_rate in phy_rates:
