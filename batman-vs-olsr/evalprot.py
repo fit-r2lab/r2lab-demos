@@ -4,7 +4,7 @@
 Script to run batman or OLSR routing protocol on R2lab
 """
 
-# pylint: disable=c0103
+# pylint: disable=c0103, r0912, r0913, r0914, r0915
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
@@ -13,18 +13,18 @@ import shutil
 from asynciojobs import Scheduler, Sequence, PrintJob
 
 from apssh import SshNode, SshJob, LocalNode
-from apssh import Run, RunScript, Pull, Push, util
+from apssh import Run, RunScript, Pull, Push
 from apssh import TimeColonFormatter
 
 # helpers
-from processmap import Aggregator
+#from processmap import Aggregator
 from processroute import ProcessRoutes
 from channels import channel_frequency
 
 ##########
 default_gateway = 'faraday.inria.fr'
 default_slicename = 'inria_batman'
-default_run_name = 'logs'
+default_run_name = 'exp-data'
 
 
 choices_protocols = ['olsr', 'batman']
@@ -36,7 +36,7 @@ settle_delay = 60
 choices_antenna_mask = [1, 3, 7]
 default_antenna_mask = 1
 # PHY rate used for each node, e.g. 1, 6, 54...
-choices_phy_rate = [54]
+choices_phy_rate = [1, 54]
 default_phy_rate = 54
 # Tx Power for each node, for Atheros 1dBm (i.e. 100) to 14dBm (i.e. 1400)
 #choices_tx_power     = range(5, 15)
@@ -66,7 +66,7 @@ default_exp = [1]
 ping_timeout = 6
 ping_size = 64
 ping_interval = 0.001
-default_ping_number = 500
+default_ping_messages = 500
 
 # wireless driver: by default set to ath9k
 wireless_driver = 'ath9k'
@@ -118,7 +118,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
             verbose_ssh=False, verbose_jobs=False, dry_run=False,
             tshark=False, map=False, warmup=False,
             exp=default_exp, dest=default_node_ids,
-            ping_number=default_ping_number, route_sampling=False,
+            ping_messages=default_ping_messages, route_sampling=False,
             iperf=False):
     """
     Performs data acquisition on all nodes with the following settings
@@ -129,7 +129,8 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         antenna_mask: a string among 1, 3, 7.
         channel: a string like e.g. 1 or 40. Correspond to the channel.
         protocol: a string among batman , olsr. Correspond to the protocol
-        interference : in dBm, a string like 60 or 50. Correspond to the power of the noise generated in the root.
+        interference : in dBm, a string like 60 or 50.
+          Correspond to the power of the noise generated in the root.
         run_name: the name for a subdirectory where all data will be kept
           successive runs should use the same name for further visualization
         slicename: the Unix login name (slice name) to enter the gateway
@@ -142,7 +143,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
           the experiment to be certain of the stabilisation on the network.
         exp: a list of nodes from which we will launch the ping from. strings or ints are OK.
           defaults to the node [1]
-        ping_number : The number of pings that will be generated
+        ping_messages : The number of pings that will be generated
 
     """
     # set default for the nodes parameter
@@ -270,26 +271,35 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
         load_ids = ([int(id) for id in node_ids]
                     if node_ids is not None else default_node_ids)
         load_ids.append(scrambler_id)
+        # we can do these three things in parallel
+        ready_jobs = [
+            SshJob(node=faraday, required=check_lease,
+                   scheduler=scheduler, verbose=verbose_jobs,
+                   label="turn off unused nodes",
+                   command=Run("rhubarbe", "off", "-a", *negated_node_ids,
+                               label="rhubarbe off")),
+            SshJob(node=faraday, required=check_lease,
+                   scheduler=scheduler, verbose=verbose_jobs,
+                   label="load batman image",
+                   command=Run("rhubarbe", "load", "-i",
+                               "/home/inria_batman/bat_nodes.ndz",
+                               *node_ids,
+                               label="rload {}".format(node_ids))),
+            SshJob(node=faraday, required=check_lease,
+                   scheduler=scheduler, verbose=verbose_jobs,
+                   label="load gnuradio image",
+                   command=Run("rhubarbe", "load", "-i",
+                               "/home/inria_batman/gnuradio_batman.ndz",
+                               scrambler_id,
+                               label=f"load gnuradio on {scrambler_id}"))
+        ]
         # replace green_light in this case
         green_light = SshJob(
-            node=faraday,
-            required=check_lease,
-            scheduler=scheduler,
-            verbose=verbose_jobs,
-            label="rhubarbe load/wait on nodes {}".format(load_ids),
-            commands=[
-                Run("rhubarbe", "off", "-a", *negated_node_ids,
-                    label="",),
-                Run("rhubarbe", "load", "-i",
-                    "/home/inria_batman/bat_nodes.ndz",
-                    *node_ids,
-                    label="rload {}".format(node_ids)),
-                Run("rhubarbe", "load", "-i",
-                    "/home/inria_batman/gnuradio_batman.ndz", scrambler_id,
-                    label="load gnuradio on {}".format(scrambler_id)),
-                Run("rhubarbe", "wait", *load_ids, label="rwait")
-            ]
-        )
+            node=faraday, required=ready_jobs,
+            scheduler=scheduler, verbose=verbose_jobs,
+            label="wait for nodes to come up",
+            command=Run("rhubarbe", "wait", scrambler_id, *load_ids,
+                        label="rwait"))
 
     ##########
     # setting up the wireless interface on all nodes
@@ -449,7 +459,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                     RunScript("node-utilities.sh", "my-ping",
                               "10.0.0.{}".format(
                                   j), ping_timeout, ping_interval,
-                              ping_size, ping_number, label="")
+                              ping_size, ping_messages, label="")
                 ],
                 #keep_connection = True
             )
@@ -668,7 +678,7 @@ def one_run(tx_power, phy_rate, antenna_mask, channel, interference,
                     label="ping {}'->' {}".format(i, j)),
                 RunScript("node-utilities.sh", "my-ping",
                           "10.0.0.{}".format(j), ping_timeout, ping_interval,
-                          ping_size, ping_number,
+                          ping_size, ping_messages,
                           ">", "PING-{:02d}-{:02d}".format(i, j), label=""),
                 Pull(remotepaths="PING-{:02d}-{:02d}".format(i, j),
                      localpath=str(run_root), label=""),
@@ -902,7 +912,8 @@ def all_runs(tx_powers, phy_rates, antenna_masks,
                         for interference in interferences:
                             # record any failure
                             if not one_run(tx_power, phy_rate, antenna_mask,
-                                           channel, interference, protocol, *args, **kwds):
+                                           channel, interference, protocol,
+                                           *args, **kwds):
                                 overall = False
                             # make sure images will get loaded only once
                             kwds['load_images'] = False
@@ -917,74 +928,77 @@ def main():
     # running with --help will show default values
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "-P", "--protocol", dest='protocol',
-        default=default_protocol, choices=choices_protocols,
-        nargs='+',
-        help="specify the WMN protocol you want to run the experiments with")
+        "-s", "--slice", dest='slicename', default=default_slicename,
+        help="specify your slicename (reservation needed)")
+    parser.add_argument(
+        "-l", "--load-images", default=False, action='store_true',
+        help="if set, load image on nodes before running the experiment")
     parser.add_argument(
         "-o", "--output-name", dest='run_name',
         default=default_run_name,
         help="the name of a subdirectory where to store results")
     parser.add_argument(
-        "-s", "--slice", dest='slicename', default=default_slicename,
-        help="specify an alternate slicename")
-
-    parser.add_argument(
-        "-t", "--tx-power", dest='tx_powers',
-        default=[default_tx_power], choices=choices_tx_power,
+        "-P", "--protocol", dest='protocol', metavar='protocol',
+        default=default_protocol, choices=choices_protocols,
         nargs='+',
-        type=int,
-        help="specify Tx power(s)")
+        help="specify the WMN protocols you want to use,"
+             " among {}".format(set(choices_protocols)))
     parser.add_argument(
-        "-r", "--phy-rate", dest='phy_rates',
-        default=[default_phy_rate], choices=choices_phy_rate,
-        nargs='+',
-        type=int,
-        help="specify PHY rate(s)")
-    parser.add_argument(
-        "-a", "--antenna-mask", dest='antenna_masks',
-        default=[ default_antenna_mask], choices=choices_antenna_mask,
-        nargs='+',
-        type=int,
-        help="specify antenna mask(s)")
-    parser.add_argument(
-        "-c", "--channel", dest='channels',
-        default=[default_channel], choices=choices_channel,
-        nargs='+',
-        type=int,
-        help="channel(s)")
-    parser.add_argument(
-        "-e", "--experiment", dest='exp',
-        default=default_exp, choices=[str(x) for x in default_node_ids],
-        nargs='+',
-        help="specify the ids of the node you want to run the experiment from (sources of the pings)")
-    parser.add_argument(
-        "-I", "--interference", dest='interference',
-        default=default_interference, choices=choices_interference,
-        nargs='+',
-        type=str,
-        help="specify the gain (dBm) of the white gaussian noise you want to generate in the room")
-    parser.add_argument(
-        "-l", "--load-images", default=False, action='store_true',
-        help="if set, load image on nodes before running the experiment")
-    # TP : I am turning this off, since we currently only support ath9k anyways
-    # parser.add_argument("-w", "--wifi-driver", default='ath9k',
-    #                    choices = ['iwlwifi', 'ath9k'],
-    #                    help="specify which driver to use")
-    parser.add_argument(
-        "-N", "--node-id", dest='node_ids',
+        "-N", "--node-id", dest='node_ids', metavar='routing-node',
         default=default_node_ids, choices=[
             str(x) for x in default_node_ids],
         nargs='+',
         # action=ListOfChoices,
-        help="specify as many node ids as you want to run the scenario against."
-             " These will be on and sending route info")
+        help="specify as many node ids as you want to run the scenario against;"
+             " these will be on and sending route info;"
+             " among {}".format(set(default_node_ids)))
     parser.add_argument(
-        "-D", "--destination", dest='dest',
+        "-e", "--experiment", dest='exp', metavar='source-node',
+        default=default_exp, choices=[str(x) for x in default_node_ids],
+        nargs='+',
+        help="specify the ids of the node you want to run"
+        " the experiment from (sources of the pings),"
+        " among {}".format(set(default_node_ids))
+        )
+    parser.add_argument(
+        "-D", "--destination", dest='dest', metavar='dest-node',
         default=default_node_ids, choices=[str(x) for x in default_node_ids],
         nargs='+',
         # action=ListOfChoices,
         help="specify as many node ids as you want to be the destination of the ping")
+    parser.add_argument(
+        "-t", "--tx-power", dest='tx_powers', metavar='tx-power',
+        default=[default_tx_power], choices=choices_tx_power,
+        nargs='+',
+        type=int,
+        help="specify Tx power(s) among {}".format(set(choices_tx_power)))
+    parser.add_argument(
+        "-r", "--phy-rate", dest='phy_rates', metavar='phy-rate',
+        default=[default_phy_rate], choices=choices_phy_rate,
+        nargs='+',
+        type=int,
+        help="specify PHY rate(s), among {}".format(set(choices_phy_rate)))
+    parser.add_argument(
+        "-a", "--antenna-mask", dest='antenna_masks', metavar='antenna-mask',
+        default=[default_antenna_mask], choices=choices_antenna_mask,
+        nargs='+',
+        type=int,
+        help="specify antenna mask(s), among {}"
+             .format(set(choices_antenna_mask)))
+    parser.add_argument(
+        "-c", "--channel", dest='channels', metavar='channel',
+        default=[default_channel], choices=choices_channel,
+        nargs='+',
+        type=int,
+        help="channel(s), among {}".format(set(choices_channel)))
+    parser.add_argument(
+        "-I", "--interference", dest='interference', metavar='interference',
+        default=default_interference, choices=choices_interference,
+        nargs='+',
+        type=str,
+        help="specify the gain (dBm) for the white gaussian noise"
+             " you want to generate in the room, among {}"
+             .format(set(choices_interference)))
 
     # should either be none (sequencial command) or parallel > 2*nbnodes
     # (since at a point we run a tcpdump command (that never ends) on each node end we have the pings jobs)
@@ -1000,11 +1014,11 @@ def main():
     # parser.add_argument("-S", "--ping-size", default=ping_size,
     #                    help="specify packet size for each individual ping")
     parser.add_argument(
-        "-n", "--ping-number", default=default_ping_number,
+        "-m", "--ping-messages", default=default_ping_messages,
         help="specify number of ping packets to send")
 
     parser.add_argument(
-        "-b", "--dry-run", default=False, action='store_true',
+        "-n", "--dry-run", default=False, action='store_true',
         help="do not run anything, just print out scheduler,"
         " and generate .dot file")
     parser.add_argument(
@@ -1059,11 +1073,11 @@ def main():
         # ping_timeout = args.ping_timeout
         # ping_interval = args.ping_interval
         # ping_size = args.ping_size
-        ping_number=args.ping_number,
+        ping_messages=args.ping_messages,
         route_sampling=args.route_sampling,
-        iperf=args.iperf
-        # wireless_driver   = args.wifi_driver
-        )
+        iperf=args.iperf,
+        # wireless_driver   = args.wifi_driver,
+    )
 
 
 ##########
