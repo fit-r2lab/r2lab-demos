@@ -25,14 +25,13 @@ function init-ad-hoc-network-ath9k (){
     txpower=$1; shift
 
     # load the r2lab utilities - code can be found here:
-    # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
-    source /root/r2lab/infra/user-env/nodes.sh
+    # https://github.com/fit-r2lab/r2lab-embedded/blob/master/shell/nodes.sh
+    # source /root/r2lab/infra/user-env/nodes.sh
     source /root/r2lab-embedded/shell/nodes.sh
     # make sure to use the latest code on the node
     git-pull-r2lab
 
     #. ~/.bashrc > /dev/null
-
 
     turn-off-wireless
 
@@ -52,8 +51,8 @@ function init-ad-hoc-network-ath9k (){
     # install tshark on the node for the post-processing step
     # apt-get install tshark
     ifname=$(wait-for-interface-on-driver $driver)
-    phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
-#    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
+    phyname=$(iw $ifname info|grep wiphy | awk '{print "phy"$2}')
+#    moniname=$(iw $ifname info|grep wiphy |awk '{print "moni"$2}')
     moniname="moni-$driver"
 
     echo "Configuring interface $ifname on $phyname"
@@ -122,9 +121,6 @@ function init-ad-hoc-network-ath9k (){
 
 
 
-
-
-
     echo "List of authorized frequencies on $phyname:"
     iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
 
@@ -163,6 +159,8 @@ function init-scrambler (){
     #fi
     #return 0
 }
+
+
 function run-olsr (){
 
     echo "Install olsr"
@@ -172,12 +170,12 @@ function run-olsr (){
         echo "olsrd.conf already configured"
     else
         echo "configuring olsrd.conf"
-	cat <<EOT>> /etc/olsrd/olsrd.conf
+	cat << EOF >> /etc/olsrd/olsrd.conf
 Interface "atheros"
  {
    Ip4Broadcast 255.255.255.255
  }
-EOT
+EOF
     fi
     #    olsrd -d 2
     echo "Run olsr daemon"
@@ -205,7 +203,7 @@ function run-batman (){
     echo "Install batman"
     apt-get install -y batmand
 #    ip addr add broadcast 255.255.255.255 dev atheros
-    #    batmand atheros -d 1
+#    batmand atheros -d 1
     echo "Run batman daemon"
     #service-type=forking indicates that this executable launch a daemon
     #and exit
@@ -219,8 +217,8 @@ function run-batman (){
     exit $ret
 }
 
-function route-olsr (){
 
+function route-olsr (){
 
     route -n | grep 10.0.0.* | grep UGH
     return 0
@@ -246,14 +244,13 @@ function route-batman (){
 #    return 0
 #}
 function route-sample-batman(){
-    sample="0"
+    sample=0
 
-    while [ 1 ]
-    do
-    echo "SAMPLE : $sample "
-    ip route ls table 66 | grep src
-    sleep 1
-    sample=$[$sample+1]
+    while true; do
+        echo "SAMPLE : $sample "
+        ip route ls table 66 | grep src
+        sleep 1
+        sample=$(($sample+1))
     done
 
     return 0
