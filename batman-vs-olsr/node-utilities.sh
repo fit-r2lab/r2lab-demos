@@ -219,30 +219,16 @@ function run-batman (){
 
 
 function route-olsr (){
-
     route -n | grep 10.0.0.* | grep UGH
     return 0
 }
 
 
 function route-batman (){
-
     ip route ls table 66 | grep src
     return 0
 }
-#function kill-route-sample(){
-#    prot=$1; shift
-#    sleep 1
-#    kill -s SIGINT $(ps -aex | grep route-sample-$prot | head -n 1 | awk -F" "  '{print $1}')
-#    sleep 1
-#    return 0
-#}
-#function end-route-sample(){
-#    prot=$1; shift
-#    route-$prot
-#    exit 0
-#    return 0
-#}
+
 function route-sample-batman(){
     sample=0
 
