@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -u
 
 # pylint: disable=c0302
 
@@ -34,8 +34,8 @@ choices_protocols = ['olsr', 'batman']
 default_protocol = ['batman']
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
-settle_delay = 60
-# dbg : settle_delay = 2
+settle_delay_long = 40
+settle_delay_shorter = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
 
 choices_antenna_mask = [1, 3, 7]
@@ -70,11 +70,18 @@ default_node_ids = [1, 3, 12, 14, 19, 22, 27, 31, 33, 37]
 default_src_ids = [1]
 default_dest_ids = [37]
 
-# ping parameters
-ping_timeout = 6
-ping_size = 64
+# actual ping parameters
+ping_timeout = 3
+ping_size = 254
 ping_interval = 0.001
 default_ping_messages = 500
+
+# warmup ping parameters
+warmup_ping_timeout = 5
+warmup_ping_size = 64
+warmup_ping_interval = 0.05
+warmup_ping_messages = 60
+
 
 # wireless driver: by default set to ath9k
 wireless_driver = 'ath9k'
@@ -257,6 +264,12 @@ def one_run(*, protocol, interference,
                     formatter=TimeColonFormatter(), verbose=verbose_ssh)
         for id in node_ids
     }
+    # extracts for sources and destinations
+    src_index = {id:node for (id, node) in node_index.items()
+                 if id in src_ids}
+    dest_index = {id:node for (id, node) in node_index.items()
+                 if id in dest_ids}
+
     if interference:
         node_scrambler = SshNode(
             gateway=faraday, hostname=fitname(scrambler_id), username="root",
@@ -271,7 +284,6 @@ def one_run(*, protocol, interference,
         verbose=verbose_jobs,
         label="rhubarbe check lease",
         command=Run("rhubarbe leases --check", label="rlease"),
-        #keep_connection = True
     )
 
     # load images if requested
@@ -293,11 +305,11 @@ def one_run(*, protocol, interference,
             load_ids.append(scrambler_id)
         # we can do these three things in parallel
         ready_jobs = [
-            SshJob(node=faraday, required=check_lease,
+            SshJob(node=faraday, required=green_light,
                    scheduler=scheduler, verbose=verbose_jobs,
                    command=Run("rhubarbe", "off", "-a", *negated_node_ids,
                                label="turn off unused nodes")),
-            SshJob(node=faraday, required=check_lease,
+            SshJob(node=faraday, required=green_light,
                    scheduler=scheduler, verbose=verbose_jobs,
                    label="load batman image",
                    command=Run("rhubarbe", "load", "-i",
@@ -308,7 +320,7 @@ def one_run(*, protocol, interference,
         if interference:
             ready_jobs.append(
                 SshJob(
-                    node=faraday, required=check_lease,
+                    node=faraday, required=green_light,
                     scheduler=scheduler, verbose=verbose_jobs,
                     label="load gnuradio image",
                     command=Run("rhubarbe", "load", "-i",
@@ -324,12 +336,6 @@ def one_run(*, protocol, interference,
 
     ##########
     # setting up the wireless interface on all nodes
-    #
-    # this is a python feature known as a list comprehension
-    # we just create as many SshJob instances as we have
-    # (id, SshNode) couples in node_index
-    # and gather them all in init_wireless_jobs
-    # they all depend on green_light
     #
     # provide node-utilities with the ranges/units it expects
     frequency = channel_frequency[int(channel)]
@@ -354,8 +360,6 @@ def one_run(*, protocol, interference,
         label="Reset failed services")
     init_wireless_sshjobs = [
         SshJob(
-            # scheduler=scheduler,
-            # required=green_light,
             node=node,
             verbose=verbose_jobs,
             label=f"init {id}",
@@ -365,7 +369,6 @@ def one_run(*, protocol, interference,
                 wireless_driver, "foobar", frequency, phy_rate,
                 antenna_mask, tx_power_driver,
                 label="init add-hoc network"),
-            #keep_connection = True
         )
         for id, node in node_index.items()]
     init_wireless_jobs = Scheduler(
@@ -375,7 +378,6 @@ def one_run(*, protocol, interference,
         verbose=verbose_jobs,
         label="Initialisation of wireless chips")
 
-    green_light_prot = [init_wireless_jobs, reset_failed_services]
     if interference:
         # Run uhd_siggen with the chosen power
         frequency_str = f"{frequency / 1000}G"
@@ -396,13 +398,14 @@ def one_run(*, protocol, interference,
                           label="systemctl start uhd_siggen")
                       ]
         )
+
+    green_light = [init_wireless_jobs, reset_failed_services]
     # then install and run batman on fit nodes
     run_protocol_job = [
         SshJob(
             # scheduler=scheduler,
             node=node,
-            # required=green_light_prot,
-            label=f"init and run {protocol} on fit node {i}",
+            label=f"init and run {protocol} on fit node {id}",
             verbose=verbose_jobs,
             # CAREFUL : These ones use sytemd-run
             #            with the ----service-type=forking option!
@@ -410,14 +413,16 @@ def one_run(*, protocol, interference,
                               f"run-{protocol}",
                               label=f"run {protocol}"),
         )
-        for i, node in node_index.items()]
+        for id, node in node_index.items()]
 
     run_protocol = Scheduler(
         *run_protocol_job,
         scheduler=scheduler,
-        required=green_light_prot,
+        required=green_light,
         verbose=verbose_jobs,
         label="init and run routing protocols")
+
+    green_light = run_protocol
 
     # after that, run tcpdump on fit nodes, this job never ends...
     if tshark:
@@ -427,93 +432,95 @@ def one_run(*, protocol, interference,
                 # scheduler=scheduler_monitoring,
                 node=node,
                 forever=True,
-                label=f"run tcpdump on fit node {i}",
+                label=f"run tcpdump on fit node {id}",
                 verbose=verbose_jobs,
                 command=[
                     Run("systemd-run -t  --unit=tcpdump",
                         f"tcpdump -U -i moni-{wireless_driver}",
-                        f"-y ieee802_11_radio -w /tmp/fit{i}.pcap",
-                        label=f"tcpdump {i}")
+                        f"-y ieee802_11_radio -w /tmp/fit{id}.pcap",
+                        label=f"tcpdump {id}")
                     ]
             )
-            for i, node in node_index.items()
+            for id, node in node_index.items()
         ]
 
         run_tcpdump = Scheduler(
             *run_tcpdump_job,
             scheduler=scheduler,
-            required=run_protocol,
+            required=green_light,
             forever=True,
             verbose=verbose_jobs,
             label="Monitoring - tcpdumps")
 
     # let the wireless network settle
-    settle_wireless_job = PrintJob(
-        "Let the wireless network settle",
-        sleep=settle_delay,
+    settle_scheduler = Scheduler(
         scheduler=scheduler,
-        required=run_protocol,
-        label=f"settling for {settle_delay} sec")
-
-    green_light_experiment = settle_wireless_job
+        required=green_light,
+    )
 
     if warmup:
-        warmup_pings_job = [
+        # warmup pings don't need to be sequential, so let's
+        # do all the nodes at the same time
+        # on a given node though, we'll ping the other ends sequentially
+        # see the graph for more
+        warmup_jobs = [
             SshJob(
-                node=nodei,
-                # required=green_light_experiment,
+                node=node_s,
                 verbose=verbose_jobs,
                 commands=[
-                    Run(f"echo {i}➡︎{j}",
-                        label=f"warmup ping {i}➡︎{j}"),
-                    RunScript("node-utilities.sh", "my-ping",
-                              f"10.0.0.{j}", ping_timeout, ping_interval,
-                              ping_size, ping_messages, label="")
+                    RunScript("node-utilities.sh",
+                              "my-ping", f"10.0.0.{d}",
+                              warmup_ping_timeout,
+                              warmup_ping_interval,
+                              warmup_ping_size,
+                              warmup_ping_messages,
+                              f"warmup {s}➡︎{d}",
+                              label=f"warmup {s}➡︎{d}")
+                    for d in dest_index.keys()
+                    if s != d
                 ]
             )
             # for each selected experiment nodes
-            for s in src_ids
-            # looping on the source (to get the correct sshnodes)
-            for i, nodei in node_index.items()
-            # and on the destination
-            for j, nodej in node_index.items()
-            # and keep only sources that are in the selected experiment nodes
-            # and remove destination that are themselves
-            # and remove the couples that have already be done
-            if (i == s) and s != j and not
-               (j in src_ids and j < s)
+            for s, node_s in src_index.items()
         ]
-        warmup_pings = Scheduler(
-            Sequence(*warmup_pings_job),
-# xxx ?            scheduler=scheduler,
-            required=green_light_experiment,
-            scheduler=scheduler,
+        warmup_scheduler = Scheduler(
+            *warmup_jobs,
+            scheduler=settle_scheduler,
             verbose=verbose_jobs,
-            label="Warmup ping")
+            label="Warmup pings")
         settle_wireless_job2 = PrintJob(
-            "Let the wireless network settle",
-            sleep=settle_delay/2,
-            scheduler=scheduler,
-            required=warmup_pings,
-            label=f"settling-warmup for {settle_delay/2} sec")
+            "Let the wireless network settle after warmup",
+            sleep=settle_delay_shorter,
+            scheduler=settle_scheduler,
+            required=warmup_scheduler,
+            label=f"settling-warmup for {settle_delay_shorter} sec")
 
-        green_light_experiment = settle_wireless_job2
+    # this is a little cheating; could have gone before the bloc above
+    # but produces a nicer graphical output
+    # we might want to help asynciojobs if it offered a means
+    # to specify entry and exit jobs in a scheduler
+    settle_wireless_job = PrintJob(
+        "Let the wireless network settle",
+        sleep=settle_delay_long,
+        scheduler=settle_scheduler,
+        required=green_light,
+        label=f"settling for {settle_delay_long} sec")
+
+    green_light = settle_scheduler
 
     if iperf:
         iperf_service_jobs = [
             SshJob(
-                node=nodei,
+                node=node_d,
                 verbose=verbose_jobs,
                 forever=True,
                 commands=[
                     Run("systemd-run -t --unit=iperf",
                         "iperf -s -p 1234 -u",
-                        label=f"iperf serv on {j}"),
+                        label=f"iperf serv on {d}"),
                 ],
             )
-            for i, nodei in node_index.items()
-            for j in dest_ids
-            if (i == j)
+            for d, node_d in dest_index.items()
         ]
         iperf_serv_sched = Scheduler(
             *iperf_service_jobs,
@@ -529,28 +536,21 @@ def one_run(*, protocol, interference,
 
         iperf_cli = [
             SshJob(
-                node=nodei,
+                node=node_s,
                 verbose=verbose_jobs,
                 commands=[
                     Run("sleep 7", label=""),
                     Run(f"iperf",
-                        f"-c 10.0.0.{j} -p 1234",
+                        f"-c 10.0.0.{d} -p 1234",
                         f"-u -b {phy_rate}M -t 60",
-                        f"-l 1024 > IPERF-{s:02d}-{j:02d}",
-                        label=f"iperf {i}➡︎{j}")
+                        f"-l 1024 > IPERF-{s:02d}-{d:02d}",
+                        label=f"run iperf {s}➡︎{d}")
                 ]
             )
 
-            # for each selected experiment nodes
-            for s in src_ids
-            # looping on the source (to get the correct sshnodes)
-            for i, nodei in node_index.items()
-            # and on the destination
-            for j in dest_ids
-            # and keep only sources that are in the selected experiment nodes
-            # and remove destination that are themselves
-            # and remove the couples that have already be done
-            if (i == s) and (s != j)
+            for s, node_s in src_index.items()
+            for d, node_d in dest_index.items()
+            if s != d
         ]
         iperf_cli_sched = Scheduler(
             Sequence(*iperf_cli),
@@ -558,13 +558,11 @@ def one_run(*, protocol, interference,
             label="Iperf Clients")
 
         iperf_stop = [
-            SshJob(node=nodei,
+            SshJob(node=node_d,
                    verbose=verbose_jobs,
-                   label="Stop iperf server",
+                   label=f"Stop iperf on {d}",
                    command=Run("systemctl stop iperf"))
-            for i, nodei in node_index.items()
-            for j in dest_ids
-            if i == j
+            for d, node_d in dest_index.items()
         ]
         iperf_stop_sched = Scheduler(
             *iperf_stop,
@@ -572,18 +570,16 @@ def one_run(*, protocol, interference,
             verbose=verbose_jobs,
             label="Iperf server stop")
         iperf_fetch = [
-            SshJob(node=nodei,
+            SshJob(node=node_s,
                    verbose=verbose_jobs,
-                   label="fetch iperf report",
                    command=Pull(
-                       remotepaths=[f"IPERF-{i:02d}-{j:02d}"],
+                       remotepaths=[f"IPERF-{s:02d}-{d:02d}"],
                        localpath=str(run_root),
-                       label="fetch iperf report")
+                       label="fetch iperf {s}➡︎{d}")
                    )
-            for s in src_ids
-            for i, nodei in node_index.items()
-            for j in dest_ids
-            if s == i and s != j
+            for s, node_s in src_index.items()
+            for d, node_d in dest_index.items()
+            if s != d
         ]
         iperf_fetch_sched = Scheduler(
             *iperf_fetch,
@@ -595,71 +591,66 @@ def one_run(*, protocol, interference,
         iperf_sched = Scheduler(
             *iperf_jobs,
             scheduler=scheduler,
-            required=green_light_experiment,
+            required=green_light,
             verbose=verbose_jobs,
             label="Iperf Module")
         settle_wireless_job_iperf = PrintJob(
             "Let the wireless network settle",
-            sleep=settle_delay,
+            sleep=settle_delay_shorter,
             scheduler=scheduler,
             required=iperf_sched,
-            label=f"settling-iperf for {settle_delay} sec")
+            label=f"settling-iperf for {settle_delay_shorter} sec")
 
-        green_light_experiment = settle_wireless_job_iperf
+        green_light = settle_wireless_job_iperf
     ##########
     # create all the tracepath jobs from the first node in the list
     #
     if routes:
         routes_job = [
             SshJob(
-                node=nodei,
-                # scheduler=scheduler,
-                # required=green_light_experiment,
-                label=f"Generating ROUTE file for proto {protocol} on node {i}",
+                node=node,
+                label=f"Generating ROUTE file for proto {protocol} on node {id}",
                 verbose=verbose_jobs,
                 commands=[
                     RunScript(f"node-utilities.sh",
                               f"route-{protocol}",
-                              f"> ROUTE-TABLE-{i:02d}",
+                              f"> ROUTE-TABLE-{id:02d}",
                               label="get route table"),
-                    Pull(remotepaths=[f"ROUTE-TABLE-{i:02d}"],
+                    Pull(remotepaths=[f"ROUTE-TABLE-{id:02d}"],
                          localpath=str(run_root),
                          label="")
                 ],
             )
-            for i, nodei in node_index.items()
+            for id, node in node_index.items()
         ]
         routes = Scheduler(
             *routes_job,
             scheduler=scheduler,
-            required=green_light_experiment,
+            required=green_light,
             verbose=verbose_jobs,
             label="Snapshoting route files")
-        green_light_experiment = routes
+        green_light = routes
 
     if route_sampling:
         routes_sampling_job = [
             SshJob(
-                node=nodei,
-                label=f"Route sampling service for proto {protocol} on node {i}",
+                node=node,
+                label=f"Route sampling service for proto {protocol} on node {id}",
                 verbose=False,
                 forever=True,
-                #required = green_light_experiment,
-                #scheduler = scheduler,
                 commands=[
-                    Push(localpaths=["route_sample_service.sh"],
+                    Push(localpaths=["route-sample-service.sh"],
                          remotepath=".", label=""),
-                    Run("chmod +x route_sample_service.sh", label=""),
-                    Run("systemd-run -t --unit=route_sample",
-                        "/root/route_sample_service.sh",
+                    Run("chmod +x route-sample-service.sh", label=""),
+                    Run("systemd-run -t --unit=route-sample",
+                        "/root/route-sample-service.sh",
                         "route-sample",
-                        f"ROUTE-TABLE-{i:02d}-SAMPLED",
+                        f"ROUTE-TABLE-{id:02d}-SAMPLED",
                         protocol,
                         label="start route-sampling"),
                 ],
-                #keep_connection = True
             )
-            for i, nodei in node_index.items()
+            for id, node in node_index.items()
         ]
         routes_sampling = Scheduler(
             *routes_sampling_job,
@@ -667,7 +658,7 @@ def one_run(*, protocol, interference,
             verbose=False,
             forever=True,
             label="Route Sampling services launch",
-            required=green_light_experiment)
+            required=green_light)
 
     ##########
     # create all the ping jobs, i.e. max*(max-1)/2
@@ -680,52 +671,47 @@ def one_run(*, protocol, interference,
 
     pings_job = [
         SshJob(
-            node=nodei,
+            node=node_s,
             verbose=verbose_jobs,
             commands=[
-                Run(f"echo {i}➡︎{j}",
-                    label=f"ping {i}➡︎{j}"),
+                Run(f"echo actual ping {s}➡︎{d} using {protocol}",
+                    label=f"ping {s}➡︎{d}"),
                 RunScript("node-utilities.sh", "my-ping",
-                          f"10.0.0.{j}",
+                          f"10.0.0.{d}",
                           ping_timeout, ping_interval,
                           ping_size, ping_messages,
-                          ">", f"PING-{i:02d}-{j:02d}", label=""),
-                Pull(remotepaths=[f"PING-{i:02d}-{j:02d}"],
-                     localpath=str(run_root), label=""),
+                          ">", f"PING-{s:02d}-{d:02d}",
+                          label=""),
+                Pull(remotepaths=[f"PING-{s:02d}-{d:02d}"],
+                     localpath=str(run_root),
+                     label=""),
             ],
         )
         # for each selected experiment nodes
-        for s in src_ids
-        # looping on the source (to get the correct sshnodes)
-        for i, nodei in node_index.items()
-        # and on the destination
-        for j in dest_ids
-        # and keep only sources that are in the selected experiment nodes
-        # and remove destination that are themselves
-        # and remove the couples that have already be done
-        if (i == s) and s != j and not
-        (j in src_ids and j < s)
+        for s, node_s in src_index.items()
+        for d, node_d in dest_index.items()
+        if s != d
     ]
     pings = Scheduler(
         scheduler=scheduler,
         label="PINGS",
         verbose=verbose_jobs,
-        required=green_light_experiment)
+        required=green_light)
 
     # retrieve all pcap files from fit nodes
     stop_protocol_job = [
         SshJob(
             # scheduler=scheduler,
-            node=nodei,
+            node=node,
             # required=pings,
-            label=f"kill routing protocol on fit{i:02d}",
+            label=f"kill routing protocol on {id}",
             verbose=verbose_jobs,
             command=
                 RunScript("node-utilities.sh",
                           f"kill-{protocol}",
                           label=f"kill-{protocol}"),
         )
-        for i, nodei in node_index.items()
+        for id, node in node_index.items()
     ]
     stop_protocol = Scheduler(
         *stop_protocol_job,
@@ -774,10 +760,10 @@ def one_run(*, protocol, interference,
                 commands=[
                     # RunScript("node-utilities.sh", "kill-route-sample", protocol,
                     #          label = "kill route sample"),
-                    #RunScript("route_sample_service.sh", "kill-route-sample",
+                    #RunScript("route-sample-service.sh", "kill-route-sample",
                     #          label="kill route sample"),
-                    Run("systemctl stop route_sample",
-                        label="stop route_sample"),
+                    Run("systemctl stop route-sample",
+                        label="stop route-sample"),
                     Run(
                         f"echo retrieving sampling trace from fit{i:02d}",
                         label=""),
@@ -851,6 +837,7 @@ def one_run(*, protocol, interference,
     # safety check
 
     dot_file = run_root / "experiment-graph"
+    scheduler.list()
     scheduler.export_as_pngfile(run_root/"experiment-graph")
     if dry_run:
         scheduler.list()

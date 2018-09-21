@@ -6,7 +6,7 @@
 # the --dry-run option produces a png file in the output directory
 # 1 source; 2 destinations; all 3 nodes run the routing daemon
 # all 5 extra features enabled would be
-#     --routes --route-sampling --tshark --iperf --warmup
+#     --routes --route-sampling --tshark --warmup --iperf
 
 python3 runs.py --dry-run \
     --protocol olsr --interference 7 \
