@@ -8,7 +8,7 @@
 # all 5 extra features enabled would be
 #     --routes --route-sampling --tshark --iperf --warmup
 
-python3 evalprot.py --dry-run \
+python3 runs.py --dry-run \
     --protocol olsr --interference 7 \
     --source 1 --destination 3 12 -N 1 3 12 \
     --load \

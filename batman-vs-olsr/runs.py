@@ -146,6 +146,7 @@ def one_run(*, protocol, interference,
         protocol: a string among batman , olsr. Correspond to the protocol
         interference : in dBm, a string like 60 or 50.
           Correspond to the power of the noise generated in the root.
+          Can be either None or "None" to mean no interference.
         run_name: the name for a subdirectory where all data will be kept
           successive runs should use the same name for further visualization
         slicename: the Unix login name (slice name) to enter the gateway
@@ -174,6 +175,9 @@ def one_run(*, protocol, interference,
     # need to run the protocol
     node_ids = list(set(node_ids).union(set(src_ids).union(set(dest_ids))))
 
+    if interference == "None":
+        interference = None
+
     #
     # dry-run mode
     # just display a one-liner with parameters
@@ -183,7 +187,10 @@ def one_run(*, protocol, interference,
         run_root = naming_scheme(
             protocol, run_name, tx_power, phy_rate,
             antenna_mask, channel, interference, autocreate=False)
-        load_msg = f" {'WITH' if load_images else 'NO'} image loading"
+        load_msg = f"{'WITH' if load_images else 'NO'} image loading"
+        interference_msg = (f"interference={interference}dBm from node {scrambler_id}"
+                            if interference
+                            else "NO interference")
         nodes = " ".join(str(n) for n in node_ids)
         srcs = " ".join(str(n) for n in src_ids)
         dests = " ".join(str(n) for n in dest_ids)
@@ -197,6 +204,7 @@ def one_run(*, protocol, interference,
 
         print(f"dry-run: protocol={protocol} - output in {run_root}\n"
               f"dry-run: {load_msg}\n"
+              f"dry-run: {interference_msg}\n"
               f"dry-run: nodes {nodes}\n"
               f"dry-run: src nodes {srcs}\n"
               f"dry-run: dest nodes {dests}\n"
@@ -224,7 +232,7 @@ def one_run(*, protocol, interference,
     run_root = naming_scheme(
         protocol, run_name, tx_power, phy_rate,
         antenna_mask, channel, interference, autocreate=False)
-    if(run_root.is_dir() and not dry_run):
+    if run_root.is_dir() and not dry_run:
         purgedir(run_root)
     run_root = naming_scheme(
         protocol, run_name, tx_power, phy_rate,
@@ -249,16 +257,12 @@ def one_run(*, protocol, interference,
                     formatter=TimeColonFormatter(), verbose=verbose_ssh)
         for id in node_ids
     }
-    if interference != "None":
+    if interference:
         node_scrambler = SshNode(
             gateway=faraday, hostname=fitname(scrambler_id), username="root",
             formatter=TimeColonFormatter(), verbose=verbose_ssh)
     # the global scheduler
     scheduler = Scheduler(verbose=verbose_jobs)
-    # if tshark:
-    #scheduler_monitoring = Scheduler(verbose=verbose_jobs)
-    # if interference != "None":
-    #scheduler_interferences = Scheduler(verbose=verbose_jobs)
 
     ##########
     check_lease = SshJob(
@@ -279,11 +283,14 @@ def one_run(*, protocol, interference,
         # so if we have selected e.g. nodes 10 12 and 15, we will do
         # rhubarbe off -a ~10 ~12 ~15, meaning all nodes except 10, 12 and 15
         negated_node_ids = [f"~{id}" for id in node_ids]
-        # Add the id of the scrambler in the list and load the gnuradio image
-        negated_node_ids.append(f"~{scrambler_id}")
-        load_ids = ([int(id) for id in node_ids]
-                    if node_ids is not None else default_node_ids)
-        load_ids.append(scrambler_id)
+        # if interferences are requested, add the
+        # id of the scrambler in the list and load the gnuradio image
+        if interference:
+            negated_node_ids.append(f"~{scrambler_id}")
+        # copy node_ids
+        load_ids = node_ids[:]
+        if interference:
+            load_ids.append(scrambler_id)
         # we can do these three things in parallel
         ready_jobs = [
             SshJob(node=faraday, required=check_lease,
@@ -297,14 +304,17 @@ def one_run(*, protocol, interference,
                                "batman-olsr",
                                *node_ids,
                                label=f"load ubuntu on {node_ids}")),
-            SshJob(node=faraday, required=check_lease,
-                   scheduler=scheduler, verbose=verbose_jobs,
-                   label="load gnuradio image",
-                   command=Run("rhubarbe", "load", "-i",
-                               "batman-olsr-gnuradio",
-                               scrambler_id,
-                               label=f"load gnuradio on {scrambler_id}"))
         ]
+        if interference:
+            ready_jobs.append(
+                SshJob(
+                    node=faraday, required=check_lease,
+                    scheduler=scheduler, verbose=verbose_jobs,
+                    label="load gnuradio image",
+                    command=Run("rhubarbe", "load", "-i",
+                                "batman-olsr-gnuradio",
+                                scrambler_id,
+                                label=f"load gnuradio on {scrambler_id}")))
         # replace green_light in this case
         green_light = SshJob(
             node=faraday, required=ready_jobs,
@@ -366,7 +376,7 @@ def one_run(*, protocol, interference,
         label="Initialisation of wireless chips")
 
     green_light_prot = [init_wireless_jobs, reset_failed_services]
-    if interference != "None":
+    if interference:
         # Run uhd_siggen with the chosen power
         frequency_str = f"{frequency / 1000}G"
         init_scrambler_job = SshJob(
@@ -378,8 +388,8 @@ def one_run(*, protocol, interference,
             #TODO : If exit-signal patch is done add exit-signal=["TERM"]
             #       to this run object and call uhd_siggen directly
             commands=[RunScript("node-utilities.sh",
-                                "init scrambler",
-                                label="init-scambler"),
+                                "init-scrambler",
+                                label="init scrambler"),
                       Run(f"systemd-run --unit=uhd_siggen -t ",
                           f"uhd_siggen -a usrp -g {interference}",
                           f"-f {frequency_str} --gaussian",
@@ -608,7 +618,8 @@ def one_run(*, protocol, interference,
                 label=f"Generating ROUTE file for proto {protocol} on node {i}",
                 verbose=verbose_jobs,
                 commands=[
-                    RunScript(f"node-utilities.sh", "route-{protocol}",
+                    RunScript(f"node-utilities.sh",
+                              f"route-{protocol}",
                               f"> ROUTE-TABLE-{i:02d}",
                               label="get route table"),
                     Pull(remotepaths=[f"ROUTE-TABLE-{i:02d}"],
@@ -812,7 +823,7 @@ def one_run(*, protocol, interference,
             label="Parse pcap",
         )
 
-    if interference != "None":
+    if interference:
         kill_uhd_siggen = SshJob(
             scheduler=scheduler,
             node=node_scrambler,
@@ -873,7 +884,7 @@ def one_run(*, protocol, interference,
     return ok
 
 
-# same as for one_run, we force all arguments to be named
+# same as for interference, we force all arguments to be named
 def all_runs(*args, interferences, protocols,
              tx_powers, phy_rates, antenna_masks, channels,
              **kwds):
@@ -952,7 +963,7 @@ def main():
              f" among {set(choices_protocols)}")
 
     parser.add_argument(
-        "-N", "--node-id", dest='node_ids', metavar='routing-node',
+        "-N", "--node", dest='node_ids', metavar='routing-node',
         default=default_node_ids, choices=all_node_ids,
         nargs='+',
         help=f"specify as many nodes as you want to be involved in the scenario;"

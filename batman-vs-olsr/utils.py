@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
+
+# pylint: disable=c0111
+
 import re
-from evalprot import naming_scheme
-from graphviz import Digraph
-from r2labmap import maps
 import glob
+
+from graphviz import Digraph
+
+from r2labmap import maps
+
+from runs import naming_scheme
+
 def readRTT(filename):
     """
         Will generate a list of time (in ms) by parsing the output of the ping command.
@@ -14,11 +21,11 @@ def readRTT(filename):
     try:
         with open(filename) as pings_file:
             for line in pings_file:
-                #TODO If condition to be sure that the line contains the info
-                #TODO PARSE LINE TO get ms
+                # TODO If condition to be sure that the line contains the info
+                # TODO PARSE LINE TO get ms
                 if "bytes" in line and "ms" in line:
                     if "(DUP!)" not in line:
-                        *values, time ,ms = line.split()
+                        *values, time, ms = line.split()
                         junk, time = time.split("=")
                     else:
                         *values, time ,ms, dup = line.split()
@@ -51,9 +58,10 @@ def readRTT(filename):
 
 
 #except IOError as e2:
-        print("{} was not generated in these conditions: {}" .format(pingfile, path))
+        print("{} was not generated in these conditions: {}"
+              .format(pingfile, path))
 #        print("Nor file {}: {}".format(filename, e))
-    if len(pings_time)<500:
+    if len(pings_time) < 500:
         pings_time.extend([-1] * (500-len(pings_time)))
     return pings_time
 
@@ -67,12 +75,12 @@ def readPDR(filename):
     """
 
     pdr = [101]
-    patern = re.compile('(\d{1,3}(?=%))')
+    pattern = re.compile('(\d{1,3}(?=%))')
     try:
         with open(filename) as pings_file:
             for line in pings_file:
                 if "%" in line:
-                    pdr = patern.findall(line)
+                    pdr = pattern.findall(line)
 
     except IOError as e:
         file = str(filename)
@@ -89,7 +97,7 @@ def readPDR(filename):
         #    with open(inverted_file_path) as revert_pings_file:
         #        for line in revert_pings_file:
         #            if "%" in line:
-        #                pdr = patern.findall(line)
+        #                pdr = pattern.findall(line)
 
 #except IOError as e2:
         print("{} was not generated in these conditions: {}" .format(pingfile, path ))
@@ -407,7 +415,7 @@ def generateRouteGraphData(run_name_family, tx_power, phy_rate, antenna_mask, ch
                                   phy_rate=phy_rate, antenna_mask=antenna_mask,
                                   channel=channel, interference=interference,
                                   protocol=protocol)
-        routes = getAllRoutes(directory / 
+        routes = getAllRoutes(directory /
                                      "ROUTES-{:02d}".format(source)
                                      )
         dic_hop_dest = {}
