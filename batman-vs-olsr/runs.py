@@ -138,7 +138,7 @@ def one_run(*, protocol, interference,
             src_ids=default_src_ids, dest_ids=default_dest_ids,
             scrambler_id=default_scrambler_id,
             ping_messages=default_ping_messages,
-            tshark=False, routes=False, warmup=False,
+            tshark=False, map=False, warmup=False,
             route_sampling=False, iperf=False,
             verbose_ssh=False, verbose_jobs=False, dry_run=False):
     """
@@ -161,7 +161,7 @@ def one_run(*, protocol, interference,
         node_ids: a list of node ids to run the scenario against;
           strings or ints are OK;
         tshark: a boolean specifying wether we should format/parse the .pcap.
-        routes: a boolean specifying wether we should fetch/parse
+        map: a boolean specifying wether we should fetch/parse
           the route tables of the nodes.
         warmup: a boolean specifying whether we should run a ping before
           the experiment to be certain of the stabilisation on the network.
@@ -223,7 +223,7 @@ def one_run(*, protocol, interference,
         if tshark:
             print("dry-run: Will format data using tshark "
                   "and will agregate the RSSI into one RSSI.txt file")
-        if routes:
+        if map:
             print("dry-run: Will fetch the routing tables of the node "
                   "(once stabilized), and will agregate the results\n")
         if route_sampling:
@@ -602,11 +602,11 @@ def one_run(*, protocol, interference,
             label=f"settling-iperf for {settle_delay_shorter} sec")
 
         green_light = settle_wireless_job_iperf
-    ##########
+
+
     # create all the tracepath jobs from the first node in the list
-    #
-    if routes:
-        routes_job = [
+    if map:
+        map_jobs = [
             SshJob(
                 node=node,
                 label=f"Generating ROUTE file for proto {protocol} on node {id}",
@@ -623,16 +623,16 @@ def one_run(*, protocol, interference,
             )
             for id, node in node_index.items()
         ]
-        routes = Scheduler(
-            *routes_job,
+        map_scheduler = Scheduler(
+            *map_jobs,
             scheduler=scheduler,
             required=green_light,
             verbose=verbose_jobs,
             label="Snapshoting route files")
-        green_light = routes
+        green_light = map_scheduler
 
     if route_sampling:
-        routes_sampling_job = [
+        route_sampling_jobs = [
             SshJob(
                 node=node,
                 label=f"Route sampling service for proto {protocol} on node {id}",
@@ -652,8 +652,8 @@ def one_run(*, protocol, interference,
             )
             for id, node in node_index.items()
         ]
-        routes_sampling = Scheduler(
-            *routes_sampling_job,
+        route_sampling_scheduler = Scheduler(
+            *route_sampling_jobs,
             scheduler=scheduler,
             verbose=False,
             forever=True,
@@ -854,14 +854,14 @@ def one_run(*, protocol, interference,
     if not ok:
         scheduler.debrief()
         scheduler.export_as_pngfile("debug")
-    if ok and routes:
-        print("Creation of ROUTES files")
+    if ok and map:
+        print("Creation of MAP files")
         post_processor = ProcessRoutes(run_root, src_ids, node_ids)
         post_processor.run()
     if ok and route_sampling:
+        print("Creation of ROUTE SAMPLING files")
         post_processor = ProcessRoutes(run_root, src_ids, node_ids)
         post_processor.run_sampled()
-    print("END of creation for ROUTES FILES")
     # data acquisition is done, let's aggregate results
     # i.e. compute averages
     #if ok and tshark:
@@ -1011,7 +1011,7 @@ def main():
         help="parse pcap files to get RSSIs for each nodes"
              " (Warning: you need to have tshark installed on your machine)")
     parser.add_argument(
-        "--routes", default=False, action='store_true',
+        "--map", default=False, action='store_true',
         help="add results of the trace-path command from the first selected node")
     parser.add_argument(
         "--warmup", default=False, action='store_true',
@@ -1052,7 +1052,7 @@ def main():
         ping_messages=args.ping_messages,
 
         tshark=args.tshark,
-        routes=args.routes,
+        map=args.map,
         warmup=args.warmup,
         route_sampling=args.route_sampling,
         iperf=args.iperf,
