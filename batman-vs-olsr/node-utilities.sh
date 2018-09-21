@@ -284,16 +284,21 @@ function kill-batman (){
 #}
 
 function my-ping (){
-    dest=$1; shift
-    ptimeout=$1; shift
-    pint=$1; shift
-    psize=$1; shift
-    pnumber=$1; shift
+    local dest=$1; shift
+    local timeout=$1; shift
+    local interval=$1; shift
+    local size=$1; shift
+    local number=$1; shift
+    local extras="$@"
 
-    echo "ping -W $ptimeout -c $pnumber -i $pint -s $psize -q $dest >& /tmp/ping.txt"
-    ping -w $ptimeout -c $pnumber -i $pint -s $psize $dest >& /tmp/ping.txt
-    result=$(grep "ms" /tmp/ping.txt)
-    echo "$(hostname) -> $dest: ${result}"
+    logfile=/tmp/ping.txt
+    command="ping -W $timeout -c $number -i $interval -s $size -q $dest"
+
+    echo $extras "$command >& $logfile"
+    $command >& $logfile
+
+    result=$(grep "received" /tmp/ping.txt)
+    echo "ping $dest: ${result}"
     return 0
 }
 

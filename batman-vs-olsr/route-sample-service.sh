@@ -29,9 +29,11 @@ function route-sample-olsr(){
     done
     return 0
 }
-#function end-sample(){
-#  exit 0
-#}
+
+function end-sample(){
+  exit 0
+}
+
 function route-sample(){
     trap 'end-sample' TERM
 
@@ -39,6 +41,7 @@ function route-sample(){
 
     return 0
 }
+
 #function kill-route-sample(){
 #prot=$1; shift
 #    sleep 1
@@ -47,4 +50,6 @@ function route-sample(){
 #    sleep 1
 #    return 0
 #}
+
+# use first argument as the command, rest as its args
 "$@"
