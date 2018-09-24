@@ -1,56 +1,58 @@
+# pylint: disable=c0111, r0914, r1702, r0912, r0915
 """
     Class to parse routing table of olsr and
     routing table of batman.
-    Will be called at the end of onerun to generate
+    Will be called at the end of one_run to generate
     a file containing the paths from the
     different nodes selected to do the pings from
 """
+
 class ProcessRoutes:
     def __init__(self, run_root, exp_nodes, node_ids):
-        self.run_root=run_root
-        self.exp_nodes=exp_nodes
-        self.node_ids=node_ids
-        self.Allroutes = {
+        self.run_root = run_root
+        self.exp_nodes = exp_nodes
+        self.node_ids = node_ids
+        self.all_routes = {
             (source, destination): 0
             for source in node_ids for destination in node_ids if source != destination
         }
 
     def reset(self):
-        self.Allroutes = {
+        self.all_routes = {
             (source, destination): 0
             for source in self.node_ids for destination in self.node_ids if source != destination
         }
     def run(self):
         #Generating Src,Dest : next_hop  table
-        print ("Generation global routing map")
+        print("Generation global routing map")
         for source_id in self.node_ids:
-            file_name= self.run_root / "ROUTE-TABLE-{:02d}".format(source_id)
+            file_name = self.run_root / "ROUTE-TABLE-{:02d}".format(source_id)
             with file_name.open() as file_routes:
                 for line in file_routes:
                     #Batman has another way to display routes
                     #since we cannot use route -n
-                    line=line.replace("via", "")
-                    dest_ip, hop_ip, *other= line.split()
+                    line = line.replace("via", "")
+                    dest_ip, hop_ip, *_ = line.split()
                     if hop_ip == "dev":
-                        hop_ip=dest_ip
+                        hop_ip = dest_ip
                     dest_id = int(dest_ip.split(".")[-1])
                     hop_id = int(hop_ip.split(".")[-1])
-                    self.Allroutes[source_id, dest_id]= hop_id
-        #print(self.Allroutes)
+                    self.all_routes[source_id, dest_id] = hop_id
+        #print(self.all_routes)
 
         #generate route map file for each selected nodes:
         print("Creating files with routes summary for each selected experiment nodes")
-        for e in self.exp_nodes:
-            result_name= self.run_root / "ROUTES-{:02d}".format(e)
-            line_start= "{} --".format(e)
+        for exp_node in self.exp_nodes:
+            result_name = self.run_root / "ROUTES-{:02d}".format(exp_node)
+            line_start = "{} --".format(exp_node)
             with result_name.open("w") as result_file:
                 for dest in self.node_ids:
                     line_to_write = line_start
-                    src = e
-                    if dest != e:
+                    src = exp_node
+                    if dest != exp_node:
                         loop_detector = 0
-                        while( src !=0 and self.Allroutes[src, dest] != dest ):
-                            next_hop = self.Allroutes[src, dest]
+                        while src != 0 and self.all_routes[src, dest] != dest:
+                            next_hop = self.all_routes[src, dest]
                             line_to_write += " {} --".format(next_hop)
                             src = next_hop
                             loop_detector = loop_detector + 1
@@ -62,14 +64,14 @@ class ProcessRoutes:
                                 hops = line_to_write.split("--")
                                 hops.remove('')
                                 read_hops = []
-                                
+
                                 for hop in hops:
                                     if int(hop) not in read_hops:
                                         read_hops.append(int(hop))
                                     else:
                                         read_hops.append(int(hop))
                                         #print (read_hops)
-                                        line_to_write = "{} --".format(e)
+                                        line_to_write = "{} --".format(exp_node)
                                         read_hops.remove(read_hops[0])
                                         for i in read_hops:
                                             line_to_write += " {} --".format(i)
@@ -79,71 +81,72 @@ class ProcessRoutes:
                                 break
                         line_to_write += " {}".format(dest)
                         result_file.write(line_to_write+ "\n")
+
+
     def run_sampled(self):
         #Generating Src,Dest : next_hop  table
-        print ("Generation global routing map")
+        print("Generation global routing map")
         print("Creating files with routes summary for each selected experiment nodes")
         newdir = self.run_root / "SAMPLES"
-        newdir.mkdir(parents= True, exist_ok = True)
-        sampleNum= -1
-        goToNextSample = False
-        dict_maps = {0 : self.Allroutes.copy()}
+        newdir.mkdir(parents=True, exist_ok=True)
+        sample_num = -1
+        goto_next_sample = False
+        dict_maps = {0 : self.all_routes.copy()}
         for source_id in self.node_ids:
-            file_name= self.run_root / "ROUTE-TABLE-{:02d}-SAMPLED".format(source_id)
-            sampleNum = -1
+            file_name = self.run_root / "ROUTE-TABLE-{:02d}-SAMPLED".format(source_id)
+            sample_num = -1
             with file_name.open() as file_routes:
                 for line in file_routes:
                     #print(line)
                     #print (file_name)
                     if "SAMPLE" in line:
-                        if sampleNum >= 0:
-                            dict_maps[sampleNum] = self.Allroutes.copy()
-                        sampleNum = sampleNum +1
-                        goToNextSample = False
+                        if sample_num >= 0:
+                            dict_maps[sample_num] = self.all_routes.copy()
+                        sample_num = sample_num +1
+                        goto_next_sample = False
                         try:
-                            self.Allroutes = dict_maps[sampleNum].copy()
+                            self.all_routes = dict_maps[sample_num].copy()
                         except KeyError:
                             self.reset()
-                            dict_maps[sampleNum] = self.Allroutes.copy()
+                            dict_maps[sample_num] = self.all_routes.copy()
                     else:
                         #Batman has another way to display routes
                         #since we cannot use route -n
-                        if not goToNextSample:
+                        if not goto_next_sample:
                             try:
-                                line=line.replace("via", "")
-                                # print (sampleNum)
-                                #print( line)
-                                dest_ip, hop_ip, *other= line.split()
+                                line = line.replace("via", "")
+                                # print (sample_num)
+                                #print(line)
+                                dest_ip, hop_ip, *_ = line.split()
                                 if hop_ip == "dev":
-                                    hop_ip=dest_ip
+                                    hop_ip = dest_ip
                                 dest_id = int(dest_ip.split(".")[-1])
                                 hop_id = int(hop_ip.split(".")[-1])
-                                self.Allroutes[source_id, dest_id]= hop_id
+                                self.all_routes[source_id, dest_id] = hop_id
                             except ValueError:
-                                goToNextSample = True
-                dict_maps[sampleNum] = self.Allroutes.copy()
-                #print(self.Allroutes)
+                                goto_next_sample = True
+                dict_maps[sample_num] = self.all_routes.copy()
+                #print(self.all_routes)
 
         #get sample num and write routing parsed to file sample num -1
-        
-        
-            
-        for e in self.exp_nodes:
-            result_name= self.run_root / "SAMPLES" /"ROUTES-{:02d}-SAMPLE"\
-                .format(e)
-            line_start= "{} --".format(e)
+
+
+        for exp_node in self.exp_nodes:
+            result_name = (self.run_root / "SAMPLES"
+                           / "ROUTES-{:02d}-SAMPLE".format(exp_node))
+            line_start = "{} --".format(exp_node)
             with result_name.open("w") as result_file:
-                for sample in range(0, sampleNum):
+                for sample in range(0, sample_num):
                     result_file.write("SAMPLE {}".format(sample) + "\n")
                     for dest in self.node_ids:
                         line_to_write = line_start
-                        src = e
-                        if dest != e:
+                        src = exp_node
+                        if dest != exp_node:
                             loop_detector = 0
-                            while( src !=0 and dict_maps[sample][src, dest] != dest ):
+                            while src != 0 and dict_maps[sample][src, dest] != dest:
                                 next_hop = dict_maps[sample][src, dest]
                                 #print("------------------------------------")
-                                #print("Source : {}".format(e))
+                                #print("Source : {}".format(exp_node))
                                 #print ("Sample : {}".format(sample))
                                 #print (result_name)
                                 #print("src : {} dest : {}".format(src, dest))
@@ -160,14 +163,14 @@ class ProcessRoutes:
                                     hops = line_to_write.split("--")
                                     hops.remove('')
                                     read_hops = []
-                                    
+
                                     for hop in hops:
                                         if int(hop) not in read_hops:
                                             read_hops.append(int(hop))
                                         else:
                                             read_hops.append(int(hop))
                                             #print (read_hops)
-                                            line_to_write = "{} --".format(e)
+                                            line_to_write = "{} --".format(exp_node)
                                             read_hops.remove(read_hops[0])
                                             for i in read_hops:
                                                 line_to_write += " {} --".format(i)
@@ -175,8 +178,6 @@ class ProcessRoutes:
                                             #print (line_to_write)
                                             break
                                     break
-                        
+
                             line_to_write += " {}".format(dest)
                             result_file.write(line_to_write+ "\n")
-
-

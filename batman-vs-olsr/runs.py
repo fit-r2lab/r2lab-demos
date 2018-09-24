@@ -1,12 +1,14 @@
 #!/usr/bin/env python3 -u
 
-# pylint: disable=c0302
+# pylint: disable=C0302, W0703
 
 """
 Script to run batman or OLSR routing protocol on R2lab
 """
 
 # pylint: disable=c0103, r0912, r0913, r0914, r0915
+
+import itertools
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
@@ -55,14 +57,11 @@ default_channel = 10
 # USRP-2 and n210 emmits noise at 14dB, choose gain well!
 choices_interference = [
     "-13", "-12", "-11", "-10", "-9", "-8", "-7",
-     "1", "2", "3", "4", "5", "6", "7", "None"]
+    "1", "2", "3", "4", "5", "6", "7", "None"]
 default_interference = ["None"]
 
-choices_scrambler_id = [5, 12, 13, 15, 30, 36]
-default_scrambler_id = 5
-
-default_netname = 'foobar'
-netname = default_netname
+choices_scrambler_id = [2, 4, 5, 6, 12, 13, 15, 16, 20, 21, 26, 28, 30, 34, 36]
+default_scrambler_id = 16
 
 all_node_ids = [str(i) for i in range(1, 38)]
 # The 10 nodes selected by Farzaneh adapted
@@ -100,6 +99,10 @@ def fitname(node_id):
     return f"fit{int_id:02d}"
 
 
+# xxx-possible-new-naming-scheme
+# + force to name all parameters
+#def naming_scheme(*, run_name, protocol, interference,
+#                  node_ids, autocreate=False):
 def naming_scheme(protocol, run_name, tx_power, phy_rate, antenna_mask,
                   channel, interference, autocreate=False):
     """
@@ -110,6 +113,11 @@ def naming_scheme(protocol, run_name, tx_power, phy_rate, antenna_mask,
     and a message is printed in that case
     """
     root = Path(run_name)
+# xxx-possible-new-naming-scheme
+#    # sort node_ids
+#    sorted_ids = sorted(int(id) for id in node_ids)
+#    nodes_part = '+'.join(str(x) for x in sorted_ids)
+#    run_root = root / f"{protocol}-I{interference}-{nodes_part}"
     run_root = root / (f"t{tx_power}-r{phy_rate}-a{antenna_mask}"
                        f"-ch{channel}-I{interference}-{protocol}")
     if autocreate:
@@ -140,7 +148,8 @@ def one_run(*, protocol, interference,
             ping_messages=default_ping_messages,
             tshark=False, map=False, warmup=False,
             route_sampling=False, iperf=False,
-            verbose_ssh=False, verbose_jobs=False, dry_run=False):
+            verbose_ssh=False, verbose_jobs=False, dry_run=False,
+            run_number=None):
     """
     Performs data acquisition on all nodes with the following settings
 
@@ -185,73 +194,73 @@ def one_run(*, protocol, interference,
     if interference == "None":
         interference = None
 
+    # open result dir no matter what
+    run_root = naming_scheme(
+        protocol, run_name, tx_power, phy_rate,
+        antenna_mask, channel, interference, autocreate=True)
+# xxx-possible-new-naming-scheme
+#        run_root = naming_scheme(
+#            run_name=run_name,
+#            protocol=protocol,
+#            interference=interference,
+#            node_ids=node_ids,
+#            autocreate=False)
+
+# fix me    trace = run_root / f"trace-{%m-%d-%H-%M}"
+    trace = run_root / f"trace-the-date"
+
+    try:
+        with trace.open('w') as feed:
+            load_msg = f"{'WITH' if load_images else 'NO'} image loading"
+            interference_msg = (
+                f"interference={interference}dBm from node {scrambler_id}"
+                if interference else "NO interference")
+            nodes = " ".join(str(n) for n in node_ids)
+            srcs = " ".join(str(n) for n in src_ids)
+            dests = " ".join(str(n) for n in dest_ids)
+            ping_labels = [
+                f"PING {s} ➡︎ {d}"
+                for s in src_ids
+                # and on the destination
+                for d in dest_ids
+                if d != s
+            ]
+
+            feed.write(
+                f"protocol={protocol} - output in {run_root}\n"
+                f"{load_msg}\n"
+                f"{interference_msg}\n"
+                f"Selected nodes : {nodes}\n"
+                f"Sources : {srcs}\n"
+                f"Destinations : {dests}\n")
+            for label in ping_labels:
+                feed.write(f"{label}\n")
+            if warmup:
+                feed.write("Will do warmup pings\n")
+            if tshark:
+                feed.write("Will format data using tshark "
+                           "and will agregate the RSSI into one RSSI.txt file\n")
+            if map:
+                feed.write("Will fetch the routing tables of the node "
+                           "(once stabilized), and will agregate the results\n")
+            if route_sampling:
+                feed.write("dry-run: Will launch route sampling services on nodes\n")
+
+    except Exception as exc:
+        print(f"Cannot write into {trace} - aborting this run")
+        print(f"Found exception {type(exc)} - {exc}")
+        return False
     #
     # dry-run mode
     # just display a one-liner with parameters
     #
+    prelude = "" if not dry_run else "dry_run:"
+    with trace.open() as feed:
+        print(f"************************************ one_run #{run_number}:")
+        for line in feed:
+            print(prelude, line, sep='', end='')
     if dry_run:
-        print("************************************")
-        run_root = naming_scheme(
-            protocol, run_name, tx_power, phy_rate,
-            antenna_mask, channel, interference, autocreate=False)
-        load_msg = f"{'WITH' if load_images else 'NO'} image loading"
-        interference_msg = (f"interference={interference}dBm from node {scrambler_id}"
-                            if interference
-                            else "NO interference")
-        nodes = " ".join(str(n) for n in node_ids)
-        srcs = " ".join(str(n) for n in src_ids)
-        dests = " ".join(str(n) for n in dest_ids)
-        ping_labels = [
-            f"PING {s}➡︎{d}"
-            for s in src_ids
-            # and on the destination
-            for d in dest_ids
-            if d != s
-        ]
-
-        print(f"dry-run: protocol={protocol} - output in {run_root}\n"
-              f"dry-run: {load_msg}\n"
-              f"dry-run: {interference_msg}\n"
-              f"dry-run: nodes {nodes}\n"
-              f"dry-run: src nodes {srcs}\n"
-              f"dry-run: dest nodes {dests}\n"
-              , end='')
-        for label in ping_labels:
-            print(f"dry-run: {label}")
-        if warmup:
-            print("dry-run: Will do warmup pings\n")
-        if tshark:
-            print("dry-run: Will format data using tshark "
-                  "and will agregate the RSSI into one RSSI.txt file")
-        if map:
-            print("dry-run: Will fetch the routing tables of the node "
-                  "(once stabilized), and will agregate the results\n")
-        if route_sampling:
-            print("dry-run: Will launch route sampling services on nodes")
-        #print("Test creation of ROUTES files")
-        #post_processor= ProcessRoutes(run_root, src_ids, node_ids)
-        # post_processor.run()
-        #print("\nList of tracepaths generated:\n{}".format(tracepathst))
-        # in dry-run mode we are done
-
-    ###
-    # create the logs directory based on input parameters
-    run_root = naming_scheme(
-        protocol, run_name, tx_power, phy_rate,
-        antenna_mask, channel, interference, autocreate=False)
-    if run_root.is_dir() and not dry_run:
-        purgedir(run_root)
-    run_root = naming_scheme(
-        protocol, run_name, tx_power, phy_rate,
-        antenna_mask, channel, interference, autocreate=True)
-    exp_info_file_name = run_root / "info.txt"
-    with exp_info_file_name.open("w") as info_file:
-        info = ' '.join(str(id) for id in node_ids)
-        info_file.write(f"Selected nodes : \n{info}\n")
-        info = ' '.join(str(id) for id in src_ids)
-        info_file.write(f"Sources : \n{info}\n")
-        info = ' '.join(str(id) for id in dest_ids)
-        info_file.write(f"Destinations : \n{info}\n")
+        return True
 
     # the nodes involved
     faraday = SshNode(hostname=default_gateway, username=slicename,
@@ -268,7 +277,7 @@ def one_run(*, protocol, interference,
     src_index = {id:node for (id, node) in node_index.items()
                  if id in src_ids}
     dest_index = {id:node for (id, node) in node_index.items()
-                 if id in dest_ids}
+                  if id in dest_ids}
 
     if interference:
         node_scrambler = SshNode(
@@ -474,8 +483,8 @@ def one_run(*, protocol, interference,
                               warmup_ping_interval,
                               warmup_ping_size,
                               warmup_ping_messages,
-                              f"warmup {s}➡︎{d}",
-                              label=f"warmup {s}➡︎{d}")
+                              f"warmup {s} ➡︎ {d}",
+                              label=f"warmup {s} ➡︎ {d}")
                     for d in dest_index.keys()
                     if s != d
                 ]
@@ -503,7 +512,6 @@ def one_run(*, protocol, interference,
         "Let the wireless network settle",
         sleep=settle_delay_long,
         scheduler=settle_scheduler,
-        required=green_light,
         label=f"settling for {settle_delay_long} sec")
 
     green_light = settle_scheduler
@@ -544,7 +552,7 @@ def one_run(*, protocol, interference,
                         f"-c 10.0.0.{d} -p 1234",
                         f"-u -b {phy_rate}M -t 60",
                         f"-l 1024 > IPERF-{s:02d}-{d:02d}",
-                        label=f"run iperf {s}➡︎{d}")
+                        label=f"run iperf {s} ➡︎ {d}")
                 ]
             )
 
@@ -575,7 +583,7 @@ def one_run(*, protocol, interference,
                    command=Pull(
                        remotepaths=[f"IPERF-{s:02d}-{d:02d}"],
                        localpath=str(run_root),
-                       label="fetch iperf {s}➡︎{d}")
+                       label="fetch iperf {s} ➡︎ {d}")
                    )
             for s, node_s in src_index.items()
             for d, node_d in dest_index.items()
@@ -674,8 +682,8 @@ def one_run(*, protocol, interference,
             node=node_s,
             verbose=verbose_jobs,
             commands=[
-                Run(f"echo actual ping {s}➡︎{d} using {protocol}",
-                    label=f"ping {s}➡︎{d}"),
+                Run(f"echo actual ping {s} ➡︎ {d} using {protocol}",
+                    label=f"ping {s} ➡︎ {d}"),
                 RunScript("node-utilities.sh", "my-ping",
                           f"10.0.0.{d}",
                           ping_timeout, ping_interval,
@@ -706,10 +714,9 @@ def one_run(*, protocol, interference,
             # required=pings,
             label=f"kill routing protocol on {id}",
             verbose=verbose_jobs,
-            command=
-                RunScript("node-utilities.sh",
-                          f"kill-{protocol}",
-                          label=f"kill-{protocol}"),
+            command=RunScript(f"node-utilities.sh",
+                              f"kill-{protocol}",
+                              label=f"kill-{protocol}"),
         )
         for id, node in node_index.items()
     ]
@@ -736,7 +743,7 @@ def one_run(*, protocol, interference,
                     #          label="kill-tcpdump"),
                     Run(
                         f"echo retrieving pcap trace and result-{i}.txt from fit{i:02d}",
-                         label=""),
+                        label=""),
                     Pull(remotepaths=[f"/tmp/fit{i}.pcap"],
                          localpath=str(run_root), label=""),
                 ],
@@ -836,9 +843,8 @@ def one_run(*, protocol, interference,
 
     # safety check
 
-    dot_file = run_root / "experiment-graph"
     scheduler.list()
-    scheduler.export_as_pngfile(run_root/"experiment-graph")
+    scheduler.export_as_pngfile(run_root / "experiment-graph")
     if dry_run:
         scheduler.list()
         return True
@@ -900,24 +906,23 @@ def all_runs(*args, interferences, protocols,
     overall = True
     if interferences is None:
         interferences = ["None"]
-    for protocol in protocols:                          # pylint: disable=r1705
-        for tx_power in tx_powers:
-            for phy_rate in phy_rates:
-                for antenna_mask in antenna_masks:
-                    for channel in channels:
-                        for interference in interferences:
-                            # record any failure
-                            if not one_run(
-                                    protocol=protocol,
-                                    interference=interference,
-                                    tx_power=tx_power,
-                                    phy_rate=phy_rate,
-                                    antenna_mask=antenna_mask,
-                                    channel=channel,
-                                    *args, **kwds):
-                                overall = False
-                            # make sure images will get loaded only once
-                            kwds['load_images'] = False
+    iterator = itertools.product(protocols, interferences, tx_powers,
+                                 phy_rates, antenna_masks, channels)
+    for (run_number, (protocol, interference, tx_power,
+                      phy_rate, antenna_mask, channel)) \
+            in enumerate(iterator, 1):
+        if not one_run(
+                protocol=protocol,
+                interference=interference,
+                tx_power=tx_power,
+                phy_rate=phy_rate,
+                antenna_mask=antenna_mask,
+                channel=channel,
+                run_number=run_number,
+                *args, **kwds):
+            overall = False
+        # make sure images will get loaded only once
+        kwds['load_images'] = False
     return overall
 
 
@@ -943,11 +948,19 @@ def main():
         help="the name of a subdirectory where to store results")
 
     parser.add_argument(
-        "-P", "--protocol", dest='protocol', metavar='protocol',
+        "-p", "--protocol", dest='protocol', metavar='protocol',
         default=default_protocol, choices=choices_protocols,
         nargs='+',
         help=f"specify the WMN protocols you want to use,"
              f" among {set(choices_protocols)}")
+
+    parser.add_argument(
+        "-i", "--interference", dest='interference', metavar='interference',
+        default=default_interference, choices=choices_interference,
+        nargs='+', type=str,
+        help=f"gain (dBm) for the white gaussian noise"
+             f" generated from scrambler node,"
+             f" among {' '.join(choices_interference)}")
 
     parser.add_argument(
         "-N", "--node", dest='node_ids', metavar='routing-node',
@@ -963,10 +976,18 @@ def main():
         help=f"specify the nodes sources of the pings,"
              f" among {set(default_node_ids)}")
     parser.add_argument(
+        "--all-sources", dest='all_src', default=False, action='store_true',
+        help="if set, all nodes in the experiment are used as sources"
+    )
+    parser.add_argument(
         "-D", "--destination", dest='dest_ids', metavar='dest-node',
         default=default_dest_ids, choices=all_node_ids,
         nargs='+',
         help="specify as many node ids as you want to be the destination of the ping")
+    parser.add_argument(
+        "--all-destinations", dest='all_dest', default=False, action='store_true',
+        help="if set, all nodes in the experiment are used as destinations"
+    )
     parser.add_argument(
         "--scrambler", dest='scrambler_id', metavar='scrambler-node',
         default=default_scrambler_id, choices=all_node_ids,
@@ -994,14 +1015,6 @@ def main():
         help=f"channel(s), among {set(choices_channel)}")
 
     parser.add_argument(
-        "-i", "--interference", dest='interference', metavar='interference',
-        default=default_interference, choices=choices_interference,
-        nargs='+', type=str,
-        help=f"gain (dBm) for the white gaussian noise"
-             f" generated from scrambler node,"
-             f" among {set(choices_interference)}")
-
-    parser.add_argument(
         "-m", "--ping-messages", default=default_ping_messages,
         help="specify number of ping packets to send")
 
@@ -1023,6 +1036,11 @@ def main():
     parser.add_argument(
         "--route-sampling", default=False, action='store_true',
         help="observe and recolt the routing table over time during the experiment")
+    parser.add_argument(
+        "--all-extras", default=False, action='store_true',
+        help="enable all 5 extra features: tshark, map, warmup, "
+             "iperf and route-sampling",
+    )
 
     parser.add_argument(
         "-n", "--dry-run", default=False, action='store_true',
@@ -1036,6 +1054,15 @@ def main():
         help="run jobs and engine in verbose mode")
 
     args = parser.parse_args()
+
+    # special 'all' options
+    if args.all_src:
+        args.src_ids = args.node_ids
+    if args.all_dest:
+        args.dest_ids = args.node_ids
+    if args.all_extras:
+        for feature in 'tshark', 'map', 'warmup', 'iperf', 'route_sampling':
+            setattr(args, feature, True)
 
     return all_runs(
         protocols=args.protocol,
