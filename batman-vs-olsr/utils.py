@@ -2,14 +2,70 @@
 
 # pylint: disable=c0111, c0103, w0511, r0913, r0914, r1710
 
+import sys
 import re
 import glob
+from pathlib import Path
+from datetime import datetime
 
 from graphviz import Digraph
 
 from r2labmap import maps
 
-from runs import naming_scheme
+####################
+
+# the constant wireless conditions
+WIRELESS_DRIVER = 'ath9k'
+# the minimum for atheros cards
+TX_POWER = 5
+# the more ambitious, the more likely to create trouble
+PHY_RATE = 54
+# arbitrary
+CHANNEL = 10
+# only one antenna seems again the most fragile conditions
+ANTENNA_MASK = 1
+
+# + force to name all parameters
+def naming_scheme(*, run_name, protocol, interference,
+                  tx_power=TX_POWER, phy_rate=PHY_RATE,
+                  antenna_mask=ANTENNA_MASK, channel=CHANNEL,
+                  autocreate=False):
+    """
+    Returns a pathlib Path instance that points at the directory
+    where all tmp files and results are stored for those settings
+
+    if autocreate is set to True, the directory is created if needed,
+    and a message is printed in that case
+    """
+    root = Path(run_name)
+    run_root = root / (f"t{tx_power}-r{phy_rate}-a{antenna_mask}"
+                       f"-ch{channel}-I{interference}-{protocol}")
+    if autocreate:
+        if not run_root.is_dir():
+            print(f"Creating result directory: {run_root}")
+            run_root.mkdir(parents=True, exist_ok=True)
+    return run_root
+
+
+####################
+
+### helpers
+def apssh_time():
+    now = datetime.now()
+    return f"{now:%H-%M-%S}"
+
+
+def time_line(line, file=sys.stdout):
+    """
+    write line with apssh-style timestamp prefix
+    add newline if needed
+    """
+    file.write(f"{apssh_time()} {line}")
+    if line[-1] != "\n":
+        file.write("\n")
+
+
+####################
 
 def readRTT(filename):
     """
@@ -76,25 +132,13 @@ def readPDR(filename):
     return pdr
 
 
-def isValidRoute(route):
+def is_valid_route(route):
     if "- 0 -" in route:
         return False
     return True
 
-def getRoutes(filename):
-    routes = []
-    try:
-        with open(filename) as routes_file:
-            for line in routes_file:
-                if isValidRoute(line):
-                    routes.append(line.rstrip())
-    except IOError:
-        print("Routes were not generated for these conditions: {}"
-              .format(filename))
-    return routes
 
-
-def getAllRoutes(filename):
+def get_all_routes(filename):
     routes = []
     try:
         with open(filename) as routes_file:
@@ -105,7 +149,8 @@ def getAllRoutes(filename):
               .format(filename))
     return routes
 
-def getAllRoutes_sample(filename, sampleNum):
+
+def get_all_routes_sample(filename, sampleNum):
     routes = []
     cursorOK = False
     try:
@@ -124,18 +169,16 @@ def getAllRoutes_sample(filename, sampleNum):
     return routes
 
 
-def getSourceDestFromRoute(route):
-    src, *_, dest = route.split(" -- ")
-    return src, dest
-
-def generatSourceDestRouteString(source, dest):
+def generate_source_dest_route_string(source, dest):
     return "fit{:02d} - fit{:02d}".format(source, dest)
 
-def generateRouteListForBlockGraph(route, data):
+
+def generate_route_list_for_block_graph(route, data):
     return [route] * len(data)
 
 
-def getInfo(run_root, input_type):
+# xxx this won't work any more ...
+def get_info(run_root, input_type):
     try:
         with (run_root / "info.txt").open() as info_file:
             lines = info_file.readlines()
@@ -150,16 +193,82 @@ def getInfo(run_root, input_type):
               .format(run_root))
     return []
 
+####################
 
-def graphDataRTT(run_name, tx_power, phy_rate,
-                 antenna_mask, channel, interference, protocol, source):
+def routing_graph(run_name, interference,
+                  source, protocol, sample=None):
+    node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
+    dot = Digraph(comment='Routing table for fit{:02d}'
+                  .format(source), engine='fdp')
+    dot.attr('graph', label=protocol)
+    dot.attr(splines='true')
+    dot.attr(rankdir='LR')
+    dot.attr('graph', size='5, 3')
+    # half size as default is 96 -> h=364
+    # 48 -> h=243 ! how come ?
+    # dot.attr(dpi='48')
+    #dot.attr('node', shape='doublecircle')
+    #dot.format = 'png'
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
+    if sample is None:
+        routes = get_all_routes(directory / "ROUTES-{:02d}".format(source))
+    else:
+        routes = get_all_routes_sample(
+            directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source),
+            sample)
+    nodes = getNodesFromRoutes(routes)
+    nodes = list(set(nodes)- set(['0']))
 
-    directory = naming_scheme(
-        run_name=run_name, tx_power=tx_power,
-        phy_rate=phy_rate, antenna_mask=antenna_mask,
-        channel=channel, interference=interference,
-        protocol=protocol)
-    dests = getInfo(directory, "Destinations")
+    # pillars
+    dot.node("  ", pos="4,4!", shape="box")
+    dot.node(" ", pos="6,4!", shape="box")
+
+    for node_id in range(1, 38):
+        x, y = node_to_pos[node_id]
+        if node_id == 5 and interference != "None":
+            dot.node("Interference", pos="1,1!", shape="tripleoctagon")
+            continue
+        if str(node_id) not in nodes:
+            dot.node(str(node_id), '{:02d}'.format(node_id),
+                     pos=f"{x},{y}!",
+                     shape='point')
+        else:
+            dot.node(str(node_id), '{:02d}'.format(node_id),
+                     pos=f"{x},{y}!",
+                     shape='doublecircle',
+                     )
+    if nodes:
+        dot = getEdgesFromRoutes(dot, routes)
+
+        return dot
+
+
+def get_sample_count(run_name, protocol, interference, source,
+                     tx_power=TX_POWER, phy_rate=PHY_RATE,
+                     antenna_mask=ANTENNA_MASK, channel=CHANNEL):
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
+    filename = directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source)
+    samplenumber = 0
+    try:
+        with open(filename) as routes_file:
+            for line in routes_file:
+                if "SAMPLE" in line:
+                    samplenumber += 1
+
+    except IOError:
+        return None
+    return samplenumber
+
+
+def RTT_graph_data(run_name, interference, protocol, source,
+                   tx_power=TX_POWER, phy_rate=PHY_RATE,
+                   antenna_mask=ANTENNA_MASK, channel=CHANNEL):
+
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
+    dests = get_info(directory, "Destinations")
     xValues = []
     yValues = []
     RTT_dic = {}
@@ -187,13 +296,18 @@ def graphDataRTT(run_name, tx_power, phy_rate,
                 RTT_dic[(source_id, destination_id)] = [0]
 
             xValues.extend(
-                generateRouteListForBlockGraph(
-                    generatSourceDestRouteString(source_id, destination_id),
+                generate_route_list_for_block_graph(
+                    generate_source_dest_route_string(source_id, destination_id),
                     RTT_dic[(source_id, destination_id)]))
 
             yValues.extend(RTT_dic[source_id, destination_id])
 
     return xValues, yValues
+
+
+
+
+
 
 def graphDataMultipleRTT(
         run_name_family, tx_power, phy_rate, antenna_mask, channel,
@@ -209,14 +323,10 @@ def graphDataMultipleRTT(
             break
         countmax += 1
 
-        directory = naming_scheme(
-            run_name=run_name, tx_power=tx_power,
-            phy_rate=phy_rate, antenna_mask=antenna_mask,
-            channel=channel, interference=interference,
-            protocol=protocol)
+        directory = naming_scheme(run_name=run_name, protocol=protocol,
+                                  interference=interference)
 
         for destination in dests:
-
             source_id = int(source)
             destination_id = int(destination)
             if source_id == destination_id:
@@ -239,8 +349,8 @@ def graphDataMultipleRTT(
                 RTT_dic[(source_id, destination_id)] = [0]
 
             xValues.extend(
-                generateRouteListForBlockGraph(
-                    generatSourceDestRouteString(source_id, destination_id),
+                generate_route_list_for_block_graph(
+                    generate_source_dest_route_string(source_id, destination_id),
                     RTT_dic[(source_id, destination_id)]))
 
             yValues.extend(RTT_dic[source_id, destination_id])
@@ -250,12 +360,10 @@ def graphDataMultipleRTT(
 
 def graphDataPDR(run_name, tx_power, phy_rate, antenna_mask,
                  channel, interference, protocol, source):
-    directory = naming_scheme(
-        run_name=run_name, tx_power=tx_power,
-        phy_rate=phy_rate, antenna_mask=antenna_mask,
-        channel=channel, interference=interference, protocol=protocol)
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
 
-    dests = getInfo(directory, "Destinations")
+    dests = get_info(directory, "Destinations")
     xValues = []
     yValues = []
     PDR_dic = {}
@@ -272,7 +380,7 @@ def graphDataPDR(run_name, tx_power, phy_rate, antenna_mask,
                 directory / "PING-{:02d}-{:02d}"
                 .format(source_id, destination_id))]
 
-        xValues.extend([generatSourceDestRouteString(source_id, destination_id)])
+        xValues.extend([generate_source_dest_route_string(source_id, destination_id)])
         yValues.extend(PDR_dic[source_id, destination_id])
 
     return xValues, yValues
@@ -291,10 +399,8 @@ def graphDataMultiplePDRCount(
         if countmax >= maxdata:
             break
         countmax += 1
-        directory = naming_scheme(
-            run_name=run_name, tx_power=tx_power,
-            phy_rate=phy_rate, antenna_mask=antenna_mask,
-            channel=channel, interference=interference, protocol=protocol)
+        directory = naming_scheme(run_name=run_name, protocol=protocol,
+                                  interference=interference)
         pdr = [100 - int(value)
                for value in readPDR(directory / "PING-{:02d}-{:02d}"\
                                     .format(source, dest))]
@@ -309,7 +415,7 @@ def graphDataMultiplePDR(
         interference, protocol, source, dest, maxdata):
 
     yValues = []
-    xValues = [generatSourceDestRouteString(int(source), int(dest))] * maxdata
+    xValues = [generate_source_dest_route_string(int(source), int(dest))] * maxdata
     #FOR EVERY DATA WITH RUN_NAME_FAMILY
     countmax = 0
 
@@ -317,11 +423,8 @@ def graphDataMultiplePDR(
         if countmax >= maxdata:
             break
         countmax += 1
-        directory = naming_scheme(
-            run_name=run_name, tx_power=tx_power,
-            phy_rate=phy_rate, antenna_mask=antenna_mask,
-            channel=channel, interference=interference,
-            protocol=protocol)
+        directory = naming_scheme(run_name=run_name, protocol=protocol,
+                                  interference=interference)
         pdr = [100 - int(value)
                for value in readPDR(directory / "PING-{:02d}-{:02d}"\
                                     .format(source, dest))]
@@ -357,70 +460,6 @@ def getEdgesFromRoutes(dot, routes):
     return dot
 
 
-def generateRouteGraph(run_name, tx_power, phy_rate, antenna_mask,
-                       channel, interference, protocol, source, sample=None):
-    node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
-    dot = Digraph(comment='Routing table for fit{:02d}'
-                  .format(source), engine='fdp')
-    dot.attr(splines='true')
-    dot.attr(rankdir='LR')
-    #dot.attr('node', shape='doublecircle')
-    #dot.format = 'png'
-    directory = naming_scheme(
-        run_name=run_name, tx_power=tx_power,
-        phy_rate=phy_rate, antenna_mask=antenna_mask,
-        channel=channel, interference=interference, protocol=protocol)
-    if sample is None:
-        routes = getAllRoutes(directory / "ROUTES-{:02d}".format(source))
-    else:
-        routes = getAllRoutes_sample(
-            directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source),
-            sample)
-    nodes = getNodesFromRoutes(routes)
-    nodes = list(set(nodes)- set(['0']))
-
-    # pillars
-    dot.node("  ", pos="4,4!", shape="box")
-    dot.node(" ", pos="6,4!", shape="box")
-
-    for node_id in range(1, 38):
-        if node_id == 5 and interference != "None":
-            dot.node("Interference", pos="1,1!", shape="tripleoctagon")
-            continue
-        if str(node_id) not in nodes:
-            dot.node(str(node_id), 'fit{:02d}'.format(node_id),
-                     pos="{},{}!".format(node_to_pos[node_id][0],
-                                         node_to_pos[node_id][1]),
-                     shape='point')
-        else:
-            dot.node(str(node_id), 'fit{:02d}'.format(node_id),
-                     pos="{},{}!".format(node_to_pos[node_id][0],
-                                         node_to_pos[node_id][1]),
-                     shape='doublecircle')
-    if nodes:
-        dot = getEdgesFromRoutes(dot, routes)
-
-        return dot
-
-def get_sample_count(run_name, tx_power, phy_rate,
-                     antenna_mask, channel, interference, protocol, source):
-    directory = naming_scheme(
-        run_name=run_name, tx_power=tx_power,
-        phy_rate=phy_rate, antenna_mask=antenna_mask,
-        channel=channel, interference=interference, protocol=protocol)
-    filename = directory/ "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source)
-    samplenumber = 0
-    try:
-        with open(filename) as routes_file:
-            for line in routes_file:
-                if "SAMPLE" in line:
-                    samplenumber += 1
-
-    except IOError:
-        return None
-    return samplenumber
-
-
 def generateRouteGraphData(
         run_name_family, tx_power, phy_rate, antenna_mask, channel,
         interference, protocol, source, dests=None,
@@ -440,12 +479,9 @@ def generateRouteGraphData(
         if countmax > maxdata:
             break
         countmax += 1
-        directory = naming_scheme(
-            run_name=run_name, tx_power=tx_power,
-            phy_rate=phy_rate, antenna_mask=antenna_mask,
-            channel=channel, interference=interference,
-            protocol=protocol)
-        routes = getAllRoutes(
+        directory = naming_scheme(run_name=run_name, protocol=protocol,
+                                  interference=interference)
+        routes = get_all_routes(
             directory / "ROUTES-{:02d}".format(source))
         dic_hop_dest = {}
         for route in routes:
@@ -455,15 +491,15 @@ def generateRouteGraphData(
             if int(target) in destinations:
                 if "-- 0 --" in route or "-- -1 --" in route:
                     dic_hop_dest[
-                        generatSourceDestRouteString(int(source),
-                                                     int(nodes[-1]))] = 0
+                        generate_source_dest_route_string(
+                            int(source), int(nodes[-1]))] = 0
 
                     continue
                 for node in nodes:
                     if counter > 0 and target == node:
                         dic_hop_dest[
-                            generatSourceDestRouteString(int(source),
-                                                         int(node))] = counter
+                            generate_source_dest_route_string(
+                                int(source), int(node))] = counter
 
                     counter += 1
         for route, hops in dic_hop_dest.items():

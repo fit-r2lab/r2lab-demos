@@ -1,6 +1,6 @@
 #!/usr/bin/env python3 -u
 
-# pylint: disable=C0302, W0703
+# pylint: disable=C0302, W0703, w0612
 
 """
 Script to run batman or OLSR routing protocol on R2lab
@@ -11,7 +11,6 @@ Script to run batman or OLSR routing protocol on R2lab
 import itertools
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from pathlib import Path
 import shutil
 
 from asynciojobs import Scheduler, Sequence, PrintJob
@@ -26,10 +25,15 @@ from apssh import close_ssh_in_scheduler
 from processroute import ProcessRoutes
 from channels import channel_frequency
 
+from utils import naming_scheme, apssh_time, time_line
+
+# the constant wireless conditions are hard-wired in utils
+# see globals TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK,
+
 ##########
 default_gateway = 'faraday.inria.fr'
 default_slicename = 'inria_batman'
-default_run_name = 'exp-data'
+default_run_name = 'default-output-dir'
 
 
 choices_protocols = ['olsr', 'batman']
@@ -61,7 +65,7 @@ choices_interference = [
 default_interference = ["None"]
 
 choices_scrambler_id = [2, 4, 5, 6, 12, 13, 15, 16, 20, 21, 26, 28, 30, 34, 36]
-default_scrambler_id = 16
+default_scrambler_id = 30
 
 all_node_ids = [str(i) for i in range(1, 38)]
 # The 10 nodes selected by Farzaneh adapted
@@ -89,42 +93,12 @@ wireless_driver = 'ath9k'
 
 
 # convenience
-
-
 def fitname(node_id):
     """
     Return a valid hostname from a node number - either str or int
     """
     int_id = int(node_id)
     return f"fit{int_id:02d}"
-
-
-# xxx-possible-new-naming-scheme
-# + force to name all parameters
-#def naming_scheme(*, run_name, protocol, interference,
-#                  node_ids, autocreate=False):
-def naming_scheme(protocol, run_name, tx_power, phy_rate, antenna_mask,
-                  channel, interference, autocreate=False):
-    """
-    Returns a pathlib Path instance that points at the directory
-    where all tmp files and results are stored for those settings
-
-    if autocreate is set to True, the directory is created if needed,
-    and a message is printed in that case
-    """
-    root = Path(run_name)
-# xxx-possible-new-naming-scheme
-#    # sort node_ids
-#    sorted_ids = sorted(int(id) for id in node_ids)
-#    nodes_part = '+'.join(str(x) for x in sorted_ids)
-#    run_root = root / f"{protocol}-I{interference}-{nodes_part}"
-    run_root = root / (f"t{tx_power}-r{phy_rate}-a{antenna_mask}"
-                       f"-ch{channel}-I{interference}-{protocol}")
-    if autocreate:
-        if not run_root.is_dir():
-            print(f"Creating result directory: {run_root}")
-            run_root.mkdir(parents=True, exist_ok=True)
-    return run_root
 
 
 def purgedir(path):
@@ -196,21 +170,17 @@ def one_run(*, protocol, interference,
 
     # open result dir no matter what
     run_root = naming_scheme(
-        protocol, run_name, tx_power, phy_rate,
-        antenna_mask, channel, interference, autocreate=True)
-# xxx-possible-new-naming-scheme
-#        run_root = naming_scheme(
-#            run_name=run_name,
-#            protocol=protocol,
-#            interference=interference,
-#            node_ids=node_ids,
-#            autocreate=False)
+        run_name=run_name, protocol=protocol,
+        interference=interference, autocreate=True)
 
 # fix me    trace = run_root / f"trace-{%m-%d-%H-%M}"
-    trace = run_root / f"trace-the-date"
+    ref_time = apssh_time()
+    trace = run_root / f"trace-{ref_time}"
 
     try:
         with trace.open('w') as feed:
+            def log_line(line):
+                time_line(line, file=feed)
             load_msg = f"{'WITH' if load_images else 'NO'} image loading"
             interference_msg = (
                 f"interference={interference}dBm from node {scrambler_id}"
@@ -226,25 +196,21 @@ def one_run(*, protocol, interference,
                 if d != s
             ]
 
-            feed.write(
-                f"protocol={protocol} - output in {run_root}\n"
-                f"{load_msg}\n"
-                f"{interference_msg}\n"
-                f"Selected nodes : {nodes}\n"
-                f"Sources : {srcs}\n"
-                f"Destinations : {dests}\n")
+            log_line(f"output in {run_root}")
+            log_line(f"trace in {trace}")
+            log_line(f"protocol={protocol}")
+            log_line(f"{load_msg}")
+            log_line(f"{interference_msg}")
+            log_line("----")
+            log_line(f"Selected nodes : {nodes}")
+            log_line(f"Sources : {srcs}")
+            log_line(f"Destinations : {dests}")
             for label in ping_labels:
-                feed.write(f"{label}\n")
-            if warmup:
-                feed.write("Will do warmup pings\n")
-            if tshark:
-                feed.write("Will format data using tshark "
-                           "and will agregate the RSSI into one RSSI.txt file\n")
-            if map:
-                feed.write("Will fetch the routing tables of the node "
-                           "(once stabilized), and will agregate the results\n")
-            if route_sampling:
-                feed.write("dry-run: Will launch route sampling services on nodes\n")
+                log_line(f"{label}")
+            log_line("----")
+            for feature in ('warmup', 'tshark', 'map',
+                            'route_sampling', 'iperf'):
+                log_line(f"Feature {feature}: {locals()[feature]}")
 
     except Exception as exc:
         print(f"Cannot write into {trace} - aborting this run")
@@ -256,7 +222,7 @@ def one_run(*, protocol, interference,
     #
     prelude = "" if not dry_run else "dry_run:"
     with trace.open() as feed:
-        print(f"************************************ one_run #{run_number}:")
+        print(f"**************** {ref_time} one_run #{run_number}:")
         for line in feed:
             print(prelude, line, sep='', end='')
     if dry_run:
@@ -843,14 +809,13 @@ def one_run(*, protocol, interference,
 
     # safety check
 
-    scheduler.list()
     scheduler.export_as_pngfile(run_root / "experiment-graph")
     if dry_run:
         scheduler.list()
         return True
 
     # if not in dry-run mode, let's proceed to the actual experiment
-    ok = scheduler.orchestrate()  # jobs_window=jobs_window)
+    ok = scheduler.run()  # jobs_window=jobs_window)
 
     # close all ssh connections
     close_ssh_in_scheduler(scheduler)
@@ -861,11 +826,11 @@ def one_run(*, protocol, interference,
         scheduler.debrief()
         scheduler.export_as_pngfile("debug")
     if ok and map:
-        print("Creation of MAP files")
+        time_line("Creation of MAP files")
         post_processor = ProcessRoutes(run_root, src_ids, node_ids)
         post_processor.run()
     if ok and route_sampling:
-        print("Creation of ROUTE SAMPLING files")
+        time_line("Creation of ROUTE SAMPLING files")
         post_processor = ProcessRoutes(run_root, src_ids, node_ids)
         post_processor.run_sampled()
     # data acquisition is done, let's aggregate results
@@ -874,6 +839,7 @@ def one_run(*, protocol, interference,
         #post_processor = Aggregator(run_root, node_ids, antenna_mask)
         #post_processor.run()
 
+    time_line("one_run done")
     return ok
 
 
@@ -1020,13 +986,6 @@ def main():
 
     # POST PROCESSING OPTIONS
     parser.add_argument(
-        "--tshark", default=False, action='store_true',
-        help="parse pcap files to get RSSIs for each nodes"
-             " (Warning: you need to have tshark installed on your machine)")
-    parser.add_argument(
-        "--map", default=False, action='store_true',
-        help="add results of the trace-path command from the first selected node")
-    parser.add_argument(
         "--warmup", default=False, action='store_true',
         help="do a ping as a warmup to try to stabilise routes and then "
              "settle again before getting routes and register results")
@@ -1034,12 +993,21 @@ def main():
         "--iperf", default=False, action='store_true',
         help="[BONUS] do an iperf for the sources and destinations ")
     parser.add_argument(
+        "--map", default=False, action='store_true',
+        help="add results of the trace-path command from the first selected node")
+    parser.add_argument(
         "--route-sampling", default=False, action='store_true',
         help="observe and recolt the routing table over time during the experiment")
     parser.add_argument(
+        "--tshark", default=False, action='store_true',
+        help="parse pcap files to get RSSIs for each nodes"
+             " (Warning: you need to have tshark installed on your machine)")
+    parser.add_argument(
         "--all-extras", default=False, action='store_true',
-        help="enable all 5 extra features: tshark, map, warmup, "
-             "iperf and route-sampling",
+        help="enable 4 extra features: warmup, iperf, "
+             "map and route-sampling; tshark is not included "
+             " because it involves a huge data volume, "
+             " and thus performs MUCH more slowly."
     )
 
     parser.add_argument(
@@ -1061,7 +1029,8 @@ def main():
     if args.all_dest:
         args.dest_ids = args.node_ids
     if args.all_extras:
-        for feature in 'tshark', 'map', 'warmup', 'iperf', 'route_sampling':
+        for feature in ( #'tshark', # tshark really involves too big a volume
+                'map', 'warmup', 'iperf', 'route_sampling'):
             setattr(args, feature, True)
 
     return all_runs(
