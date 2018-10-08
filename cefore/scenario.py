@@ -16,36 +16,34 @@ def fitname(node_id):
 
 ##########
 gateway_hostname  = 'faraday.inria.fr'
-gateway_username  = 'inria_ns3'
+gateway_username  = 'inria_cefore'
 verbose_ssh = False
 
-# Default fit ids for server and client
-def_server, def_client = 3, 4
+# Default fit id for the node that runs ns-3/dce 
+def_simu = 2
+# Default fit id for the node that runs the publisher
+def_publisher = 1
+
+## unused for now:
 # Default ns-3 duration
-def_duration = 25
+#def_duration = 25
 # Default ns-3 node target in which the tap device is created
-def_target = 2
+#def_target = 2
 
 # Images names for server and client
-image_server = "ubuntu"
-image_client = "ubuntu-ns3-dev"
+image_simu = "dce"
+image_publisher = "cefore"
 
 parser = ArgumentParser()
 parser.add_argument("-s", "--slice", default=gateway_username,
                     help="specify an alternate slicename, default={}"
                          .format(gateway_username))
-parser.add_argument("-S", "--server", default=def_server,
-                    help="id of the node that runs the server, default={}".format(def_server))
-parser.add_argument("-C", "--client", default=def_client,
-                    help="id of the node that runs the server, default={}".format(def_client))
+parser.add_argument("-S", "--simu", default=def_sim,
+                    help="id of the node that runs ns-3/dce, default={}".format(def_simu))
+parser.add_argument("-P", "--publisher", default=def_publisher,
+                    help="id of the node that runs the publisher, default={}".format(def_publisher))
 parser.add_argument("-d", "--duration", default=def_duration,
                     help="duration of the ns-3 simulation, default={}".format(def_duration))
-parser.add_argument("-o", "--olsr", default=False, action='store_true',
-                    help="run OLSR ns-3 simulation script, default is CSMA ns-3 script")
-parser.add_argument("-m", "--multicast", default=False, action='store_true',
-                    help="run multicast scenario, default is point-to-point")
-parser.add_argument("-V", "--vlc", default=False, action='store_true',
-                    help="run scenario with vlc by default, else ping or mc_send will be used")
 parser.add_argument("-t", "--target", default=def_target,
                     help="id of the ns-3 node in the which the tap device is created, default={}".format(def_target))
 parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
@@ -57,63 +55,18 @@ args = parser.parse_args()
 gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
 duration = args.duration
-multicast_mode = args.multicast
-olsr_mode = args.olsr
-vlc_mode = args.vlc
 target_node = args.target
 
-if olsr_mode and multicast_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
-elif olsr_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=false" """.format(args.server,args.client,target_node,duration)
-elif multicast_mode:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
-else:
-    waf_script = """ cd ns-3-dev; ./waf --run "scratch/csma --remote={} --local={} --dstnNode={} --stopTime={} --multicast=false" """.format(args.server,args.client,target_node,duration)
+waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap"
 
-if vlc_mode:
-    if multicast_mode:
-#        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:rtp{dst=225.1.2.4:1234}'"
-#        send_script= "cvlc /root/rassegna2.avi --ttl=16 --sout '#transcode{acodec=none,vcodec=h264}:udp{dst=225.1.2.4:1234}'"
-        send_script= "cvlc /root/big_buck_bunny.mp4 --ttl=16 --sout '#transcode{acodec=none}:rtp{mux=ts,dst=225.1.2.4,port=1234}'"
-    else:
-#        send_script= "cvlc /root/rassegna2.avi --sout '#rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
-        send_script= "cvlc /root/big_buck_bunny.mp4 --sout '#transcode{acodec=none}:rtp{dst=10.1.1." + str(target_node) + ",port=1234,mux=ts}'"
-    stop_sender_script= "pkill vlc; echo 'pkill vlc'"
-else: # not vlc
-    if multicast_mode:
-        # Hack to avoid usage of Critical=False to fix the issue...
-        send_script= "(mcsender -t16 -idata 225.1.2.4:1234 ; ret=$?; if [ $ret -eq '143' ]; then exit 0; fi; exit $ret)"
-        #send_script= "mcsender -t16 -idata 225.1.2.4:1234"
-        stop_sender_script= "pkill mcsender; echo 'pkill mcsender'"
-    else:
-        send_script= "(ping 10.1.1.{} ; ret=$?; if [ $ret -eq '143' ]; then exit 0; fi; exit $ret)".format(target_node)
-        stop_sender_script= "pkill ping; echo 'pkill ping'"
-
-if vlc_mode:
-    stop_client_script="pkill vlc; echo 'pkill vlc'; pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
-else:
-    stop_client_script="pkill --signal SIGUSR2 tcpdump; echo 'pkill tcpdump'"
-
-tcpdump_script= "(tcpdump -i tap0 -w tap0.pcap; ret=$?; if [ $ret -eq '140' ]; then exit 0; fi; exit $ret)"
-
-if vlc_mode:
-    if multicast_mode:
-        recv_script= "cvlc --miface-addr=10.1.2.1 rtp://@225.1.2.4 --sout file/ps:video.mpg" 
-    else:
-        recv_script= "cvlc --miface-addr=10.1.2.1 rtp:// --sout file/ps:video.mpg"
-
-server, client = fitname(args.server), fitname(args.client)
-
-# Wait 5s before running vlc sender on the server to avoid congestion on the link before waf starts
-if vlc_mode:
-    settle_delay = 5
-else:
-    settle_delay = 0
+#waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
 
 
-print("Running scenario with server {} and client {}".format(server,client))
-print("with following sender script: {}".format(send_script))
+simu, publisher = fitname(args.simu), fitname(args.publisher)
+
+
+
+print("Running scenario with ns-3/dce running at {} and publisher running at {}".format(simu,publisher))
 print("and following waf command: {}".format(waf_script))
 
 ###
@@ -121,9 +74,9 @@ print("and following waf command: {}".format(waf_script))
 faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
                   verbose = verbose_ssh)
 
-server = SshNode(gateway = faraday, hostname = server, username = "root",
+server = SshNode(gateway = faraday, hostname = simu, username = "root",
                  verbose = verbose_ssh)
-client = SshNode(gateway = faraday, hostname = client, username = "root",
+client = SshNode(gateway = faraday, hostname = publisher, username = "root",
                  verbose = verbose_ssh)
 
 
