@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# starting from scratch:
+# --load will reload images and turn off unused nodes
+# trying both protocols
+# using the default set of nodes
+# using them all as sources to send traffic to node 37 (the default dest)
+# using various levels of interference
+# enabling all extra features - except pcap
+
+# this amounts to 2 x 9 calls to one_run
+# don't mention None as the first interference
+# that's a limitation of this script
+# if you do the scrambler node won't get imaged
+./runs.py --load \
+    --protocol olsr batman --all-sources \
+    --interference -13 -11 -9 -7 1 3 5 7 None \
+    --all-extras -o new-datasample >& new-datasample.log
