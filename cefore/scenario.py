@@ -1,11 +1,29 @@
 #!/usr/bin/env python3
 
+import os.path
+import time
+import asyncio
+import itertools
+from collections import defaultdict
+
 from argparse import ArgumentParser
 
 from asynciojobs import Scheduler, PrintJob
 
 from apssh import SshNode, LocalNode, SshJob
-from apssh import Run, RunString, Pull
+from apssh import Run, RunString, RunScript, Pull
+
+
+## illustrating the r2lab library                                                                                                    
+# utils                                                                                                                              
+from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
+
+# argument parsing                                                                                                                   
+from r2lab import ListOfChoices, ListOfChoicesNullReset
+# include the set of utility scripts that are included by the r2lab kit                                                               
+includes = [ find_local_embedded_script(x) for x in [
+    "r2labutils.sh", 
+] ]
 
 def fitname(node_id):
     """
@@ -91,35 +109,25 @@ green_light = check_lease
 
 if args.load_images:
     # replace green_light in this case
+    to_load = defaultdict(list)
+    to_load[image_simulator] += [args.simulator]
+    to_load[image_publisher] += [args.publisher]
+    commands = []
+    for image, nodes in to_load.items():
+        commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
+    commands.append(Run("rhubarbe", "wait", "-t",  120, *nodes))
     green_light = SshJob(
         node = faraday,
         required = check_lease,
         critical = True,
         scheduler = scheduler,
-        commands = [
-            Run("rhubarbe", "load", "-i", image_simulator, args.simulator),
-            Run("rhubarbe", "load", "-i", image_publisher, args.publisher),
-            Run("rhubarbe", "wait", "-t",  120, args.simulator, args.publisher),
-        ]
+        commands = commands,
+        label = "Prepare node(s) {}".format(nodes),
     )
 
 ##########
 # setting up the data interface on both server and client
 # setting up routing on server only
-
-
-simulator_init_script = """
-cefnetdstop
-cefnetdstart
-"""
-
-publisher_init_script = """
-cefnetdstop
-csmgrdstop
-csmgrdstart
-cefnetdstart
-cefputfile ccn:/realRemote/test ./big_buck_bunny.mp4
-"""
 
 
 # following two inits should be done only when load_images is true
@@ -128,47 +136,75 @@ if args.load_images:
         node = simulator,
         scheduler = scheduler,
         required = green_light,
+        critical = True,
         commands = [
             Run("turn-on-data"),
-            RunString(simulator_init_script, label="start Cefore daemon at the simulator node"),
         ],
+        label = "Init the simulator node",
     )
 
     init_publisher = SshJob(
         node = publisher,
         scheduler = scheduler,
         required = green_light,
+        critical = True,
         commands = [
             Run("turn-on-data"),
-            RunString(publisher_init_script, label="initializations at the publisher node"),
         ],
+        label = "Init the publisher node",
     )
 
-if args.load_images:
     init_done = (init_simulator,init_publisher)
 else:
     init_done = green_light
 
-# wait before starting the simulation (cefputfile takes some time...)
-settle_producer = PrintJob(
-    "Wait {} seconds before starting the simulation".format(settle_delay),
-    sleep=settle_delay,
-    scheduler=scheduler,
-    required=init_done,
-    label="settling for {} seconds".format(settle_delay)
+# Run Cefore on both Producer and Simulator nodes
+run_cefore_simulator = SshJob(
+    node = simulator,
+    scheduler = scheduler,
+    required = init_done,
+    critical = True,
+    commands = [
+        RunScript("cefore.sh", "run-cefore-sim", label="start Cefore daemon on the simulator node"),
+    ],
+    label = "Run Cefore daemon on the simulator node",
 )
+
+run_cefore_publisher = SshJob(
+    node = publisher,
+    scheduler = scheduler,
+    required = init_done,
+    critical = True,
+    commands = [
+        RunScript("cefore.sh", "run-cefore-publisher", label="start Cefore and csmg daemons on the publisher node"),
+    ],
+    label="start Cefore and csmg daemons on the publisher node"
+)
+    
+cefore_ready = (run_cefore_simulator,run_cefore_publisher)
+
+# wait before starting the simulation (cefputfile takes some time...)
+#settle_producer = PrintJob(
+#    "Wait {} seconds before starting the simulation".format(settle_delay),
+#    sleep=settle_delay,
+#    scheduler=scheduler,
+#    required=init_done,
+#    label="settling for {} seconds".format(settle_delay)
+#)
 
 run_ns3 = SshJob(
     node = simulator,
     scheduler = scheduler,
+    required = cefore_ready,
+    critical = True,
     command = RunString(waf_script, label="Run the ns-3/DCE script"),
-    required = settle_producer,
 )
 
 
 pull_files = SshJob(
     node = simulator,
     scheduler = scheduler,
+    critical = True,
     commands = [
         Pull (remotepaths="/root/NS3/source/ns-3-dce/files-2/tmp/OutFile",localpath="."),
     ],
