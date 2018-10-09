@@ -4,9 +4,13 @@
 
 import sys
 import re
-import glob
 from pathlib import Path
 from datetime import datetime
+
+from collections import namedtuple
+
+# should go away eventually
+import glob
 
 from graphviz import Digraph
 
@@ -67,13 +71,18 @@ def time_line(line, file=sys.stdout):
 
 ####################
 
-def readRTT(filename):
+def read_ping_output(filename):
     """
-        Will generate a list of time (in ms) by parsing the output of the ping command.
+    Return a namedtuple resulting from parsing a line like
+
+    ping 10.0.0.37: 500 packets transmitted, 500 received, 0% packet loss, time 2079ms
+
+
+    Will generate a list of time (in ms) by parsing the output of the ping command.
         One line is typically :
         72 bytes from 10.0.0.4: icmp_seq=2 ttl=64 time=1.34 ms
     """
-    pings_time = []
+
     try:
         with open(filename) as pings_file:
             for line in pings_file:
@@ -176,18 +185,26 @@ def generate_source_dest_route_string(source, dest):
 def generate_route_list_for_block_graph(route, data):
     return [route] * len(data)
 
-
-# xxx this won't work any more ...
-def get_info(run_root, input_type):
+def is_decimal(string):
     try:
-        with (run_root / "info.txt").open() as info_file:
-            lines = info_file.readlines()
-        if input_type == "Sources":
-            return lines[3].split()
-        if input_type == "Destinations":
-            return lines[5].split()
-        if input_type == "Nodes":
-            return lines[1].split()
+        return int(string)
+    except ValueError:
+        return None
+
+#
+def get_info(run_root, input_type):
+    # find most recent file named trace-??-??-??
+    traces = Path(run_root).glob("trace-??-??-??")
+    def mod_time(path):
+        return path.stat().st_mtime
+    recent_first = sorted(traces, key=mod_time, reverse=True)
+    try:
+        with recent_first[0].open() as trace_file:
+            for line in trace_file:
+                if input_type not in line:
+                    continue
+                converted = (is_decimal(x) for x in line.split())
+                return [x for x in converted if x]
     except IOError:
         print("Experiment was not run in these conditions : {}"
               .format(run_root))
@@ -196,7 +213,7 @@ def get_info(run_root, input_type):
 ####################
 
 def routing_graph(run_name, interference,
-                  source, protocol, sample=None):
+                  source, protocol, *, scrambler_id=30, sample=None):
     node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
     dot = Digraph(comment='Routing table for fit{:02d}'
                   .format(source), engine='fdp')
@@ -226,13 +243,14 @@ def routing_graph(run_name, interference,
 
     for node_id in range(1, 38):
         x, y = node_to_pos[node_id]
-        if node_id == 5 and interference != "None":
-            dot.node("Interference", pos="1,1!", shape="tripleoctagon")
-            continue
-        if str(node_id) not in nodes:
+        pos = f"{x},{y}!"
+        if interference != "None" and node_id == scrambler_id:
+            dot.node("", pos=pos,
+                     image="scrambler.png",
+                     )
+        elif str(node_id) not in nodes:
             dot.node(str(node_id), '{:02d}'.format(node_id),
-                     pos=f"{x},{y}!",
-                     shape='point')
+                     pos=pos, shape='point')
         else:
             dot.node(str(node_id), '{:02d}'.format(node_id),
                      pos=f"{x},{y}!",
@@ -269,6 +287,7 @@ def RTT_graph_data(run_name, interference, protocol, source,
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
     dests = get_info(directory, "Destinations")
+    print(f'dests={dests}')
     xValues = []
     yValues = []
     RTT_dic = {}
@@ -358,8 +377,9 @@ def graphDataMultipleRTT(
     return xValues, yValues
 
 
-def graphDataPDR(run_name, tx_power, phy_rate, antenna_mask,
-                 channel, interference, protocol, source):
+def graphDataPDR(run_name, interference, protocol, source,
+                 tx_power=TX_POWER, phy_rate=PHY_RATE,
+                 antenna_mask=ANTENNA_MASK, channel=CHANNEL):
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
 
