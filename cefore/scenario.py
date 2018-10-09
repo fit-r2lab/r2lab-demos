@@ -184,18 +184,18 @@ run_cefore_publisher = SshJob(
 cefore_ready = (run_cefore_simulator, run_cefore_publisher)
 
 # wait before starting the simulation (cefputfile takes some time...)
-#settle_producer = PrintJob(
-#    "Wait {} seconds before starting the simulation".format(settle_delay),
-#    sleep=settle_delay,
-#    scheduler=scheduler,
-#    required=init_done,
-#    label="settling for {} seconds".format(settle_delay)
-#)
+settle_producer = PrintJob(
+    "Wait {} seconds before starting the simulation".format(settle_delay),
+    sleep=settle_delay,
+    scheduler=scheduler,
+    required=init_done,
+    label="settling for {} seconds".format(settle_delay)
+)
 
 run_ns3 = SshJob(
     node=simulator,
     scheduler=scheduler,
-    required=cefore_ready,
+    required=settle_producer,
     critical=True,
     command=RunString(waf_script, label="Run the ns-3/DCE script"),
 )
