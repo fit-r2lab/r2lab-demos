@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-import os.path
-import time
-import asyncio
-import itertools
+# pylint: disable=c0103
+
 from collections import defaultdict
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from asynciojobs import Scheduler, PrintJob
 
@@ -14,15 +12,15 @@ from apssh import SshNode, LocalNode, SshJob
 from apssh import Run, RunString, RunScript, Pull
 
 
-## illustrating the r2lab library                                                                                                    
-# utils                                                                                                                              
+## illustrating the r2lab library
+# utils
 from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
 
-# argument parsing                                                                                                                   
+# argument parsing
 from r2lab import ListOfChoices, ListOfChoicesNullReset
-# include the set of utility scripts that are included by the r2lab kit                                                               
+# include the set of utility scripts that are included by the r2lab kit
 includes = [ find_local_embedded_script(x) for x in [
-    "r2labutils.sh", 
+    "r2labutils.sh",
 ] ]
 
 def fitname(node_id):
@@ -37,7 +35,7 @@ gateway_hostname  = 'faraday.inria.fr'
 gateway_username  = 'inria_cefore'
 verbose_ssh = False
 
-# Default fit id for the node that runs ns-3/dce 
+# Default fit id for the node that runs ns-3/dce
 def_simulator = 2
 # Default fit id for the node that runs the publisher
 def_publisher = 1
@@ -49,18 +47,17 @@ settle_delay = 15
 image_simulator = "dce"
 image_publisher = "cefore"
 
-parser = ArgumentParser()
+parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-s", "--slice", default=gateway_username,
-                    help="specify an alternate slicename, default={}"
-                         .format(gateway_username))
+                    help="specify an alternate slicename")
 parser.add_argument("-S", "--simulator", default=def_simulator,
-                    help="id of the node that runs ns-3/dce, default={}".format(def_simulator))
+                    help="id of the node that runs ns-3/dce")
 parser.add_argument("-P", "--publisher", default=def_publisher,
-                    help="id of the node that runs the publisher, default={}".format(def_publisher))
+                    help="id of the node that runs the publisher")
 parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
                     help="run ssh in verbose mode")
 parser.add_argument("-l", "--load-images", default=False, action='store_true',
-                    help = "enable to load the default image on nodes before the exp")
+                    help="load default image nodes before running the exp")
 args = parser.parse_args()
 
 gateway_username = args.slice
@@ -76,18 +73,20 @@ simulator, publisher = fitname(args.simulator), fitname(args.publisher)
 
 
 
-print("Running scenario with ns-3/dce running at {} and publisher running at {}".format(simulator,publisher))
+print("Running scenario with ns-3/dce running at {}"
+      " and publisher running at {}"
+      .format(simulator, publisher))
 print("and following waf command: {}".format(waf_script))
 
 ###
 #######
-faraday = SshNode(hostname = gateway_hostname, username = gateway_username,
-                  verbose = verbose_ssh)
+faraday = SshNode(hostname=gateway_hostname, username=gateway_username,
+                  verbose=verbose_ssh)
 
-simulator = SshNode(gateway = faraday, hostname = simulator, username = "root",
-                    verbose = verbose_ssh)
-publisher = SshNode(gateway = faraday, hostname = publisher, username = "root",
-                    verbose = verbose_ssh)
+simulator = SshNode(gateway=faraday, hostname=simulator, username="root",
+                    verbose=verbose_ssh)
+publisher = SshNode(gateway=faraday, hostname=publisher, username="root",
+                    verbose=verbose_ssh)
 
 
 ##########
@@ -97,10 +96,10 @@ scheduler = Scheduler()
 ##########
 check_lease = SshJob(
     # checking the lease is done on the gateway
-    node = faraday,
-    critical = True,
-    command = Run("rhubarbe leases --check"),
-    scheduler = scheduler,
+    node=faraday,
+    critical=True,
+    command=Run("rhubarbe leases --check"),
+    scheduler=scheduler,
 )
 
 ########## load images on the two nodes if requested
@@ -113,16 +112,17 @@ if args.load_images:
     to_load[image_simulator] += [args.simulator]
     to_load[image_publisher] += [args.publisher]
     commands = []
+    # ThierryP: this code is suboptimal as it loads images sequentially
     for image, nodes in to_load.items():
         commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
-    commands.append(Run("rhubarbe", "wait", "-t",  120, *nodes))
+    commands.append(Run("rhubarbe", "wait", "-t", 120, *nodes))
     green_light = SshJob(
-        node = faraday,
-        required = check_lease,
-        critical = True,
-        scheduler = scheduler,
-        commands = commands,
-        label = "Prepare node(s) {}".format(nodes),
+        node=faraday,
+        required=check_lease,
+        critical=True,
+        scheduler=scheduler,
+        commands=commands,
+        label="Prepare node(s) {}".format(nodes),
     )
 
 ##########
@@ -133,55 +133,55 @@ if args.load_images:
 # following two inits should be done only when load_images is true
 if args.load_images:
     init_simulator = SshJob(
-        node = simulator,
-        scheduler = scheduler,
-        required = green_light,
-        critical = True,
-        commands = [
+        node=simulator,
+        scheduler=scheduler,
+        required=green_light,
+        critical=True,
+        commands=[
             Run("turn-on-data"),
         ],
-        label = "Init the simulator node",
+        label="Init the simulator node",
     )
 
     init_publisher = SshJob(
-        node = publisher,
-        scheduler = scheduler,
-        required = green_light,
-        critical = True,
-        commands = [
+        node=publisher,
+        scheduler=scheduler,
+        required=green_light,
+        critical=True,
+        commands=[
             Run("turn-on-data"),
         ],
-        label = "Init the publisher node",
+        label="Init the publisher node",
     )
 
-    init_done = (init_simulator,init_publisher)
+    init_done = (init_simulator, init_publisher)
 else:
     init_done = green_light
 
 # Run Cefore on both Producer and Simulator nodes
 run_cefore_simulator = SshJob(
-    node = simulator,
-    scheduler = scheduler,
-    required = init_done,
-    critical = True,
-    commands = [
-        RunScript("cefore.sh", "run-cefore-sim", label="start Cefore daemon on the simulator node"),
+    node=simulator,
+    scheduler=scheduler,
+    required=init_done,
+    critical=True,
+    commands=[
+        RunScript("cefore.sh", "run-cefore-sim",
+                  label="start Cefore daemon on the simulator node"),
     ],
-    label = "Run Cefore daemon on the simulator node",
 )
 
 run_cefore_publisher = SshJob(
-    node = publisher,
-    scheduler = scheduler,
-    required = init_done,
-    critical = True,
-    commands = [
-        RunScript("cefore.sh", "run-cefore-publisher", label="start Cefore and csmg daemons on the publisher node"),
+    node=publisher,
+    scheduler=scheduler,
+    required=init_done,
+    critical=True,
+    commands=[
+        RunScript("cefore.sh", "run-cefore-publisher",
+                  label="start Cefore and csmg daemons on the publisher node"),
     ],
-    label="start Cefore and csmg daemons on the publisher node"
 )
-    
-cefore_ready = (run_cefore_simulator,run_cefore_publisher)
+
+cefore_ready = (run_cefore_simulator, run_cefore_publisher)
 
 # wait before starting the simulation (cefputfile takes some time...)
 #settle_producer = PrintJob(
@@ -193,22 +193,22 @@ cefore_ready = (run_cefore_simulator,run_cefore_publisher)
 #)
 
 run_ns3 = SshJob(
-    node = simulator,
-    scheduler = scheduler,
-    required = cefore_ready,
-    critical = True,
-    command = RunString(waf_script, label="Run the ns-3/DCE script"),
+    node=simulator,
+    scheduler=scheduler,
+    required=cefore_ready,
+    critical=True,
+    command=RunString(waf_script, label="Run the ns-3/DCE script"),
 )
 
 
 pull_files = SshJob(
-    node = simulator,
-    scheduler = scheduler,
-    critical = True,
-    commands = [
+    node=simulator,
+    scheduler=scheduler,
+    critical=True,
+    commands=[
         Pull (remotepaths="/root/NS3/source/ns-3-dce/files-2/tmp/OutFile",localpath="."),
     ],
-    required = run_ns3,
+    required=run_ns3,
     label="Retrieve the output file from simulated node 2",
 )
 
@@ -219,10 +219,9 @@ ok = scheduler.orchestrate()
 # give details if it failed
 ok or scheduler.debrief()
 
-success = ok 
+success = ok
 
 # producing a png file for illustration
 scheduler.export_as_pngfile("cefore-scenario")
 
 exit(0 if success else 1)
-
