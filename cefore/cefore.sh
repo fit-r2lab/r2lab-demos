@@ -4,7 +4,7 @@
 function run-cefore-sim() {
     echo 'In run-cefore-sim'
     cefnetdstop
-    cefnetdstart                                                                                                                     
+    cefnetdstart
 }
 
 # Run the Cefore and Csmg daemons on the publisher host
@@ -17,4 +17,5 @@ function run-cefore-publisher() {
     cefputfile ccn:/realRemote/test ./big_buck_bunny.mp4
 }
 
-
+# this is IMPORTANT, otherwise calling this script .. does nothing
+"$@"
