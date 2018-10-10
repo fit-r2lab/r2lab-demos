@@ -4,6 +4,8 @@
 function run-cefore-sim() {
     echo 'In run-cefore-sim'
     cefnetdstop
+    csmgrdstop
+    csmgrdstart
     cefnetdstart
 }
 
@@ -12,12 +14,12 @@ function run-cefore-publisher() {
     echo 'In run-cefore-publisher'
     cefnetdstop
     csmgrdstop
+    csmgrdstart
+    sleep 2
     cefnetdstart
     sleep 2
-    csmgrdstart
-    sleep 1
     [ -f ./big_buck_bunny.mp4 ] && echo "File big_buck_bunny.mp4 already there" || wget http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4
-    cefputfile ccn:/realRemote/test -f ./big_buck_bunny.mp4
+    cefputfile ccn:/realRemote/test -f ./big_buck_bunny.mp4 -t 100000
 }
 
 # this is IMPORTANT, otherwise calling this script .. does nothing

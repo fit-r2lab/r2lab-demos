@@ -32,7 +32,8 @@ def fitname(node_id):
 
 ##########
 gateway_hostname  = 'faraday.inria.fr'
-gateway_username  = 'inria_cefore'
+#gateway_username  = 'inria_cefore'
+gateway_username  = 'inria_electrosmart'
 verbose_ssh = False
 
 # Default fit id for the node that runs ns-3/dce
@@ -106,23 +107,52 @@ check_lease = SshJob(
 
 green_light = check_lease
 
+#if args.load_images:
+#    # replace green_light in this case
+#    to_load = defaultdict(list)
+#    to_load[image_simulator] += [args.simulator]
+#    to_load[image_publisher] += [args.publisher]
+#    commands = []
+#    # ThierryP: this code is suboptimal as it loads images sequentially
+#    for image, nodes in to_load.items():
+#        commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
+#    commands.append(Run("rhubarbe", "wait", "-t", 120, *nodes))
+#    green_light = SshJob(
+#        node=faraday,
+#        required=check_lease,
+#        critical=True,
+#        scheduler=scheduler,
+#        commands=commands,
+#        label="Prepare node(s) {}".format(nodes),
+#    )
+
 if args.load_images:
     # replace green_light in this case
-    to_load = defaultdict(list)
-    to_load[image_simulator] += [args.simulator]
-    to_load[image_publisher] += [args.publisher]
-    commands = []
-    # ThierryP: this code is suboptimal as it loads images sequentially
-    for image, nodes in to_load.items():
-        commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
-    commands.append(Run("rhubarbe", "wait", "-t", 120, *nodes))
+    node_sim=args.simulator
+    node_pub=args.publisher
+    load_sim = SshJob(
+        node=faraday,
+        required=check_lease,
+        critical=True,
+        scheduler=scheduler,
+        command=Run("rhubarbe", "load", "-i", image_simulator, node_sim),
+        label="Load ns-3/dce with cefore-orig image on nodes {}".format(node_sim),
+    )
+    load_pub = SshJob(
+        node=faraday,
+        required=check_lease,
+        critical=True,
+        scheduler=scheduler,
+        command=Run("rhubarbe", "load", "-i", image_publisher, node_pub),
+        label="Load publisher image on nodes {}".format(node_pub),
+    )
     green_light = SshJob(
         node=faraday,
         required=check_lease,
         critical=True,
         scheduler=scheduler,
-        commands=commands,
-        label="Prepare node(s) {}".format(nodes),
+        command=Run("rhubarbe", "wait", "-t", 180, node_sim),
+        label="Wait for all nodes to be ready",
     )
 
 ##########
