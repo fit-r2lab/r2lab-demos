@@ -8,7 +8,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from asynciojobs import Scheduler, PrintJob
 
-from apssh import SshNode, LocalNode, SshJob
+from apssh import SshNode, LocalNode, SshJob, Service
 from apssh import Run, RunString, RunScript, Pull
 
 
@@ -32,9 +32,8 @@ def fitname(node_id):
 
 ##########
 gateway_hostname  = 'faraday.inria.fr'
-#gateway_username  = 'inria_cefore'
-gateway_username  = 'inria_electrosmart'
-verbose_ssh = False
+# use the -s option to change
+gateway_username  = 'inria_cefore'
 
 # Default fit id for the node that runs ns-3/dce
 def_simulator = 2
@@ -74,7 +73,6 @@ waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimC
 simulator, publisher = fitname(args.simulator), fitname(args.publisher)
 
 
-
 print("Running scenario with ns-3/dce running at {}"
       " and publisher running at {}"
       .format(simulator, publisher))
@@ -108,99 +106,59 @@ check_lease = SshJob(
 
 green_light = check_lease
 
-#if args.load_images:
-#    # replace green_light in this case
-#    to_load = defaultdict(list)
-#    to_load[image_simulator] += [args.simulator]
-#    to_load[image_publisher] += [args.publisher]
-#    commands = []
-#    # ThierryP: this code is suboptimal as it loads images sequentially
-#    for image, nodes in to_load.items():
-#        commands.append(Run("rhubarbe", "load", "-i", image, *nodes))
-#    commands.append(Run("rhubarbe", "wait", "-t", 120, *nodes))
-#    green_light = SshJob(
-#        node=faraday,
-#        required=check_lease,
-#        critical=True,
-#        scheduler=scheduler,
-#        commands=commands,
-#        label="Prepare node(s) {}".format(nodes),
-#    )
-
 if args.load_images:
     # replace green_light in this case
-    node_sim=args.simulator
-    node_pub=args.publisher
+    node_sim = args.simulator
+    node_pub = args.publisher
     load_sim = SshJob(
         node=faraday,
         required=check_lease,
         critical=True,
         scheduler=scheduler,
-        command=Run("rhubarbe", "load", "-i", image_simulator, node_sim),
+        commands=[
+            Run("rhubarbe", "load", "-i", image_simulator, node_sim),
+            Run("rhubarbe", "wait", node_sim),
+            Run("turn-on-data"),
+        ],
     )
     load_pub = SshJob(
         node=faraday,
         required=check_lease,
         critical=True,
         scheduler=scheduler,
-        command=Run("rhubarbe", "load", "-i", image_publisher, node_pub),
-    )
-    green_light = SshJob(
-        node=faraday,
-        required=check_lease,
-        critical=True,
-        scheduler=scheduler,
-        command=Run("rhubarbe", "wait", "-t", 180, node_sim),
-    )
-
-##########
-# setting up the data interface on both server and client
-# setting up routing on server only
-
-
-# following two inits should be done only when load_images is true
-if args.load_images:
-    init_simulator = SshJob(
-        node=simulator,
-        scheduler=scheduler,
-        required=green_light,
-        critical=True,
         commands=[
+            Run("rhubarbe", "load", "-i", image_publisher, node_pub),
+            Run("rhubarbe", "wait", node_pub),
             Run("turn-on-data"),
         ],
     )
+    green_light = (load_pub, load_sim)
 
-    init_publisher = SshJob(
-        node=publisher,
-        scheduler=scheduler,
-        required=green_light,
-        critical=True,
-        commands=[
-            Run("turn-on-data"),
-        ],
-    )
 
-    init_done = (init_simulator, init_publisher)
-else:
-    init_done = green_light
+cefnet_service = Service("cefnetd", service_id="cefnet")
+csmgr_service = Service("csmgrd", service_id="csmgr")
+
 
 # Run Cefore on both Producer and Simulator nodes
 run_cefore_simulator = SshJob(
     node=simulator,
     scheduler=scheduler,
-    required=init_done,
+    required=green_light,
     critical=True,
     commands=[
-        RunScript("cefore.sh", "run-cefore-sim",)
+        csmgr_service.start_command(),
+        cefnet_service.start_command(),
     ],
 )
 
 run_cefore_publisher = SshJob(
     node=publisher,
     scheduler=scheduler,
-    required=init_done,
+    required=green_light,
     critical=True,
     commands=[
+        cefnet_service.start_command(),
+        csmgr_service.start_command(),
         RunScript("cefore.sh", "run-cefore-publisher",)
     ],
 )
@@ -212,7 +170,7 @@ settle_producer = PrintJob(
     "Wait {} seconds before starting the simulation".format(settle_delay),
     sleep=settle_delay,
     scheduler=scheduler,
-    required=init_done,
+    required=green_light,
     label="settling for {} seconds".format(settle_delay)
 )
 
@@ -221,33 +179,45 @@ run_ns3 = SshJob(
     scheduler=scheduler,
     required=settle_producer,
     critical=True,
-    command=RunString(waf_script),
-)
-
-
-pull_files = SshJob(
-    node=simulator,
-    scheduler=scheduler,
-    critical=True,
     commands=[
-        Pull (remotepaths="/root/NS3/source/ns-3-dce/files-2/tmp/OutFile",localpath="."),
+        RunString(waf_script, label='waf_script'),
+        Pull(
+            remotepaths="/root/NS3/source/ns-3-dce/files-2/tmp/OutFile",
+            localpath="."),
     ],
-    required=run_ns3,
 )
+
+# epilogue
+for node in simulator, publisher:
+    SshJob(
+        node=node,
+        scheduler=scheduler,
+        required=run_ns3,
+        commands=[
+            # shutdown services
+            cefnet_service.stop_command(),
+            csmgr_service.stop_command(),
+            ]
+)
+
 
 ##########
-if dry_run:
-    scheduler.export_as_pngfile("cefore-scenario")
+scheduler.export_as_pngfile("cefore-scenario")
+if args.dry_run:
+    exit(0)
 
 # run the scheduler
-ok = scheduler.orchestrate()
+scheduler.verbose = True
+scheduler.list()
+
+try:
+    success = scheduler.run()
+except KeyboardInterrupt:
+    print("OOPS ! ")
+    scheduler.debrief()
+    exit(1)
 
 # give details if it failed
-ok or scheduler.debrief()
-
-success = ok
-
-# producing a png file for illustration
-scheduler.export_as_pngfile("cefore-scenario")
+success or scheduler.debrief()
 
 exit(0 if success else 1)
