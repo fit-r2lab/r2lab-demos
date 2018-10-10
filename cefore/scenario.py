@@ -57,13 +57,14 @@ parser.add_argument("-P", "--publisher", default=def_publisher,
                     help="id of the node that runs the publisher")
 parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
                     help="run ssh in verbose mode")
+parser.add_argument("-n", "--dry-run", action='store_true', default=False)
 parser.add_argument("-l", "--load-images", default=False, action='store_true',
                     help="load default image nodes before running the exp")
 args = parser.parse_args()
 
 gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
-
+dry_run = args.dry_run
 
 waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap-v1"
 
@@ -136,7 +137,6 @@ if args.load_images:
         critical=True,
         scheduler=scheduler,
         command=Run("rhubarbe", "load", "-i", image_simulator, node_sim),
-        label="Load ns-3/dce with cefore-orig image on nodes {}".format(node_sim),
     )
     load_pub = SshJob(
         node=faraday,
@@ -144,7 +144,6 @@ if args.load_images:
         critical=True,
         scheduler=scheduler,
         command=Run("rhubarbe", "load", "-i", image_publisher, node_pub),
-        label="Load publisher image on nodes {}".format(node_pub),
     )
     green_light = SshJob(
         node=faraday,
@@ -152,7 +151,6 @@ if args.load_images:
         critical=True,
         scheduler=scheduler,
         command=Run("rhubarbe", "wait", "-t", 180, node_sim),
-        label="Wait for all nodes to be ready",
     )
 
 ##########
@@ -170,7 +168,6 @@ if args.load_images:
         commands=[
             Run("turn-on-data"),
         ],
-        label="Init the simulator node",
     )
 
     init_publisher = SshJob(
@@ -181,7 +178,6 @@ if args.load_images:
         commands=[
             Run("turn-on-data"),
         ],
-        label="Init the publisher node",
     )
 
     init_done = (init_simulator, init_publisher)
@@ -195,8 +191,7 @@ run_cefore_simulator = SshJob(
     required=init_done,
     critical=True,
     commands=[
-        RunScript("cefore.sh", "run-cefore-sim",
-                  label="start Cefore daemon on the simulator node"),
+        RunScript("cefore.sh", "run-cefore-sim",)
     ],
 )
 
@@ -206,8 +201,7 @@ run_cefore_publisher = SshJob(
     required=init_done,
     critical=True,
     commands=[
-        RunScript("cefore.sh", "run-cefore-publisher",
-                  label="start Cefore and csmg daemons on the publisher node"),
+        RunScript("cefore.sh", "run-cefore-publisher",)
     ],
 )
 
@@ -227,7 +221,7 @@ run_ns3 = SshJob(
     scheduler=scheduler,
     required=settle_producer,
     critical=True,
-    command=RunString(waf_script, label="Run the ns-3/DCE script"),
+    command=RunString(waf_script),
 )
 
 
@@ -239,10 +233,12 @@ pull_files = SshJob(
         Pull (remotepaths="/root/NS3/source/ns-3-dce/files-2/tmp/OutFile",localpath="."),
     ],
     required=run_ns3,
-    label="Retrieve the output file from simulated node 2",
 )
 
 ##########
+if dry_run:
+    scheduler.export_as_pngfile("cefore-scenario")
+
 # run the scheduler
 ok = scheduler.orchestrate()
 
