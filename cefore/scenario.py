@@ -130,11 +130,30 @@ if args.load_images:
             Run("rhubarbe", "wait", node_pub),
         ],
     )
-    green_light = (load_pub, load_sim)
+    turn_off_others = SshJob(
+        node=faraday,
+        scheduler=scheduler,
+        required=check_lease,
+        command=Run("rhubarbe off --all ~{} ~{}"
+                    .format(node_pub, node_sim)
+                    ),
+    )
+    green_light = (load_pub, load_sim, turn_off_others)
 
+# turns out that the daemons - at least csmgr -
+# somehow rely on the USER environment variable
+# but this is not implicitly defined when using systemd
+# so for now we define it explicitly here
+# this *might* become a feature of the Service class in the future
+environ = {
+    'USER': 'root'
+}
 
-cefnet_service = Service("cefnetd", service_id="cefnet", systemd_type="forking")
-csmgr_service = Service("csmgrd", service_id="csmgr", systemd_type="forking")
+# in this order, as cefnet requires csmgr
+csmgr_service = Service("csmgrd", service_id="csmgr",
+                        environ=environ)
+cefnet_service = Service("cefnetd", service_id="cefnet",
+                        environ=environ)
 
 
 # Run Cefore on both Producer and Simulator nodes
@@ -157,9 +176,10 @@ run_publisher_daemons = SshJob(
     critical=True,
     commands=[
         Run("turn-on-data"),
-        cefnet_service.start_command(),
         csmgr_service.start_command(),
-        RunScript("cefore.sh", "put-media-on-publisher",)
+        Run("sleep 2"),
+        cefnet_service.start_command(),
+        Run("sleep 2"),
     ],
 )
 
