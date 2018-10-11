@@ -118,7 +118,6 @@ if args.load_images:
         commands=[
             Run("rhubarbe", "load", "-i", image_simulator, node_sim),
             Run("rhubarbe", "wait", node_sim),
-            Run("turn-on-data"),
         ],
     )
     load_pub = SshJob(
@@ -129,55 +128,67 @@ if args.load_images:
         commands=[
             Run("rhubarbe", "load", "-i", image_publisher, node_pub),
             Run("rhubarbe", "wait", node_pub),
-            Run("turn-on-data"),
         ],
     )
     green_light = (load_pub, load_sim)
 
 
-cefnet_service = Service("cefnetd", service_id="cefnet")
-csmgr_service = Service("csmgrd", service_id="csmgr")
+cefnet_service = Service("cefnetd", service_id="cefnet", systemd_type="forking")
+csmgr_service = Service("csmgrd", service_id="csmgr", systemd_type="forking")
 
 
 # Run Cefore on both Producer and Simulator nodes
-run_cefore_simulator = SshJob(
+run_simulator_daemons = SshJob(
     node=simulator,
     scheduler=scheduler,
     required=green_light,
     critical=True,
     commands=[
+        Run("turn-on-data"),
         csmgr_service.start_command(),
         cefnet_service.start_command(),
     ],
 )
 
-run_cefore_publisher = SshJob(
+run_publisher_daemons = SshJob(
     node=publisher,
     scheduler=scheduler,
     required=green_light,
     critical=True,
     commands=[
+        Run("turn-on-data"),
         cefnet_service.start_command(),
         csmgr_service.start_command(),
-        RunScript("cefore.sh", "run-cefore-publisher",)
+        RunScript("cefore.sh", "put-media-on-publisher",)
     ],
 )
 
-cefore_ready = (run_cefore_simulator, run_cefore_publisher)
+daemons_ready = (run_simulator_daemons, run_publisher_daemons)
+
+put_media_on_publisher = SshJob(
+    node=publisher,
+    scheduler=scheduler,
+    required=daemons_ready,
+    critical=True,
+    commands=[
+        RunScript("cefore.sh", "put-media-on-publisher",)
+    ],
+)
+
 
 # wait before starting the simulation (cefputfile takes some time...)
-settle_producer = PrintJob(
-    "Wait {} seconds before starting the simulation".format(settle_delay),
-    sleep=settle_delay,
-    scheduler=scheduler,
-    required=green_light,
-    label="settling for {} seconds".format(settle_delay)
-)
+##settle_producer = PrintJob(
+#    "Wait {} seconds before starting the simulation".format(settle_delay),
+#    sleep=settle_delay,
+#    scheduler=scheduler,
+#    required=green_light,
+#    label="settling for {} seconds".format(settle_delay)
+#)
 
 run_ns3 = SshJob(
     node=simulator,
     scheduler=scheduler,
-    required=settle_producer,
+    required=put_media_on_publisher,
     critical=True,
     commands=[
         RunString(waf_script, label='waf_script'),
