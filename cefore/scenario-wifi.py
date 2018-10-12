@@ -44,7 +44,7 @@ def_publisher = 37
 settle_delay = 15
 
 # Images names for server and client
-image_simulator = "dce"
+image_simulator = "dce-ap"
 image_publisher = "cefore"
 
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -64,6 +64,9 @@ args = parser.parse_args()
 gateway_username = args.slice
 verbose_ssh = args.verbose_ssh
 dry_run = args.dry_run
+node_sim = args.simulator
+node_pub = args.publisher
+
 
 waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap-v1"
 
@@ -108,8 +111,6 @@ green_light = check_lease
 
 if args.load_images:
     # replace green_light in this case
-    node_sim = args.simulator
-    node_pub = args.publisher
     load_sim = SshJob(
         node=faraday,
         required=check_lease,
@@ -163,7 +164,7 @@ run_simulator_daemons = SshJob(
     required=green_light,
     critical=True,
     commands=[
-        Run("turn-on-data"),
+        RunScript("cefore.sh", "configure-ip-ap", node_sim),
         csmgr_service.start_command(),
         cefnet_service.start_command(),
     ],
@@ -175,7 +176,7 @@ run_publisher_daemons = SshJob(
     required=green_light,
     critical=True,
     commands=[
-        Run("turn-on-data"),
+        RunScript("cefore.sh", "connect-to-ap", node_pub),
         csmgr_service.start_command(),
         Run("sleep 2"),
         cefnet_service.start_command(),
