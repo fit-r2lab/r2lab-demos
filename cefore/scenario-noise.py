@@ -40,7 +40,7 @@ def_simulator = 1
 # Default fit id for the node that runs the publisher
 def_publisher = 37
 # Default fit id for the node that runs the noise generator
-def_generator = 12
+def_generator = 0
 
 # Waiting time for producer to settle
 settle_delay = 15
@@ -48,7 +48,7 @@ settle_delay = 15
 # Images names for server and client
 image_simulator = "dce-ap"
 image_publisher = "cefore"
-image_generator = "gnuradio"
+image_generator = "gnuradio-cefore"
 
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -73,19 +73,29 @@ node_sim = args.simulator
 node_pub = args.publisher
 node_generator = args.generator
 
+if node_generator:
+    noise=True
+else:
+    noise = False
 
 waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap-v1"
 
 #waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
 
 
-simulator, publisher, generator = fitname(args.simulator), fitname(args.publisher), fitname(args.generator)
-
+simulator, publisher = fitname(args.simulator), fitname(args.publisher)
 
 print("Running scenario with ns-3/dce running at {}"
       " and publisher running at {}"
       .format(simulator, publisher))
-print("and following waf command: {}".format(waf_script))
+
+if noise:
+    generator = fitname(args.generator)
+    print("Noise generator running on node {}".format(generator))
+
+print("With following waf command: {}".format(waf_script))
+
+
 
 ###
 #######
@@ -96,9 +106,9 @@ simulator = SshNode(gateway=faraday, hostname=simulator, username="root",
                     verbose=verbose_ssh)
 publisher = SshNode(gateway=faraday, hostname=publisher, username="root",
                     verbose=verbose_ssh)
-
-generator = SshNode(gateway=faraday, hostname=generator, username="root",
-                    verbose=verbose_ssh)
+if noise:
+    generator = SshNode(gateway=faraday, hostname=generator, username="root",
+                        verbose=verbose_ssh)
 
 
 ##########
@@ -140,27 +150,38 @@ if args.load_images:
             Run("rhubarbe", "wait", node_pub),
         ],
     )
-    load_generator = SshJob(
-        node=faraday,
-        required=check_lease,
-        critical=True,
-        scheduler=scheduler,
-        commands=[
-            Run("rhubarbe", "usrpoff", node_generator),
-            Run("rhubarbe", "load", "-i", image_generator, node_generator),
-            Run("rhubarbe", "usrpon", node_generator),
-            Run("rhubarbe", "wait", node_generator),
-        ],
-    )
-    turn_off_others = SshJob(
-        node=faraday,
-        scheduler=scheduler,
-        required=check_lease,
-        command=Run("rhubarbe off --all ~{} ~{} ~{}"
-                    .format(node_pub, node_sim, node_generator)
-                    ),
-    )
-    green_light = (load_pub, load_sim, load_generator, turn_off_others)
+    if noise:
+        load_generator = SshJob(
+            node=faraday,
+            required=check_lease,
+            critical=True,
+            scheduler=scheduler,
+            commands=[
+                Run("rhubarbe", "usrpoff", node_generator),
+                Run("rhubarbe", "load", "-i", image_generator, node_generator),
+                Run("rhubarbe", "wait", node_generator),
+            ],
+        )
+        turn_off_others = SshJob(
+            node=faraday,
+            scheduler=scheduler,
+            required=check_lease,
+            command=Run("rhubarbe off --all ~{} ~{} ~{}"
+                        .format(node_pub, node_sim, node_generator)
+                        ),
+        )
+        green_light = (load_pub, load_sim, load_generator, turn_off_others)
+    else:
+        turn_off_others = SshJob(
+            node=faraday,
+            scheduler=scheduler,
+            required=check_lease,
+            command=Run("rhubarbe off --all ~{} ~{}"
+                        .format(node_pub, node_sim)
+                        ),
+        )
+        green_light = (load_pub, load_sim, turn_off_others)
+
 
 # turns out that the daemons - at least csmgr -
 # somehow rely on the USER environment variable
@@ -210,36 +231,32 @@ run_publisher_daemons = SshJob(
     ],
 )
 
-switch_on_usrp = SshJob(
-    # switch on usrp
-    node=faraday,
-    scheduler=scheduler,
-    required=green_light,
-    commands=[
-        Run("rhubarbe", "usrpon", node_generator),
-        Run("sleep 5"),
-    ],
-)
-
-
-xterm_script= "(xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-* -bg wheat -geometry 90x10; ret=$?; if [ $ret -eq '140' ]; then echo 'return 140'; exit 0; fi; exit $ret)"
-prepare_generator_job = [
-    SshJob(
-        node=generator,
-        forever=True,
+if noise:
+    switch_on_usrp = SshJob(
+        # switch on usrp
+        node=faraday,
+        scheduler=scheduler,
+        required=green_light,
         commands=[
-            RunScript("cefore.sh", "enable-usrp-ethernet", verbose=True),
-#            Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
-#                " -bg {} -geometry 90x10".format("wheat"),
-#                x11=True),
-            Run(xterm_script, x11=True),
+            Run("rhubarbe", "usrpon", node_generator),
+            Run("sleep 5"),
         ],
     )
-]
-prepare_generator = Scheduler(*prepare_generator_job,
-                               scheduler=scheduler,
-                               required=sitch_on_usrp,
-                               label="Set up USRP and display X11 window for uhd_siggen on fit node {}".format(node_generator))
+    xterm_script= "(xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-* -bg wheat -geometry 90x10; ret=$?; if [ $ret -eq '140' ]; then echo 'return 140'; exit 0; fi; exit $ret)"
+    prepare_generator_job = [
+        SshJob(
+            node=generator,
+            forever=True,
+            commands=[
+                RunScript("cefore.sh", "enable-usrp-ethernet", verbose=True),
+                Run(xterm_script, x11=True),
+            ],
+        )
+    ]
+    prepare_generator = Scheduler(*prepare_generator_job,
+                                   scheduler=scheduler,
+                                   required=switch_on_usrp,
+                                   label="Set up USRP and display X11 window for uhd_siggen on fit node {}".format(node_generator))
 
 
 all_nodes_ready = (run_simulator_daemons, run_publisher_daemons)
@@ -290,23 +307,24 @@ for node in simulator, publisher:
             ]
 )
 
-kill_generator_script="pkill --signal SIGUSR2 xterm; echo 'pkill xterm'"
 
-SshJob(
-    # shutdown uhd_siggen service
-    node=generator,
-    scheduler=scheduler,
-    required=run_ns3,
-    command = RunString(kill_generator_script, label="Exit noise generator window"),
-)
-
-SshJob(
-    # switch off usrp
-    node=faraday,
-    scheduler=scheduler,
-    required=run_ns3,
-    command=Run("rhubarbe", "usrpoff", node_generator),
-)
+if noise:
+    kill_generator_script="pkill --signal SIGUSR2 xterm; echo 'pkill xterm'"
+    SshJob(
+        # shutdown uhd_siggen service
+        node=generator,
+        scheduler=scheduler,
+        required=run_ns3,
+        command = RunString(kill_generator_script, 
+                            label="Exit noise generator window"),
+    )
+    SshJob(
+        # switch off usrp
+        node=faraday,
+        scheduler=scheduler,
+        required=run_ns3,
+        command=Run("rhubarbe", "usrpoff", node_generator),
+   )
 
 
 
