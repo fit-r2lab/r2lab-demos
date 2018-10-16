@@ -39,6 +39,8 @@ gateway_username  = 'inria_cefore'
 def_simulator = 1
 # Default fit id for the node that runs the publisher
 def_publisher = 37
+# Default fit id for the node that runs the noise generator
+def_generator = 0
 
 # Waiting time for producer to settle
 settle_delay = 15
@@ -46,6 +48,7 @@ settle_delay = 15
 # Images names for server and client
 image_simulator = "dce-ap"
 image_publisher = "cefore"
+image_generator = "gnuradio-cefore"
 
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-s", "--slice", default=gateway_username,
@@ -54,6 +57,10 @@ parser.add_argument("-S", "--simulator", default=def_simulator,
                     help="id of the node that runs ns-3/dce")
 parser.add_argument("-P", "--publisher", default=def_publisher,
                     help="id of the node that runs the publisher")
+parser.add_argument("-G", "--generator", default=def_generator,
+                    help="id of the node that runs the noise generator")
+parser.add_argument("-p", "--ping-mode", default=False, action='store_true',
+                    help="run concurrent wireless ping traffic")
 parser.add_argument("-v", "--verbose-ssh", default=False, action='store_true',
                     help="run ssh in verbose mode")
 parser.add_argument("-n", "--dry-run", action='store_true', default=False)
@@ -66,20 +73,39 @@ verbose_ssh = args.verbose_ssh
 dry_run = args.dry_run
 node_sim = args.simulator
 node_pub = args.publisher
+node_generator = args.generator
+ping_mode = args.ping_mode
 
+if node_generator:
+    noise_mode=True
+else:
+    noise_mode = False
 
-waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap-v1"
+waf_script = "cd NS3/source/ns-3-dce; ./waf --run dce-test-twoRealNodes-wifiSimConsumers-onlyTap-v2"
 
 #waf_script = """ cd ns-3-dev; ./waf --run "scratch/olsr --remote={} --local={} --dstnNode={} --stopTime={} --multicast=true" """.format(args.server,args.client,target_node,duration)
 
 
 simulator, publisher = fitname(args.simulator), fitname(args.publisher)
 
-
 print("Running scenario with ns-3/dce running at {}"
       " and publisher running at {}"
       .format(simulator, publisher))
-print("and following waf command: {}".format(waf_script))
+
+if noise_mode:
+    generator = fitname(args.generator)
+    print("With noise generator running on node {}".format(generator))
+if ping_mode:
+    node_ping = 3
+    node_pong = 33
+    ping_command = "ping -i 0.001 -s 4000 -c 1000000 10.0.0.{} > ping.out".format(node_pong)
+    ping = fitname(node_ping)
+    pong = fitname(node_pong)
+    print("Wireless ping traffic running between node {} and node {}".format(ping,pong))
+    print("ping command: {}".format(ping_command))
+print("With following waf command: {}".format(waf_script))
+
+
 
 ###
 #######
@@ -90,6 +116,14 @@ simulator = SshNode(gateway=faraday, hostname=simulator, username="root",
                     verbose=verbose_ssh)
 publisher = SshNode(gateway=faraday, hostname=publisher, username="root",
                     verbose=verbose_ssh)
+if noise_mode:
+    generator = SshNode(gateway=faraday, hostname=generator, username="root",
+                        verbose=verbose_ssh)
+if ping_mode:
+    ping = SshNode(gateway=faraday, hostname=ping, username="root",
+                   verbose=verbose_ssh)
+    pong = SshNode(gateway=faraday, hostname=pong, username="root",
+                   verbose=verbose_ssh)
 
 
 ##########
@@ -131,15 +165,46 @@ if args.load_images:
             Run("rhubarbe", "wait", node_pub),
         ],
     )
-    turn_off_others = SshJob(
-        node=faraday,
-        scheduler=scheduler,
-        required=check_lease,
-        command=Run("rhubarbe off --all ~{} ~{}"
-                    .format(node_pub, node_sim)
-                    ),
-    )
-    green_light = (load_pub, load_sim, turn_off_others)
+    green_light = [load_pub, load_sim]
+    if noise_mode:
+        load_generator = SshJob(
+            node=faraday,
+            required=check_lease,
+            critical=True,
+            scheduler=scheduler,
+            commands=[
+                Run("rhubarbe", "usrpoff", node_generator),
+                Run("rhubarbe", "load", "-i", image_generator, node_generator),
+                Run("rhubarbe", "wait", node_generator),
+            ],
+        )
+        green_light.append(load_generator)
+    if ping_mode:
+        load_ping = SshJob(
+            node=faraday,
+            required=check_lease,
+            critical=True,
+            scheduler=scheduler,
+            commands=[
+                Run("rhubarbe", "load", "-i", "ubuntu", node_ping),
+                Run("rhubarbe", "wait", node_ping),
+            ],
+        )
+        load_pong = SshJob(
+            node=faraday,
+            required=check_lease,
+            critical=True,
+            scheduler=scheduler,
+            commands=[
+                Run("rhubarbe", "load", "-i", "ubuntu", node_pong),
+                Run("rhubarbe", "wait", node_pong),
+            ],
+        )
+        green_light.append(load_ping)
+        green_light.append(load_pong)
+
+
+
 
 # turns out that the daemons - at least csmgr -
 # somehow rely on the USER environment variable
@@ -156,14 +221,19 @@ csmgr_service = Service("csmgrd", service_id="csmgr",
 cefnet_service = Service("cefnetd", service_id="cefnet",
                         environ=environ)
 
+#siggen_service = Service("uhd_siggen --gaussian -f 2425M -g 10", 
+#                         service_id="uhd_siggen", verbose=True)
+
 
 # Run Cefore on both Producer and Simulator nodes
+com_pub="echo ccn:/realRemote udp 10.0.0.{} > /usr/local/cefore/cefnetd.fib".format(node_pub)
 run_simulator_daemons = SshJob(
     node=simulator,
     scheduler=scheduler,
     required=green_light,
     critical=True,
     commands=[
+        Run(com_pub, verbose=True, label="Add to FIB ccn:/realRemote udp 10.0.0.{}".format(node_pub)),
         RunScript("cefore.sh", "configure-ip-ap", node_sim),
         csmgr_service.start_command(),
         cefnet_service.start_command(),
@@ -184,12 +254,72 @@ run_publisher_daemons = SshJob(
     ],
 )
 
-daemons_ready = (run_simulator_daemons, run_publisher_daemons)
+all_nodes_ready = [run_simulator_daemons, run_publisher_daemons]
+
+if ping_mode:
+    run_ping_job = [
+        SshJob(
+            node=ping,
+            forever=True,
+            critical=True,
+            commands=[
+                RunScript("cefore.sh", "connect-to-ap", node_ping),
+                Run("sleep 5"),
+                Run(ping_command, verbose=True), 
+            ],
+        )
+    ]
+    run_ping = Scheduler(*run_ping_job,
+                          scheduler=scheduler,
+                          required=green_light,
+                          label="Run ping on fit node {}".format(node_ping))
+
+    run_pong = SshJob(
+        node=pong,
+        scheduler=scheduler,
+        required=green_light,
+        critical=True,
+        commands=[
+            RunScript("cefore.sh", "connect-to-ap", node_pong),
+        ],
+    )
+    all_nodes_ready.append(run_pong)
+    
+if noise_mode:
+    switch_on_usrp = SshJob(
+        # switch on usrp
+        node=faraday,
+        scheduler=scheduler,
+        required=green_light,
+        commands=[
+            Run("rhubarbe", "usrpon", node_generator),
+            Run("sleep 5"),
+        ],
+    )
+    xterm_script= "(xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-* -bg wheat -geometry 90x10; ret=$?; if [ $ret -eq '140' ]; then echo 'return 140'; exit 0; fi; exit $ret)"
+    prepare_generator_job = [
+        SshJob(
+            node=generator,
+            forever=True,
+            critical=True,
+            commands=[
+                RunScript("cefore.sh", "enable-usrp-ethernet", verbose=True),
+                Run(xterm_script, x11=True),
+            ],
+        )
+    ]
+    prepare_generator = Scheduler(*prepare_generator_job,
+                                   scheduler=scheduler,
+                                   required=switch_on_usrp,
+                                   label="Set up USRP and display X11 window for uhd_siggen on fit node {}".format(node_generator))
+
+
+
 
 put_media_on_publisher = SshJob(
     node=publisher,
     scheduler=scheduler,
-    required=daemons_ready,
+    required=all_nodes_ready,
     critical=True,
     commands=[
         RunScript("cefore.sh", "put-media-on-publisher",)
@@ -222,15 +352,50 @@ run_ns3 = SshJob(
 # epilogue
 for node in simulator, publisher:
     SshJob(
+        # shutdown services
         node=node,
         scheduler=scheduler,
         required=run_ns3,
         commands=[
-            # shutdown services
             cefnet_service.stop_command(),
             csmgr_service.stop_command(),
             ]
 )
+
+
+if ping_mode:
+    kill_ping_script="pkill --signal SIGINT ping; echo 'pkill ping'"
+    SshJob(
+        # shutdown uhd_siggen service
+        node=ping,
+        scheduler=scheduler,
+        required=run_ns3,
+        commands = [
+            RunString(kill_ping_script, label="Stop ping command"),
+            Pull(
+            remotepaths="/root/ping.out",
+            localpath="."),
+        ],
+    )
+
+if noise_mode:
+    kill_generator_script="pkill --signal SIGUSR2 xterm; echo 'pkill xterm'"
+    SshJob(
+        # shutdown uhd_siggen service
+        node=generator,
+        scheduler=scheduler,
+        required=run_ns3,
+        command = RunString(kill_generator_script, 
+                            label="Exit noise generator window"),
+    )
+    SshJob(
+        # switch off usrp
+        node=faraday,
+        scheduler=scheduler,
+        required=run_ns3,
+        command=Run("rhubarbe", "usrpoff", node_generator),
+   )
+
 
 
 ##########
