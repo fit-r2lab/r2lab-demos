@@ -15,4 +15,4 @@
 ./runs.py --load \
     --protocol olsr batman --all-sources \
     --interference -13 -11 -9 -7 1 3 5 7 None \
-    --all-extras -o new-datasample >& new-datasample.log
+    --all-extras -o datasample4 >& datasample4.log

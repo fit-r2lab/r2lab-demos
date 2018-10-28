@@ -46,16 +46,17 @@ def available_interference_options(datadir):
     }
 
 
-def dashboard(datadir, on_nodes, *,
-              pick_sample=False,
-              continuous_sender=False):
+def _dashboard(datadir, on_nodes, *,
+              continuous_sender=False,
+              node_legend="node",
+              node_key='node_id',
+              ):
     """
     some contorsions with ipywidgets to show controls in
     a compact way
     create and display a dashboard
     return a dictionary name->widget suitable for interactive_output
 
-    if pick_sample is True, a slider is added to select a sample number
     """
     # dashboard pieces as widgets
     l100 = Layout(width='100%')
@@ -68,31 +69,18 @@ def dashboard(datadir, on_nodes, *,
     w_interference = Dropdown(
         options=interference_options, value="None",
         description="Interference power in dBm: ", layout=l50)
-    w_sender = SelectionSlider(
-        description="sender node",
+    w_node = SelectionSlider(
+        description=node_legend,
         options=on_nodes,
         continuous_update=continuous_sender, layout=l100)
     mapping = dict(
         datadir=w_datadir,
-        interference=w_interference,
-        source=w_sender)
-    if not pick_sample:
-        # make up a dashboard
-        dashboard_widget = VBox([
-            HBox([w_datadir, w_interference]),
-            HBox([w_sender]),
-        ])
-    else:
-        w_sample = IntSlider(
-            description="sample number",
-            min=0, max=2000, step=1, value=1,
-            continuous_update=continuous_sender, layout=l100)
-        dashboard_widget = VBox([
-            HBox([w_datadir, w_interference]),
-            HBox([w_sender]),
-            HBox([w_sample]),
-        ])
-        mapping['sample'] = w_sample
+        interference=w_interference)
+    mapping[node_key] = w_node
+    dashboard_widget = VBox([
+        HBox([w_datadir, w_interference]),
+        HBox([w_node]),
+    ])
 
     def update_interferences(info):
         # info is a dict with fields like
@@ -104,6 +92,20 @@ def dashboard(datadir, on_nodes, *,
     display(dashboard_widget)
     return mapping
 
+
+def dashboard_source(datadir, on_nodes, *,
+                     continuous_sender=False):
+    return _dashboard(datadir, on_nodes,
+                      continuous_sender=continuous_sender,
+                      node_legend="sender",
+                      node_key='source')
+
+def dashboard_receiver(datadir, on_nodes, *,
+                       continuous_sender=False):
+    return _dashboard(datadir, on_nodes,
+                      continuous_sender=continuous_sender,
+                      node_legend="receiver",
+                      node_key='receiver')
 
 def dashboard_multiple(datadir, on_nodes, continuous_sender=False):
     """

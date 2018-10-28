@@ -64,12 +64,15 @@ choices_interference = [
     "1", "2", "3", "4", "5", "6", "7", "None"]
 default_interference = ["None"]
 
-choices_scrambler_id = [2, 4, 5, 6, 12, 13, 15, 16, 20, 21, 26, 28, 30, 34, 36]
-default_scrambler_id = 30
+# focusing on n210 and usrp2:
+# n210 = 12 15 27 30 31 36 37
+# usrp2 = 5 13
+choices_scrambler_id = [5, 12, 13, 15, 27, 30, 31, 36, 37]
+default_scrambler_id = 5
 
 all_node_ids = [str(i) for i in range(1, 38)]
 # The 10 nodes selected by Farzaneh adapted
-default_node_ids = [1, 3, 12, 14, 19, 22, 27, 31, 33, 37]
+default_node_ids = [1, 4, 12, 15, 19, 27, 31, 33, 37]
 default_src_ids = [1]
 default_dest_ids = [37]
 
@@ -654,6 +657,7 @@ def one_run(*, protocol, interference,
                           f"10.0.0.{d}",
                           ping_timeout, ping_interval,
                           ping_size, ping_messages,
+                          f"actual {s} ➡︎ {d}",
                           ">", f"PING-{s:02d}-{d:02d}",
                           label=""),
                 Pull(remotepaths=[f"PING-{s:02d}-{d:02d}"],

@@ -72,7 +72,7 @@ function init-ad-hoc-network-ath9k (){
 	iw phy $phyname set antenna $antmask
     fi
 
-    echo "Enable Mesh mode on channel 10"
+    echo "Enable Mesh mode on device $ifname"
     #IWCONFIG deprecated ==> pass to iw dev
     #iwconfig $ifname essid mesh mode ad-hoc channel 10 rts 250 frag 256
     iw dev $ifname set type mesh
@@ -87,14 +87,14 @@ function init-ad-hoc-network-ath9k (){
     ip link set $ifname up
 
 
-    echo "setting the broadcast address"
+    echo "Using IP address $ipaddr_mask"
     ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
-    # configuring
 
     # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Setting the transmission power to $txpower"
     iw dev $ifname set txpower fixed $txpower
-     sleep 5
+    sleep 5
+
 #    echo "second try"
 #    # do it twice...
 #    ip address flush dev $ifname
@@ -110,24 +110,29 @@ function init-ad-hoc-network-ath9k (){
 #iw dev $moniname set freq $freq
     iw dev $ifname set mesh_param mesh_fwding 0
 
+    # 2.4 GHz or 5 GHz ?
     if test $freq -le 3000
-      then
-	echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
-	iw dev $ifname set bitrates legacy-2.4 $phyrate
-      else
-	echo "Configuring bitrates to legacy-5 $phyrate Mbps"
-	iw dev $ifname set bitrates legacy-5 $phyrate
+        then
+            echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
+            iw dev $ifname set bitrates legacy-2.4 $phyrate
+        else
+            echo "Configuring bitrates to legacy-5 $phyrate Mbps"
+            iw dev $ifname set bitrates legacy-5 $phyrate
     fi
 
 
 
     echo "List of authorized frequencies on $phyname:"
-    iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
+    iw $phyname info | grep -v -e disabled -e IR -e radar -e GI | grep MHz
+
+    # double-checking txpower; use iwlist from iwconfig for that,
+    # even if old-school, as iw does not provide the information apparently
+    echo "Current tx-power on $ifname"
+    iwlist $ifname txpower
 
     # then, run tcpdump with the right parameters
 
 #    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
-
 
     ### addition - would be cool to come up with something along these lines that
     # works on both cards
@@ -277,14 +282,12 @@ function my-ping (){
     local number=$1; shift
     local extras="$@"
 
-    logfile=/tmp/ping.txt
-    command="ping -W $timeout -c $number -i $interval -s $size -q $dest"
+    command="ping -W $timeout -c $number -i $interval -s $size $dest"
 
-    echo $extras "$command >& $logfile"
-    $command >& $logfile
+    echo $extras
+    echo $command
+    $command
 
-    result=$(grep "received" /tmp/ping.txt)
-    echo "ping $dest: ${result}"
     return 0
 }
 

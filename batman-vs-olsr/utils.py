@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 
 # should go away eventually
 import glob
@@ -31,8 +31,6 @@ ANTENNA_MASK = 1
 
 # + force to name all parameters
 def naming_scheme(*, run_name, protocol, interference,
-                  tx_power=TX_POWER, phy_rate=PHY_RATE,
-                  antenna_mask=ANTENNA_MASK, channel=CHANNEL,
                   autocreate=False):
     """
     Returns a pathlib Path instance that points at the directory
@@ -42,8 +40,8 @@ def naming_scheme(*, run_name, protocol, interference,
     and a message is printed in that case
     """
     root = Path(run_name)
-    run_root = root / (f"t{tx_power}-r{phy_rate}-a{antenna_mask}"
-                       f"-ch{channel}-I{interference}-{protocol}")
+    run_root = root / (f"t{TX_POWER}-r{PHY_RATE}-a{ANTENNA_MASK}"
+                       f"-ch{CHANNEL}-I{interference}-{protocol}")
     if autocreate:
         if not run_root.is_dir():
             print(f"Creating result directory: {run_root}")
@@ -70,76 +68,44 @@ def time_line(line, file=sys.stdout):
 
 
 ####################
+PingDetails = namedtuple(
+    'PingDetails',
+    ['PDR', 'RTT'])
 
-def read_ping_output(filename):
+
+def read_ping_details(filename, warning=True):
     """
-    Return a namedtuple resulting from parsing a line like
+    Return a PingDetails resulting from parsing a line like
 
     ping 10.0.0.37: 500 packets transmitted, 500 received, 0% packet loss, time 2079ms
-
-
-    Will generate a list of time (in ms) by parsing the output of the ping command.
-        One line is typically :
-        72 bytes from 10.0.0.4: icmp_seq=2 ttl=64 time=1.34 ms
     """
+
+    summary_line = (
+        r'.*'
+        r'(?P<transmitted>[0-9]+) packets transmitted, '
+        r'(?P<received>[0-9]+) received, '
+        r'(\+?(?P<errors>[0-9]+) errors, )?'
+        r'(?P<percent_loss>[0-9.]+)% packet loss, '
+        r'time (?P<milliseconds>[0-9.]+)ms')
 
     try:
-        with open(filename) as pings_file:
-            for line in pings_file:
-                # TODO If condition to be sure that the line contains the info
-                # TODO PARSE LINE TO get ms
-                if "bytes" in line and "ms" in line:
-                    if "(DUP!)" not in line:
-                        *_, time, _ = line.split()
-                        _, time = time.split("=")
-                    else:
-                        *_, time, _, _ = line.split()
-                        _, time = time.split("=")
-                    pings_time.append(time)
+        with open(filename) as ping_file:
+            for line in ping_file:
+                match = re.match(summary_line, line)
+                if match:
+                    return PingDetails(
+                        PDR=float(match.group('percent_loss')),
+                        RTT=float(match.group('milliseconds')))
 
     except IOError:
-        file = str(filename)
-        *rest, pingfile = file.split("/")
-        path = ""
-        for item in rest[:-1]:
-            path += item + "/"
-        path += rest[-1]
-        print("{} was not generated in these conditions: {}"
-              .format(pingfile, path))
+        if warning:
+            path = Path(filename)
+            print("{} was not generated in these conditions: {}"
+                  .format(path.name, path.parent))
 
-    if len(pings_time) < 500:
-        pings_time.extend([-1] * (500-len(pings_time)))
-    return pings_time
-
-def readPDR(filename):
-    """
-        Will the PDR of the ping by parsing the output of the command.
-        The line is typically :
-        500 packets transmitted, 500 received, 0% packet loss, time 720ms
-        If we have some lost:
-        592 packets transmitted, 0 received, 100% packet loss, time 5994ms
-    """
-
-    pdr = [101]
-    pattern = re.compile(r'(\d{1,3}(?=%))')
-    try:
-        with open(filename) as pings_file:
-            for line in pings_file:
-                if "%" in line:
-                    pdr = pattern.findall(line)
-
-    except IOError:
-        file = str(filename)
-        *rest, pingfile = file.split("/")
-        path = ""
-        for item in rest[:-1]:
-            path += item + "/"
-        path += rest[-1]
-        print("{} was not generated in these conditions: {}"
-              .format(pingfile, path))
-
-    return pdr
-
+    print(f"OOPS, {filename} was not parsed as expected")
+    print(summary_line)
+    return None
 
 def is_valid_route(route):
     if "- 0 -" in route:
@@ -262,9 +228,36 @@ def routing_graph(run_name, interference,
         return dot
 
 
-def get_sample_count(run_name, protocol, interference, source,
-                     tx_power=TX_POWER, phy_rate=PHY_RATE,
-                     antenna_mask=ANTENNA_MASK, channel=CHANNEL):
+def rtts_from_all_senders(run_name, protocol,
+                          interference, destination_id,
+                          sources):
+    """
+    returns the recorded RTTs for all sender nodes
+    to this receiver node
+
+    as a dictionary of the form node_id -> value,
+    that can be fed into fill_dataframe_from_dict
+    """
+
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
+
+    result = {}
+
+    for source_id in sources:
+        if source_id == destination_id:
+            result[source_id] = 0.
+            continue
+        ping_filename = (directory /
+           f"PING-{source_id:02d}-{destination_id:02d}")
+        ping_details = read_ping_details(ping_filename)
+        if ping_details:
+            result[source_id] = int(ping_details.RTT)
+
+    print(result)
+    return result
+
+def get_sample_count(run_name, protocol, interference, source):
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
     filename = directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source)
@@ -280,14 +273,11 @@ def get_sample_count(run_name, protocol, interference, source,
     return samplenumber
 
 
-def RTT_graph_data(run_name, interference, protocol, source,
-                   tx_power=TX_POWER, phy_rate=PHY_RATE,
-                   antenna_mask=ANTENNA_MASK, channel=CHANNEL):
+def RTT_graph_data(run_name, interference, protocol, source):
 
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
     dests = get_info(directory, "Destinations")
-    print(f'dests={dests}')
     xValues = []
     yValues = []
     RTT_dic = {}
@@ -295,25 +285,15 @@ def RTT_graph_data(run_name, interference, protocol, source,
     for destination in dests:
         source_id = int(source)
         destination_id = int(destination)
+        print(f"source={source_id}, dest={destination_id}"  )
         if source_id != destination_id:
-            if (source_id, destination_id) not in RTT_dic:
-                # xxx use defaultdict
-                RTT_dic[(source_id, destination_id)] = [
-                    float(value)
-                    for value in readRTT(
-                        directory / "PING-{:02d}-{:02d}"
-                        .format(source_id, destination_id))
-                    ]
+            ping_filename = (directory /
+               f"PING-{source_id:02d}-{destination_id:02d}")
+            ping_details = read_ping_details(ping_filename)
+            if ping_details:
+                RTT_dic[(source_id, destination_id)] = ping_details.RTT
             else:
-                RTT_dic[(source_id, destination_id)].extend([
-                    float(value)
-                    for value in readRTT(
-                        directory / "PING-{:02d}-{:02d}"
-                        .format(source_id, destination_id))])
-
-            if not RTT_dic[(source_id, destination_id)]:
-                RTT_dic[(source_id, destination_id)] = [0]
-
+                RTT_dic[(source_id, destination_id)] = 0
             xValues.extend(
                 generate_route_list_for_block_graph(
                     generate_source_dest_route_string(source_id, destination_id),
