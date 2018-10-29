@@ -27,8 +27,11 @@ from channels import channel_frequency
 
 from datastore import naming_scheme, apssh_time, time_line
 
-# the constant wireless conditions are hard-wired in datastore
-# see globals TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK,
+from constants import (
+    WIRELESS_DRIVER, TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK,
+    CHOICES_SCRAMBLER_ID, DEFAULT_SCRAMBLER_ID,
+    CHOICES_INTERFERENCE, DEFAULT_INTERFERENCE,
+    DEFAULT_NODE_IDS, DEFAULT_SRC_IDS, DEFAULT_DEST_IDS)
 
 ##########
 default_gateway = 'faraday.inria.fr'
@@ -44,36 +47,7 @@ settle_delay_long = 40
 settle_delay_shorter = 10
 # antenna mask for each node, three values are allowed: 1, 3, 7
 
-choices_antenna_mask = [1, 3, 7]
-default_antenna_mask = 1
-# PHY rate used for each node, e.g. 1, 6, 54...
-choices_phy_rate = [1, 54]
-default_phy_rate = 54
-# Tx Power for each node, for Atheros 1dBm (i.e. 100) to 14dBm (i.e. 1400)
-#choices_tx_power     = range(5, 15)
-choices_tx_power = [1, 2, 3, 4, 5, 14]
-default_tx_power = 5
-
-# we'd rather provide a channel number than a frequency
-#choices_channel      = list(channel_frequency.keys())
-choices_channel = [10, 40]
-default_channel = 10
-# usrp-2 and n210; we use uhd_siggen --sine with an amplitude
-# e.g interference = 20 -> ushd_siggen --since --amplitude 0.20
-choices_interference = ['10', '15', '20', '25', '30', '35', '40', "None"]
-default_interference = ["None"]
-
-# focusing on n210 and usrp2:
-# n210 = 12 15 27 30 31 36 37
-# usrp2 = 5 13
-choices_scrambler_id = [5, 12, 13, 15, 27, 30, 31, 36, 37]
-default_scrambler_id = 5
-
 all_node_ids = [str(i) for i in range(1, 38)]
-# The 10 nodes selected by Farzaneh adapted
-default_node_ids = [1, 4, 12, 15, 19, 27, 31, 33, 37]
-default_src_ids = [1]
-default_dest_ids = [37]
 
 # actual ping parameters
 ping_timeout = 3
@@ -86,12 +60,6 @@ warmup_ping_timeout = 5
 warmup_ping_size = 64
 warmup_ping_interval = 0.5
 warmup_ping_messages = 60
-
-
-# wireless driver: by default set to ath9k
-wireless_driver = 'ath9k'
-# Intel driver does not support mesh mode
-#wireless_driver = 'iwlwifi'
 
 
 # convenience
@@ -118,9 +86,9 @@ def one_run(*, protocol, interference,
             run_name=default_run_name, slicename=default_slicename,
             tx_power, phy_rate, antenna_mask, channel,
             load_images=False,
-            node_ids=default_node_ids,
-            src_ids=default_src_ids, dest_ids=default_dest_ids,
-            scrambler_id=default_scrambler_id,
+            node_ids=DEFAULT_NODE_IDS,
+            src_ids=DEFAULT_SRC_IDS, dest_ids=DEFAULT_DEST_IDS,
+            scrambler_id=DEFAULT_SCRAMBLER_ID,
             ping_messages=default_ping_messages,
             tshark=False, map=False, warmup=False,
             route_sampling=False, iperf=False,
@@ -157,11 +125,11 @@ def one_run(*, protocol, interference,
     """
     # set default for the nodes parameter
     node_ids = ([int(id) for id in node_ids]
-                if node_ids is not None else default_node_ids)
+                if node_ids is not None else DEFAULT_NODE_IDS)
     src_ids = ([int(id) for id in src_ids]
-               if src_ids is not None else default_src_ids)
+               if src_ids is not None else DEFAULT_SRC_IDS)
     dest_ids = ([int(id) for id in dest_ids]
-                if dest_ids is not None else default_node_ids)
+                if dest_ids is not None else DEFAULT_NODE_IDS)
 
     # all nodes - i.e. including sources and destinations -
     # need to run the protocol
@@ -341,8 +309,8 @@ def one_run(*, protocol, interference,
             label=f"init {id}",
             command=RunScript(
                 "node-utilities.sh",
-                f"init-ad-hoc-network-{wireless_driver}",
-                wireless_driver, "foobar", frequency, phy_rate,
+                f"init-ad-hoc-network-{WIRELESS_DRIVER}",
+                WIRELESS_DRIVER, "foobar", frequency, phy_rate,
                 antenna_mask, tx_power_driver,
                 label="init add-hoc network"),
         )
@@ -412,7 +380,7 @@ def one_run(*, protocol, interference,
                 verbose=verbose_jobs,
                 command=[
                     Run("systemd-run -t  --unit=tcpdump",
-                        f"tcpdump -U -i moni-{wireless_driver}",
+                        f"tcpdump -U -i moni-{WIRELESS_DRIVER}",
                         f"-y ieee802_11_radio -w /tmp/fit{id}.pcap",
                         label=f"tcpdump {id}")
                     ]
@@ -847,7 +815,6 @@ def one_run(*, protocol, interference,
 
 # same as for interference, we force all arguments to be named
 def all_runs(*args, interferences, protocols,
-             tx_powers, phy_rates, antenna_masks, channels,
              **kwds):
     """
     calls one_run with the cartesian product of
@@ -874,18 +841,16 @@ def all_runs(*args, interferences, protocols,
     overall = True
     if interferences is None:
         interferences = ["None"]
-    iterator = itertools.product(protocols, interferences, tx_powers,
-                                 phy_rates, antenna_masks, channels)
-    for (run_number, (protocol, interference, tx_power,
-                      phy_rate, antenna_mask, channel)) \
+    iterator = itertools.product(protocols, interferences)
+    for (run_number, (protocol, interference)) \
             in enumerate(iterator, 1):
         if not one_run(
                 protocol=protocol,
                 interference=interference,
-                tx_power=tx_power,
-                phy_rate=phy_rate,
-                antenna_mask=antenna_mask,
-                channel=channel,
+                tx_power=TX_POWER,
+                phy_rate=PHY_RATE,
+                antenna_mask=ANTENNA_MASK,
+                channel=CHANNEL,
                 run_number=run_number,
                 *args, **kwds):
             overall = False
@@ -924,32 +889,32 @@ def main():
 
     parser.add_argument(
         "-i", "--interference", dest='interference', metavar='interference',
-        default=default_interference, choices=choices_interference,
+        default=DEFAULT_INTERFERENCE, choices=CHOICES_INTERFERENCE,
         nargs='+', type=str,
-        help=f"gain (dBm) for the white gaussian noise"
+        help=f"amplitude (in %) for the white sine noise"
              f" generated from scrambler node,"
-             f" among {' '.join(choices_interference)}")
+             f" among {' '.join(CHOICES_INTERFERENCE)}")
 
     parser.add_argument(
         "-N", "--node", dest='node_ids', metavar='routing-node',
-        default=default_node_ids, choices=all_node_ids,
+        default=DEFAULT_NODE_IDS, choices=all_node_ids,
         nargs='+',
         help=f"specify as many nodes as you want to be involved in the scenario;"
              f" these will be on and run the routing protocol;"
              f" source and destination nodes are automatically added.")
     parser.add_argument(
         "-S", "--source", dest='src_ids', metavar='source-node',
-        default=default_src_ids, choices=all_node_ids,
+        default=DEFAULT_SRC_IDS, choices=all_node_ids,
         nargs='+',
         help=f"specify the nodes sources of the pings,"
-             f" among {set(default_node_ids)}")
+             f" among {set(DEFAULT_NODE_IDS)}")
     parser.add_argument(
         "--all-sources", dest='all_src', default=False, action='store_true',
         help="if set, all nodes in the experiment are used as sources"
     )
     parser.add_argument(
         "-D", "--destination", dest='dest_ids', metavar='dest-node',
-        default=default_dest_ids, choices=all_node_ids,
+        default=DEFAULT_DEST_IDS, choices=ALL_NODE_IDS,
         nargs='+',
         help="specify as many node ids as you want to be the destination of the ping")
     parser.add_argument(
@@ -958,33 +923,8 @@ def main():
     )
     parser.add_argument(
         "--scrambler", dest='scrambler_id', metavar='scrambler-node',
-        default=default_scrambler_id, choices=all_node_ids,
+        default=DEFAULT_SCRAMBLER_ID, choices=CHOICES_SCRAMBLER_ID,
         help="location of the scrambler - can't be used in the experiment though")
-
-    parser.add_argument(
-        "-t", "--tx-power", dest='tx_powers', metavar='tx-power',
-        default=[default_tx_power], choices=choices_tx_power,
-        nargs='+', type=int,
-        help=f"specify Tx power(s) among {set(choices_tx_power)}")
-    parser.add_argument(
-        "-r", "--phy-rate", dest='phy_rates', metavar='phy-rate',
-        default=[default_phy_rate], choices=choices_phy_rate,
-        nargs='+', type=int,
-        help=f"specify PHY rate(s), among {set(choices_phy_rate)}")
-    parser.add_argument(
-        "-a", "--antenna-mask", dest='antenna_masks', metavar='antenna-mask',
-        default=[default_antenna_mask], choices=choices_antenna_mask,
-        nargs='+', type=int,
-        help=f"specify antenna mask(s), among {set(choices_antenna_mask)}")
-    parser.add_argument(
-        "-c", "--channel", dest='channels', metavar='channel',
-        default=[default_channel], choices=choices_channel,
-        nargs='+', type=int,
-        help=f"channel(s), among {set(choices_channel)}")
-
-    parser.add_argument(
-        "-m", "--ping-messages", default=default_ping_messages,
-        help="specify number of ping packets to send")
 
     # POST PROCESSING OPTIONS
     parser.add_argument(
@@ -1038,8 +978,6 @@ def main():
     return all_runs(
         protocols=args.protocol,
         interferences=args.interference,
-        tx_powers=args.tx_powers, phy_rates=args.phy_rates,
-        antenna_masks=args.antenna_masks, channels=args.channels,
         run_name=args.run_name,
         slicename=args.slicename,
         load_images=args.load_images,

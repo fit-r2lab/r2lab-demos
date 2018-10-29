@@ -18,16 +18,8 @@ from r2labmap import maps
 
 ####################
 
-# the constant wireless conditions
-WIRELESS_DRIVER = 'ath9k'
-# the minimum for atheros cards
-TX_POWER = 5
-# the more ambitious, the more likely to create trouble
-PHY_RATE = 54
-# arbitrary
-CHANNEL = 10
-# only one antenna seems again the most fragile conditions
-ANTENNA_MASK = 1
+from constants import (
+    WIRELESS_DRIVER, TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK)
 
 # + force to name all parameters
 def naming_scheme(*, run_name, protocol, interference,
@@ -211,6 +203,54 @@ def get_info(run_root, input_type):
 
 ####################
 
+def details_from_all_senders(dataframe, run_name,
+                             protocol, interference,
+                             destination_id, sources):
+    """
+    fill input dataframe with RTT and PDR
+    for all sender nodes to this receiver node
+    """
+
+    directory = naming_scheme(run_name=run_name, protocol=protocol,
+                              interference=interference)
+
+    for source_id in sources:
+        if source_id == destination_id:
+            ping_details = PingDetails(PDR=0., RTT=0.)
+        else:
+            ping_filename = (
+                directory / f"PING-{source_id:02d}-{destination_id:02d}")
+            ping_details = read_ping_details(ping_filename)
+        dataframe.loc[source_id]['PDR'] = ping_details.PDR
+        dataframe.loc[source_id]['RTT'] = ping_details.RTT
+
+
+#######
+def getNodesFromRoutes(routes):
+    nodes = []
+    for route in routes:
+        nodes.extend(route.split(" -- "))
+    return list(set(nodes))
+
+
+def getEdgesFromRoutes(dot, routes):
+    for route in routes:
+        if "-- 0 --" not in route:
+            nodes = route.split(" -- ")
+            if "-- -1 --" not in route:
+                for i in range(0, len(nodes)-1):
+                    dot.edge(nodes[i], nodes[i+1])
+            else:
+                nodes.remove('-1')
+                for i in range(0, len(nodes)-2):
+                    dot.edge(nodes[i], nodes[i+1], color="red")
+                dot.edge(nodes[len(nodes)-3],
+                         nodes[len(nodes) - 1],
+                         label="LOOP FOR ROUTES TO THIS DEST",
+                         color="red")
+    return dot
+
+
 def routing_graph(run_name, interference,
                   source, protocol, *, scrambler_id=5, sample=None):
     node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
@@ -259,276 +299,3 @@ def routing_graph(run_name, interference,
         dot = getEdgesFromRoutes(dot, routes)
 
         return dot
-
-
-def details_from_all_senders(dataframe, run_name,
-                             protocol, interference,
-                             destination_id, sources):
-    """
-    fill input dataframe with RTT and PDR
-    for all sender nodes to this receiver node
-    """
-
-    directory = naming_scheme(run_name=run_name, protocol=protocol,
-                              interference=interference)
-
-    for source_id in sources:
-        if source_id == destination_id:
-            ping_details = PingDetails(PDR=0., RTT=0.)
-        else:
-            ping_filename = (directory /
-                f"PING-{source_id:02d}-{destination_id:02d}")
-            ping_details = read_ping_details(ping_filename)
-        dataframe.loc[source_id]['PDR'] = ping_details.PDR
-        dataframe.loc[source_id]['RTT'] = ping_details.RTT
-
-
-def get_sample_count(run_name, protocol, interference, source):
-    directory = naming_scheme(run_name=run_name, protocol=protocol,
-                              interference=interference)
-    filename = directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source)
-    samplenumber = 0
-    try:
-        with open(filename) as routes_file:
-            for line in routes_file:
-                if "SAMPLE" in line:
-                    samplenumber += 1
-
-    except IOError:
-        return None
-    return samplenumber
-
-
-def RTT_graph_data(run_name, interference, protocol, source):
-
-    directory = naming_scheme(run_name=run_name, protocol=protocol,
-                              interference=interference)
-    dests = get_info(directory, "Destinations")
-    xValues = []
-    yValues = []
-    RTT_dic = {}
-
-    for destination in dests:
-        source_id = int(source)
-        destination_id = int(destination)
-        print(f"source={source_id}, dest={destination_id}"  )
-        if source_id != destination_id:
-            ping_filename = (directory /
-               f"PING-{source_id:02d}-{destination_id:02d}")
-            ping_details = read_ping_details(ping_filename)
-            if ping_details:
-                RTT_dic[(source_id, destination_id)] = ping_details.RTT
-            else:
-                RTT_dic[(source_id, destination_id)] = 0
-            xValues.extend(
-                generate_route_list_for_block_graph(
-                    generate_source_dest_route_string(source_id, destination_id),
-                    RTT_dic[(source_id, destination_id)]))
-
-            yValues.extend(RTT_dic[source_id, destination_id])
-
-    return xValues, yValues
-
-
-
-
-
-
-def graphDataMultipleRTT(
-        run_name_family, tx_power, phy_rate, antenna_mask, channel,
-        interference, protocol, source, dests, maxdata):
-
-    xValues = []
-    yValues = []
-    RTT_dic = {}
-    countmax = 0
-
-    for run_name in glob.glob(f"{run_name_family}*/"):
-        if countmax >= maxdata:
-            break
-        countmax += 1
-
-        directory = naming_scheme(run_name=run_name, protocol=protocol,
-                                  interference=interference)
-
-        for destination in dests:
-            source_id = int(source)
-            destination_id = int(destination)
-            if source_id == destination_id:
-                continue
-            # ditto defaultdict
-            if (source_id, destination_id) not in RTT_dic:
-                RTT_dic[(source_id, destination_id)] = [
-                    float(value)
-                    for value in readRTT(
-                        directory / "PING-{:02d}-{:02d}"
-                        .format(source_id, destination_id))]
-            else:
-                RTT_dic[(source_id, destination_id)].extend([
-                    float(value)
-                    for value in readRTT(
-                        directory / "PING-{:02d}-{:02d}"
-                        .format(source_id, destination_id))])
-
-            if not RTT_dic[(source_id, destination_id)]:
-                RTT_dic[(source_id, destination_id)] = [0]
-
-            xValues.extend(
-                generate_route_list_for_block_graph(
-                    generate_source_dest_route_string(source_id, destination_id),
-                    RTT_dic[(source_id, destination_id)]))
-
-            yValues.extend(RTT_dic[source_id, destination_id])
-
-    return xValues, yValues
-
-
-def graphDataPDR(run_name, interference, protocol, source,
-                 tx_power=TX_POWER, phy_rate=PHY_RATE,
-                 antenna_mask=ANTENNA_MASK, channel=CHANNEL):
-    directory = naming_scheme(run_name=run_name, protocol=protocol,
-                              interference=interference)
-
-    dests = get_info(directory, "Destinations")
-    xValues = []
-    yValues = []
-    PDR_dic = {}
-
-    for destination in dests:
-        source_id = int(source)
-        destination_id = int(destination)
-        if source_id == destination_id:
-            continue
-        #print(readPDR( directory / "PING-{:02d}-{:02d}".format(source_id, destination_id)))
-        PDR_dic[(source_id, destination_id)] = [
-            100 - int(value)
-            for value in readPDR(
-                directory / "PING-{:02d}-{:02d}"
-                .format(source_id, destination_id))]
-
-        xValues.extend([generate_source_dest_route_string(source_id, destination_id)])
-        yValues.extend(PDR_dic[source_id, destination_id])
-
-    return xValues, yValues
-
-
-def graphDataMultiplePDRCount(
-        run_name_family, tx_power, phy_rate, antenna_mask, channel,
-        interference, protocol, source, dest, maxdata):
-
-    yValues = [0] * 101
-    xValues = list(range(0, 101))
-    #FOR EVERY DATA WITH RUN_NAME_FAMILY
-    countmax = 0
-
-    for run_name in glob.glob(f"{run_name_family}/*/"):
-        if countmax >= maxdata:
-            break
-        countmax += 1
-        directory = naming_scheme(run_name=run_name, protocol=protocol,
-                                  interference=interference)
-        pdr = [100 - int(value)
-               for value in readPDR(directory / "PING-{:02d}-{:02d}"\
-                                    .format(source, dest))]
-        if pdr[0] != -1:
-            yValues[pdr[0]] += 1
-
-    return xValues, yValues
-
-
-def graphDataMultiplePDR(
-        run_name_family, tx_power, phy_rate, antenna_mask, channel,
-        interference, protocol, source, dest, maxdata):
-
-    yValues = []
-    xValues = [generate_source_dest_route_string(int(source), int(dest))] * maxdata
-    #FOR EVERY DATA WITH RUN_NAME_FAMILY
-    countmax = 0
-
-    for run_name in glob.glob(f"{run_name_family}/*/"):
-        if countmax >= maxdata:
-            break
-        countmax += 1
-        directory = naming_scheme(run_name=run_name, protocol=protocol,
-                                  interference=interference)
-        pdr = [100 - int(value)
-               for value in readPDR(directory / "PING-{:02d}-{:02d}"\
-                                    .format(source, dest))]
-        if pdr[0] != -1:
-            yValues.append(pdr[0])
-        else:
-            yValues.append(0)
-
-    return xValues, yValues
-
-
-def getNodesFromRoutes(routes):
-    nodes = []
-    for route in routes:
-        nodes.extend(route.split(" -- "))
-    return list(set(nodes))
-
-def getEdgesFromRoutes(dot, routes):
-    for route in routes:
-        if "-- 0 --" not in route:
-            nodes = route.split(" -- ")
-            if "-- -1 --" not in route:
-                for i in range(0, len(nodes)-1):
-                    dot.edge(nodes[i], nodes[i+1])
-            else:
-                nodes.remove('-1')
-                for i in range(0, len(nodes)-2):
-                    dot.edge(nodes[i], nodes[i+1], color="red")
-                dot.edge(nodes[len(nodes)-3],
-                         nodes[len(nodes) - 1],
-                         label="LOOP FOR ROUTES TO THIS DEST",
-                         color="red")
-    return dot
-
-
-def generateRouteGraphData(
-        run_name_family, tx_power, phy_rate, antenna_mask, channel,
-        interference, protocol, source, dests=None,
-        maxdata=1):
-
-    if dests is None:
-        dests = []
-
-    xValues = []
-    yValues = []
-    dic_hop_dest = {}
-    destinations = [int(dest) for dest in dests]
-    countmax = 1
-
-    for run_name in glob.glob(f"{run_name_family}/*/"):
-
-        if countmax > maxdata:
-            break
-        countmax += 1
-        directory = naming_scheme(run_name=run_name, protocol=protocol,
-                                  interference=interference)
-        routes = get_all_routes(
-            directory / "ROUTES-{:02d}".format(source))
-        dic_hop_dest = {}
-        for route in routes:
-            nodes = route.split(" -- ")
-            counter = 0
-            target = nodes[-1]
-            if int(target) in destinations:
-                if "-- 0 --" in route or "-- -1 --" in route:
-                    dic_hop_dest[
-                        generate_source_dest_route_string(
-                            int(source), int(nodes[-1]))] = 0
-
-                    continue
-                for node in nodes:
-                    if counter > 0 and target == node:
-                        dic_hop_dest[
-                            generate_source_dest_route_string(
-                                int(source), int(node))] = counter
-
-                    counter += 1
-        for route, hops in dic_hop_dest.items():
-            xValues.append(route)
-            yValues.append(hops)
-    return xValues, yValues
