@@ -53,7 +53,7 @@ all_node_ids = [str(i) for i in range(1, 38)]
 ping_timeout = 3
 ping_size = 254
 ping_interval = 0.1
-default_ping_messages = 100
+ping_messages = 100
 
 # warmup ping parameters
 warmup_ping_timeout = 5
@@ -89,7 +89,6 @@ def one_run(*, protocol, interference,
             node_ids=DEFAULT_NODE_IDS,
             src_ids=DEFAULT_SRC_IDS, dest_ids=DEFAULT_DEST_IDS,
             scrambler_id=DEFAULT_SCRAMBLER_ID,
-            ping_messages=default_ping_messages,
             tshark=False, map=False, warmup=False,
             route_sampling=False, iperf=False,
             verbose_ssh=False, verbose_jobs=False, dry_run=False,
@@ -891,7 +890,7 @@ def main():
         "-i", "--interference", dest='interference', metavar='interference',
         default=DEFAULT_INTERFERENCE, choices=CHOICES_INTERFERENCE,
         nargs='+', type=str,
-        help=f"amplitude (in %) for the white sine noise"
+        help=f"amplitude (in %%) for the white sine noise"
              f" generated from scrambler node,"
              f" among {' '.join(CHOICES_INTERFERENCE)}")
 
@@ -914,7 +913,7 @@ def main():
     )
     parser.add_argument(
         "-D", "--destination", dest='dest_ids', metavar='dest-node',
-        default=DEFAULT_DEST_IDS, choices=ALL_NODE_IDS,
+        default=DEFAULT_DEST_IDS, choices=all_node_ids,
         nargs='+',
         help="specify as many node ids as you want to be the destination of the ping")
     parser.add_argument(
@@ -985,7 +984,6 @@ def main():
         src_ids=args.src_ids,
         dest_ids=args.dest_ids,
         scrambler_id=args.scrambler_id,
-        ping_messages=args.ping_messages,
 
         tshark=args.tshark,
         map=args.map,
