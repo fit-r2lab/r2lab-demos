@@ -79,13 +79,13 @@ default_dest_ids = [37]
 # actual ping parameters
 ping_timeout = 3
 ping_size = 254
-ping_interval = 0.001
-default_ping_messages = 500
+ping_interval = 1
+default_ping_messages = 30
 
 # warmup ping parameters
 warmup_ping_timeout = 5
 warmup_ping_size = 64
-warmup_ping_interval = 0.05
+warmup_ping_interval = 0.5
 warmup_ping_messages = 60
 
 
