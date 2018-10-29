@@ -46,10 +46,9 @@ def available_interference_options(datadir):
 
 
 def _dashboard(datadir, on_nodes, *,
-              continuous_sender=False,
-              node_legend="node",
-              node_key='node_id',
-              ):
+               continuous_sender=False,
+               node_legend="node",
+               node_key='node_id'):
     """
     some contorsions with ipywidgets to show controls in
     a compact way

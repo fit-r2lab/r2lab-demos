@@ -202,6 +202,19 @@ def get_info(run_root, input_type):
     return []
 
 ####################
+from customcolors import CustomColors
+from bokeh.palettes import inferno, Blues
+
+RTT_COLORS = CustomColors(
+    ticks=(0., 1., 3., 5., 10., 30., 100.),
+    # we need one more color than ticks
+    colors=inferno(8))
+
+PDR_COLORS = CustomColors(
+    ticks=(0., 0.05, 0.3, 0.5, 0.7, 0.95, 1.),
+    # we need one more color than ticks
+    colors=Blues[8])
+
 
 def details_from_all_senders(dataframe, run_name,
                              protocol, interference,
@@ -223,6 +236,12 @@ def details_from_all_senders(dataframe, run_name,
             ping_details = read_ping_details(ping_filename)
         dataframe.loc[source_id]['PDR'] = ping_details.PDR
         dataframe.loc[source_id]['RTT'] = ping_details.RTT
+        # I could not get bokeh's colormapper system to
+        # work exactly for me, so let's apply a home-made mapper
+        # and store the result in separate columns
+        dataframe.loc[source_id]['PDRC'] = PDR_COLORS.apply(ping_details.PDR)
+        dataframe.loc[source_id]['RTTC'] = RTT_COLORS.apply(ping_details.RTT)
+
 
 
 #######
