@@ -212,7 +212,7 @@ def get_info(run_root, input_type):
 ####################
 
 def routing_graph(run_name, interference,
-                  source, protocol, *, scrambler_id=30, sample=None):
+                  source, protocol, *, scrambler_id=5, sample=None):
     node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
     dot = Digraph(comment='Routing table for fit{:02d}'
                   .format(source), engine='fdp')

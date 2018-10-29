@@ -58,10 +58,9 @@ default_tx_power = 5
 #choices_channel      = list(channel_frequency.keys())
 choices_channel = [10, 40]
 default_channel = 10
-# USRP-2 and n210 emmits noise at 14dB, choose gain well!
-choices_interference = [
-    "-13", "-12", "-11", "-10", "-9", "-8", "-7",
-    "1", "2", "3", "4", "5", "6", "7", "None"]
+# usrp-2 and n210; we use uhd_siggen --sine with an amplitude
+# e.g interference = 20 -> ushd_siggen --since --amplitude 0.20
+choices_interference = ['10', '15', '20', '25', '30', '35', '40', "None"]
 default_interference = ["None"]
 
 # focusing on n210 and usrp2:
@@ -79,8 +78,8 @@ default_dest_ids = [37]
 # actual ping parameters
 ping_timeout = 3
 ping_size = 254
-ping_interval = 1
-default_ping_messages = 30
+ping_interval = 0.1
+default_ping_messages = 100
 
 # warmup ping parameters
 warmup_ping_timeout = 5
@@ -137,8 +136,8 @@ def one_run(*, protocol, interference,
         antenna_mask: a string among 1, 3, 7.
         channel: a string like e.g. 1 or 40. Correspond to the channel.
         protocol: a string among batman , olsr. Correspond to the protocol
-        interference : in dBm, a string like 60 or 50.
-          Correspond to the power of the noise generated in the root.
+        interference : in amplitude percentage, a string like 15 or 20.
+          Correspond to the power of the noise generated in the spectrum.
           Can be either None or "None" to mean no interference.
         run_name: the name for a subdirectory where all data will be kept
           successive runs should use the same name for further visualization
@@ -185,9 +184,8 @@ def one_run(*, protocol, interference,
             def log_line(line):
                 time_line(line, file=feed)
             load_msg = f"{'WITH' if load_images else 'NO'} image loading"
-            interference_msg = (
-                f"interference={interference}dBm from node {scrambler_id}"
-                if interference else "NO interference")
+            interference_msg = (f"interference={interference} "
+                                f"from scrambler={scrambler_id}")
             nodes = " ".join(str(n) for n in node_ids)
             srcs = " ".join(str(n) for n in src_ids)
             dests = " ".join(str(n) for n in dest_ids)
@@ -358,7 +356,7 @@ def one_run(*, protocol, interference,
 
     if interference:
         # Run uhd_siggen with the chosen power
-        frequency_str = f"{frequency / 1000}G"
+        frequency_str = f"{frequency}M"
         init_scrambler_job = SshJob(
             scheduler=scheduler,
             required=green_light,
@@ -371,8 +369,8 @@ def one_run(*, protocol, interference,
                                 "init-scrambler",
                                 label="init scrambler"),
                       Run(f"systemd-run --unit=uhd_siggen -t ",
-                          f"uhd_siggen -a usrp -g {interference}",
-                          f"-f {frequency_str} --gaussian",
+                          f"uhd_siggen -a usrp -f {frequency}",
+                          f"--sine --amplitude 0.{interference}",
                           label="systemctl start uhd_siggen")
                       ]
         )

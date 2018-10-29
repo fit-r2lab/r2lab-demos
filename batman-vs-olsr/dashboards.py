@@ -25,9 +25,7 @@ from channels import channel_options
 ANTENNA_OPTIONS = OrderedDict([("1", 1), ("2", 3), ("3", 7)])
 
 INTERFERENCE_OPTIONS = OrderedDict(
-    (str(x), x) for x in
-    (-13, -12, -11, -10, -9, -8, -7, "None",
-     1, 2, 3, 4, 5, 6, 7))
+    (str(x), x) for x in (10, 15, 20, 25, 30, 35, 40, "None"))
 
 
 def available_interference_options(datadir):
@@ -68,7 +66,7 @@ def _dashboard(datadir, on_nodes, *,
     interference_options = available_interference_options(datadir)
     w_interference = Dropdown(
         options=interference_options, value="None",
-        description="Interference power in dBm: ", layout=l50)
+        description="Interference amplitude in % : ", layout=l50)
     w_node = SelectionSlider(
         description=node_legend,
         options=on_nodes,
