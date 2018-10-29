@@ -279,8 +279,8 @@ def details_from_all_senders(dataframe, run_name,
             ping_filename = (directory /
                 f"PING-{source_id:02d}-{destination_id:02d}")
             ping_details = read_ping_details(ping_filename)
-            dataframe.loc[source_id]['PDR'] = ping_details.PDR
-            dataframe.loc[source_id]['RTT'] = ping_details.RTT
+        dataframe.loc[source_id]['PDR'] = ping_details.PDR
+        dataframe.loc[source_id]['RTT'] = ping_details.RTT
 
 
 def get_sample_count(run_name, protocol, interference, source):
