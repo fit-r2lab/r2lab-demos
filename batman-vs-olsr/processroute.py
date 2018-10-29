@@ -7,7 +7,7 @@
     different nodes selected to do the pings from
 """
 
-from utils import time_line
+from datastore import time_line
 
 class ProcessRoutes:
     def __init__(self, run_root, exp_nodes, node_ids):

@@ -18,7 +18,7 @@ from ipywidgets import (Dropdown, Layout, HBox, VBox, Text,
 from IPython.display import display
 
 # import a dictionary channel -> frequency
-from utils import naming_scheme
+from datastore import naming_scheme
 
 from channels import channel_options
 

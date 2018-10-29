@@ -68,6 +68,11 @@ def time_line(line, file=sys.stdout):
 
 
 ####################
+Packet = namedtuple(
+    'Packet',
+    ['id', 'rtt']
+    )
+
 PingDetails = namedtuple(
     'PingDetails',
     ['PDR', 'RTT'])
@@ -75,27 +80,44 @@ PingDetails = namedtuple(
 
 def read_ping_details(filename, warning=True):
     """
-    Return a PingDetails resulting from parsing a line like
-
-    ping 10.0.0.37: 500 packets transmitted, 500 received, 0% packet loss, time 2079ms
+    Return a PingDetails resulting from parsing a PING file
     """
 
-    summary_line = (
-        r'.*'
-        r'(?P<transmitted>[0-9]+) packets transmitted, '
-        r'(?P<received>[0-9]+) received, '
-        r'(\+?(?P<errors>[0-9]+) errors, )?'
-        r'(?P<percent_loss>[0-9.]+)% packet loss, '
-        r'time (?P<milliseconds>[0-9.]+)ms')
+    # how many packets have we tried to send ?
+    # this is in the header line written out by my-ping
+    header_line = (
+        r'ping .* -c (?P<nb_packets>[0-9]+) .*'
+    )
+
+    # parse each packet line
+    packet_line = (
+        r'.*: '
+        r'icmp_seq=(?P<icmp_seq>[0-9]+) '
+        r'ttl=(?P<ttl>[0-9]+) '
+        r'time=(?P<rtt>[0-9.]+) ms'
+    )
+
+    nb_packets = None
+    packets = []
+
+    # returned if something goes wrong
+    oops = PingDetails(PDR=1., RTT=10**10)
 
     try:
         with open(filename) as ping_file:
             for line in ping_file:
-                match = re.match(summary_line, line)
+                match = re.match(header_line, line)
                 if match:
-                    return PingDetails(
-                        PDR=float(match.group('percent_loss')),
-                        RTT=float(match.group('milliseconds')))
+                    nb_packets = int(match.group('nb_packets'))
+                    continue
+
+                match = re.match(packet_line, line)
+                if match:
+                    packets.append(Packet(
+                        id=int(match.group('icmp_seq')),
+                        rtt=float(match.group('rtt')),
+                    ))
+                    continue
 
     except IOError:
         if warning:
@@ -103,9 +125,20 @@ def read_ping_details(filename, warning=True):
             print("{} was not generated in these conditions: {}"
                   .format(path.name, path.parent))
 
-    print(f"OOPS, {filename} was not parsed as expected")
-    print(summary_line)
-    return None
+    if not nb_packets:
+        print("OOPS, {filename} has no header line, can't figure nb_packets")
+        return oops
+
+    if not packets:
+        # this actually happens in very bad network conditions,
+        # and is not so unfrequent
+        # print(f"OOPS, {filename} has no packet line")
+        return oops
+
+    pdr = 1 - len(packets) / nb_packets
+    rtt = sum(packet.rtt for packet in packets) / len(packets)
+    return PingDetails(RTT=rtt, PDR = pdr)
+
 
 def is_valid_route(route):
     if "- 0 -" in route:
@@ -228,34 +261,27 @@ def routing_graph(run_name, interference,
         return dot
 
 
-def rtts_from_all_senders(run_name, protocol,
-                          interference, destination_id,
-                          sources):
+def details_from_all_senders(dataframe, run_name,
+                             protocol, interference,
+                             destination_id, sources):
     """
-    returns the recorded RTTs for all sender nodes
-    to this receiver node
-
-    as a dictionary of the form node_id -> value,
-    that can be fed into fill_dataframe_from_dict
+    fill input dataframe with RTT and PDR
+    for all sender nodes to this receiver node
     """
 
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
 
-    result = {}
-
     for source_id in sources:
         if source_id == destination_id:
-            result[source_id] = 0.
-            continue
-        ping_filename = (directory /
-           f"PING-{source_id:02d}-{destination_id:02d}")
-        ping_details = read_ping_details(ping_filename)
-        if ping_details:
-            result[source_id] = int(ping_details.RTT)
+            ping_details = PingDetails(PDR=0., RTT=0.)
+        else:
+            ping_filename = (directory /
+                f"PING-{source_id:02d}-{destination_id:02d}")
+            ping_details = read_ping_details(ping_filename)
+            dataframe.loc[source_id]['PDR'] = ping_details.PDR
+            dataframe.loc[source_id]['RTT'] = ping_details.RTT
 
-    print(result)
-    return result
 
 def get_sample_count(run_name, protocol, interference, source):
     directory = naming_scheme(run_name=run_name, protocol=protocol,

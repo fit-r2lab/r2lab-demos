@@ -25,9 +25,9 @@ from apssh import close_ssh_in_scheduler
 from processroute import ProcessRoutes
 from channels import channel_frequency
 
-from utils import naming_scheme, apssh_time, time_line
+from datastore import naming_scheme, apssh_time, time_line
 
-# the constant wireless conditions are hard-wired in utils
+# the constant wireless conditions are hard-wired in datastore
 # see globals TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK,
 
 ##########
