@@ -14,9 +14,8 @@
 # if you do the scrambler node won't get imaged
 
 # was done in two passes
-#interferences="10 20 30 None"
-interferences="15 25 35 40"
-datadir=datasample10
+interferences="10 15 20 25 30 35 40 None"
+datadir=datasample11
 
 ./runs.py "$@" \
     --protocol olsr batman --all-sources \
