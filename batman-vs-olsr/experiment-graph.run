@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# these settings are chosen to produce a representative graph, but do not
+# necessarily make much scientific sense
+
+# the --dry-run option produces a png file in the output directory
+# 1 source; 2 destinations; all 3 nodes run the routing daemon
+# all 5 extra features enabled would be
+#     --map --route-sampling --tshark --warmup --iperf
+
+python3 runs.py --dry-run \
+    --protocol olsr --interference 7 \
+    --source 1 --destination 3 12 -N 1 3 12 \
+    --load \
+    --map --route-sampling --tshark --warmup
+
+# move png up here; location based on default values
+mv ./exp-data/t5-r54-a1-ch10-I7-olsr/experiment-graph.png .

@@ -25,14 +25,13 @@ function init-ad-hoc-network-ath9k (){
     txpower=$1; shift
 
     # load the r2lab utilities - code can be found here:
-    # https://github.com/parmentelat/r2lab/blob/master/infra/user-env/nodes.sh
-    source /root/r2lab/infra/user-env/nodes.sh
+    # https://github.com/fit-r2lab/r2lab-embedded/blob/master/shell/nodes.sh
+    # source /root/r2lab/infra/user-env/nodes.sh
     source /root/r2lab-embedded/shell/nodes.sh
     # make sure to use the latest code on the node
     git-pull-r2lab
 
     #. ~/.bashrc > /dev/null
-
 
     turn-off-wireless
 
@@ -52,8 +51,8 @@ function init-ad-hoc-network-ath9k (){
     # install tshark on the node for the post-processing step
     # apt-get install tshark
     ifname=$(wait-for-interface-on-driver $driver)
-    phyname=`iw $ifname info|grep wiphy |awk '{print "phy"$2}'`
-#    moniname=`iw $ifname info|grep wiphy |awk '{print "moni"$2}'`
+    phyname=$(iw $ifname info|grep wiphy | awk '{print "phy"$2}')
+#    moniname=$(iw $ifname info|grep wiphy |awk '{print "moni"$2}')
     moniname="moni-$driver"
 
     echo "Configuring interface $ifname on $phyname"
@@ -73,7 +72,7 @@ function init-ad-hoc-network-ath9k (){
 	iw phy $phyname set antenna $antmask
     fi
 
-    echo "Enable Mesh mode on channel 10"
+    echo "Enable Mesh mode on device $ifname"
     #IWCONFIG deprecated ==> pass to iw dev
     #iwconfig $ifname essid mesh mode ad-hoc channel 10 rts 250 frag 256
     iw dev $ifname set type mesh
@@ -88,14 +87,14 @@ function init-ad-hoc-network-ath9k (){
     ip link set $ifname up
 
 
-    echo "setting the broadcast address"
+    echo "Using IP address $ipaddr_mask"
     ip address add $ipaddr_mask broadcast 255.255.255.255 dev $ifname
-    # configuring
 
     # set the Tx power. Note that for Atheros, range is between 5dbm (500) and 14dBm (1400)
     echo "Setting the transmission power to $txpower"
     iw dev $ifname set txpower fixed $txpower
-     sleep 5
+    sleep 5
+
 #    echo "second try"
 #    # do it twice...
 #    ip address flush dev $ifname
@@ -111,27 +110,29 @@ function init-ad-hoc-network-ath9k (){
 #iw dev $moniname set freq $freq
     iw dev $ifname set mesh_param mesh_fwding 0
 
+    # 2.4 GHz or 5 GHz ?
     if test $freq -le 3000
-      then
-	echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
-	iw dev $ifname set bitrates legacy-2.4 $phyrate
-      else
-	echo "Configuring bitrates to legacy-5 $phyrate Mbps"
-	iw dev $ifname set bitrates legacy-5 $phyrate
+        then
+            echo "Configuring bitrates to legacy-2.4 $phyrate Mbps"
+            iw dev $ifname set bitrates legacy-2.4 $phyrate
+        else
+            echo "Configuring bitrates to legacy-5 $phyrate Mbps"
+            iw dev $ifname set bitrates legacy-5 $phyrate
     fi
 
 
 
-
-
-
     echo "List of authorized frequencies on $phyname:"
-    iw $phyname info |grep -v -e disabled -e IR -e radar -e GI | grep MHz
+    iw $phyname info | grep -v -e disabled -e IR -e radar -e GI | grep MHz
+
+    # double-checking txpower; use iwlist from iwconfig for that,
+    # even if old-school, as iw does not provide the information apparently
+    echo "Current tx-power on $ifname"
+    iwlist $ifname txpower
 
     # then, run tcpdump with the right parameters
 
 #    tcpdump -U -W 2 -i moni0 -y ieee802_11_radio -w "/tmp/"$(hostname)".pcap"
-
 
     ### addition - would be cool to come up with something along these lines that
     # works on both cards
@@ -163,6 +164,8 @@ function init-scrambler (){
     #fi
     #return 0
 }
+
+
 function run-olsr (){
 
     echo "Install olsr"
@@ -172,12 +175,12 @@ function run-olsr (){
         echo "olsrd.conf already configured"
     else
         echo "configuring olsrd.conf"
-	cat <<EOT>> /etc/olsrd/olsrd.conf
+	cat << EOF >> /etc/olsrd/olsrd.conf
 Interface "atheros"
  {
    Ip4Broadcast 255.255.255.255
  }
-EOT
+EOF
     fi
     #    olsrd -d 2
     echo "Run olsr daemon"
@@ -205,7 +208,7 @@ function run-batman (){
     echo "Install batman"
     apt-get install -y batmand
 #    ip addr add broadcast 255.255.255.255 dev atheros
-    #    batmand atheros -d 1
+#    batmand atheros -d 1
     echo "Run batman daemon"
     #service-type=forking indicates that this executable launch a daemon
     #and exit
@@ -219,41 +222,26 @@ function run-batman (){
     exit $ret
 }
 
+
 function route-olsr (){
-
-
     route -n | grep 10.0.0.* | grep UGH
     return 0
 }
 
 
 function route-batman (){
-
     ip route ls table 66 | grep src
     return 0
 }
-#function kill-route-sample(){
-#    prot=$1; shift
-#    sleep 1
-#    kill -s SIGINT $(ps -aex | grep route-sample-$prot | head -n 1 | awk -F" "  '{print $1}')
-#    sleep 1
-#    return 0
-#}
-#function end-route-sample(){
-#    prot=$1; shift
-#    route-$prot
-#    exit 0
-#    return 0
-#}
-function route-sample-batman(){
-    sample="0"
 
-    while [ 1 ]
-    do
-    echo "SAMPLE : $sample "
-    ip route ls table 66 | grep src
-    sleep 1
-    sample=$[$sample+1]
+function route-sample-batman(){
+    sample=0
+
+    while true; do
+        echo "SAMPLE : $sample "
+        ip route ls table 66 | grep src
+        sleep 1
+        sample=$(($sample+1))
     done
 
     return 0
@@ -287,16 +275,19 @@ function kill-batman (){
 #}
 
 function my-ping (){
-    dest=$1; shift
-    ptimeout=$1; shift
-    pint=$1; shift
-    psize=$1; shift
-    pnumber=$1; shift
+    local dest=$1; shift
+    local timeout=$1; shift
+    local interval=$1; shift
+    local size=$1; shift
+    local number=$1; shift
+    local extras="$@"
 
-    echo "ping -W $ptimeout -c $pnumber -i $pint -s $psize -q $dest >& /tmp/ping.txt"
-    ping -w $ptimeout -c $pnumber -i $pint -s $psize $dest >& /tmp/ping.txt
-    result=$(grep "ms" /tmp/ping.txt)
-    echo "$(hostname) -> $dest: ${result}"
+    command="ping -W $timeout -c $number -i $interval -s $size $dest"
+
+    echo $extras
+    echo $command
+    $command
+
     return 0
 }
 
