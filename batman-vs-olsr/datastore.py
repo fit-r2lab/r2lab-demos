@@ -150,18 +150,18 @@ def read_ping_details(filename, warning=True):
 
 ####################
 from customcolors import CustomColors
-from bokeh.palettes import inferno, Blues
-
-RTT_COLORS = CustomColors(
-    ticks=(0., 1., 3., 5., 10., 30., 100.),
-    # we need one more color than ticks
-    colors=inferno(8))
+from bokeh.palettes import Viridis
 
 PDR_COLORS = CustomColors(
-    ticks=(0., 0.05, 0.3, 0.5, 0.7, 0.95, 1.),
+    ticks=((-1, 'left'), (0., 'left'), 0.5, (1., 'right')),
     # we need one more color than ticks
-    colors=Blues[8])
+    colors=["red", "green", "yellow", "orange", "black"])
 
+
+RTT_COLORS = CustomColors(
+    ticks=((0., 'left'), 1., 2., 3., 5., 10., 30., 100.),
+    # we need one more color than ticks
+    colors=['red'] + list(reversed(Viridis[8])))
 
 def details_from_all_senders(dataframe, run_name,
                              protocol, interference,
@@ -176,7 +176,7 @@ def details_from_all_senders(dataframe, run_name,
 
     for source_id in sources:
         if source_id == destination_id:
-            ping_details = PingDetails(PDR=0., RTT=0.)
+            ping_details = PingDetails(PDR=-1, RTT=0.)
         else:
             ping_filename = (
                 directory / f"PING-{source_id:02d}-{destination_id:02d}")
@@ -186,8 +186,8 @@ def details_from_all_senders(dataframe, run_name,
         # I could not get bokeh's colormapper system to
         # work exactly for me, so let's apply a home-made mapper
         # and store the result in separate columns
-        dataframe.loc[source_id]['PDRC'] = PDR_COLORS.apply(ping_details.PDR)
-        dataframe.loc[source_id]['RTTC'] = RTT_COLORS.apply(ping_details.RTT)
+        dataframe.loc[source_id]['PDRC'] = PDR_COLORS.color(ping_details.PDR)
+        dataframe.loc[source_id]['RTTC'] = RTT_COLORS.color(ping_details.RTT)
 
 
 
@@ -243,8 +243,8 @@ def routing_graph(run_name, interference,
                   source, protocol):
     scrambler_id = retrieve_scrambler_id(run_name, protocol, interference)
     node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
-    dot = Digraph(comment='Routing table for fit{:02d}'
-                  .format(source), engine='fdp')
+    dot = Digraph(comment=f'Routing table for fit{source:02d}',
+                  engine='fdp')
     dot.attr('graph', label=protocol)
     dot.attr(splines='true')
     dot.attr(rankdir='LR')
@@ -275,9 +275,15 @@ def routing_graph(run_name, interference,
             dot.node(str(node_id), '{:02d}'.format(node_id),
                      pos=pos, shape='point')
         else:
+            shape = "doublecircle"
+            fillcolor = "red" if node_id == source else "white"
+            fontcolor = "white" if node_id == source else "black"
             dot.node(str(node_id), '{:02d}'.format(node_id),
                      pos=f"{x},{y}!",
-                     shape='doublecircle',
+                     shape=shape,
+                     style='filled',
+                     fillcolor=fillcolor,
+                     fontcolor=fontcolor,
                      )
     if nodes:
         dot = get_edges_from_routes(dot, routes)

@@ -21,22 +21,29 @@ class CustomColors:
     etc.
      """
 
+    @staticmethod
+    def develop(tick, default_side):
+        try:
+            value, side = tick
+            assert side in {'left', 'right'}
+            return tick
+        except:
+            return tick, default_side
+
     def __init__(self, ticks, colors, side='left'):
-        self.ticks = sorted(ticks)
+        self.ticks = [self.develop(tick, side) for tick in ticks]
+        self.ticks.sort(key=lambda tick: tick[0])
         self.colors = colors
         self.side = side
         assert len(ticks) == len(colors)-1
-        assert self.side in {'left', 'right'}
 
-    def apply(self, value):
-        compare = le if self.side == 'left' else lt
-        for (tick, color) in zip (self.ticks, self.colors):
+    def color(self, value):
+        for ((tick, side), color) in zip (self.ticks, self.colors):
+            compare = le if side == 'left' else lt
             if compare(value, tick):
                 return color
         return self.colors[-1]
 
-
-###
 
 def test():
 
@@ -50,7 +57,7 @@ def test():
     expected = (0, 0, 1, 5, 6, 6, 7)
 
     for i, e in zip(inputs, expected):
-        result = scale.apply(i)
+        result = scale.color(i)
         expected = colors[e]
         print(f"{i} -> {result} == {expected} - {result == expected}")
 
@@ -59,10 +66,21 @@ def test():
     expected = (0, 1, 1, 5, 6, 7, 7)
 
     for i, e in zip(inputs, expected):
-        result = scale.apply(i)
+        result = scale.color(i)
         expected = colors[e]
         print(f"{i} -> {result} == {expected} - {result == expected}")
-    
+
+    advanced_ticks = [(0., 'left'), 0.5, (1., 'right')]
+    colors = ['green', 'yellow', 'orange', 'red']
+    scale = CustomColors(advanced_ticks, colors, side='right')
+    inputs = (-2, 0., 0.4, 0.5, 0.7, 1., 1.1)
+    expected = (0, 0, 1, 2, 2, 3, 3)
+
+    for i, e in zip(inputs, expected):
+        result = scale.color(i)
+        expected = colors[e]
+        print(f"{i} -> {result} == {expected} - {result == expected}")
+
 
 if __name__ == '__main__':
     test()
