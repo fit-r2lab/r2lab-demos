@@ -13,7 +13,7 @@ as a second argument to interactive_output
 
 from collections import OrderedDict
 
-from ipywidgets import (Dropdown, Layout, HBox, VBox, Text,
+from ipywidgets import (fixed, Dropdown, Layout, HBox, VBox, Text,
                         IntSlider, SelectionSlider, SelectMultiple)
 from IPython.display import display
 
@@ -45,7 +45,10 @@ def available_interference_options(datadir):
     }
 
 
-def _dashboard(datadir, on_nodes, *,
+
+def _dashboard(datadir, *,
+               show_node_slider,
+               on_nodes=None,
                continuous_sender=False,
                node_legend="node",
                node_key='node_id'):
@@ -67,18 +70,18 @@ def _dashboard(datadir, on_nodes, *,
     w_interference = Dropdown(
         options=interference_options, value="None",
         description="Interference amplitude in % : ", layout=l50)
-    w_node = SelectionSlider(
-        description=node_legend,
-        options=on_nodes,
-        continuous_update=continuous_sender, layout=l100)
+    lines = [HBox([w_datadir, w_interference])]
     mapping = dict(
         datadir=w_datadir,
         interference=w_interference)
-    mapping[node_key] = w_node
-    dashboard_widget = VBox([
-        HBox([w_datadir, w_interference]),
-        HBox([w_node]),
-    ])
+
+    if show_node_slider:
+        w_node = SelectionSlider(
+            description=node_legend,
+            options=on_nodes,
+            continuous_update=continuous_sender, layout=l100)
+        lines.append(HBox([w_node]))
+        mapping[node_key] = w_node
 
     def update_interferences(info):
         # info is a dict with fields like
@@ -87,20 +90,21 @@ def _dashboard(datadir, on_nodes, *,
         w_interference.options = available_interference_options(new_datadir)
     w_datadir.observe(update_interferences, 'value')
 
+    dashboard_widget = VBox(lines)
     display(dashboard_widget)
     return mapping
 
 
 def dashboard_source(datadir, on_nodes, *,
                      continuous_sender=False):
-    return _dashboard(datadir, on_nodes,
-                      continuous_sender=continuous_sender,
+    return _dashboard(datadir, show_node_slider=True,
+                      on_nodes=on_nodes,
                       node_legend="sender",
-                      node_key='source')
+                      node_key='source',
+                      continuous_sender=continuous_sender)
 
-def dashboard_receiver(datadir, on_nodes, *,
+def dashboard_receiver(datadir, receiver, *,
                        continuous_sender=False):
-    return _dashboard(datadir, on_nodes,
-                      continuous_sender=continuous_sender,
-                      node_legend="receiver",
-                      node_key='receiver')
+    variables = _dashboard(datadir, show_node_slider=False)
+    variables['receiver'] = fixed(receiver)
+    return variables
