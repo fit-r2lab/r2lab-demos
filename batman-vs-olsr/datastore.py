@@ -21,7 +21,7 @@ from r2labmap import maps
 from constants import (
     WIRELESS_DRIVER, TX_POWER, PHY_RATE, CHANNEL, ANTENNA_MASK)
 
-# + force to name all parameters
+# all parameters must be named
 def naming_scheme(*, run_name, protocol, interference,
                   autocreate=False):
     """
@@ -41,8 +41,27 @@ def naming_scheme(*, run_name, protocol, interference,
     return run_root
 
 
-####################
 
+interference_line = (
+    r'.*interference=(?P<interference>[\w]+) '
+    r'from scrambler=(?P<scrambler_id>[0-9]+)'
+)
+
+# parse trace file
+def retrieve_scrambler_id(run_name, protocol, interference):
+    root = naming_scheme(run_name=run_name, protocol=protocol,
+                         interference=interference)
+    traces = root.glob("trace*")
+    for tracepath in traces:
+        with tracepath.open() as trace:
+            for line in trace:
+                match = re.match(interference_line, line)
+                if match:
+                    interference = match.group('interference')
+                    scrambler_id = match.group('scrambler_id')
+                    return int(scrambler_id) if interference != "None" else None
+
+####################
 ### helpers
 def apssh_time():
     now = datetime.now()
@@ -60,10 +79,7 @@ def time_line(line, file=sys.stdout):
 
 
 ####################
-Packet = namedtuple(
-    'Packet',
-    ['id', 'rtt']
-    )
+Packet = namedtuple( 'Packet', ['icmp_seq', 'rtt'] )
 
 PingDetails = namedtuple(
     'PingDetails',
@@ -106,7 +122,7 @@ def read_ping_details(filename, warning=True):
                 match = re.match(packet_line, line)
                 if match:
                     packets.append(Packet(
-                        id=int(match.group('icmp_seq')),
+                        icmp_seq=int(match.group('icmp_seq')),
                         rtt=float(match.group('rtt')),
                     ))
                     continue
@@ -129,77 +145,8 @@ def read_ping_details(filename, warning=True):
 
     pdr = 1 - len(packets) / nb_packets
     rtt = sum(packet.rtt for packet in packets) / len(packets)
-    return PingDetails(RTT=rtt, PDR = pdr)
+    return PingDetails(RTT=rtt, PDR=pdr)
 
-
-def is_valid_route(route):
-    if "- 0 -" in route:
-        return False
-    return True
-
-
-def get_all_routes(filename):
-    routes = []
-    try:
-        with open(filename) as routes_file:
-            for line in routes_file:
-                routes.append(line.rstrip())
-    except IOError:
-        print("Routes were not generated for these conditions: {}"
-              .format(filename))
-    return routes
-
-
-def get_all_routes_sample(filename, sampleNum):
-    routes = []
-    cursorOK = False
-    try:
-        with open(filename) as routes_file:
-            for line in routes_file:
-                if "SAMPLE" in line and cursorOK:
-                    cursorOK = False
-                    break
-                if cursorOK:
-                    routes.append(line.rstrip())
-                if "SAMPLE {}".format(sampleNum) in line:
-                    cursorOK = True
-    except IOError:
-        print("Routes were not generated for these conditions: {}"
-              .format(filename))
-    return routes
-
-
-def generate_source_dest_route_string(source, dest):
-    return "fit{:02d} - fit{:02d}".format(source, dest)
-
-
-def generate_route_list_for_block_graph(route, data):
-    return [route] * len(data)
-
-def is_decimal(string):
-    try:
-        return int(string)
-    except ValueError:
-        return None
-
-#
-def get_info(run_root, input_type):
-    # find most recent file named trace-??-??-??
-    traces = Path(run_root).glob("trace-??-??-??")
-    def mod_time(path):
-        return path.stat().st_mtime
-    recent_first = sorted(traces, key=mod_time, reverse=True)
-    try:
-        with recent_first[0].open() as trace_file:
-            for line in trace_file:
-                if input_type not in line:
-                    continue
-                converted = (is_decimal(x) for x in line.split())
-                return [x for x in converted if x]
-    except IOError:
-        print("Experiment was not run in these conditions : {}"
-              .format(run_root))
-    return []
 
 ####################
 from customcolors import CustomColors
@@ -245,34 +192,56 @@ def details_from_all_senders(dataframe, run_name,
 
 
 #######
-def getNodesFromRoutes(routes):
+def is_valid_route(route):
+    if "- 0 -" in route:
+        return False
+    return True
+
+
+def get_all_routes(filename):
+    routes = []
+    try:
+        with open(filename) as routes_file:
+            for line in routes_file:
+                routes.append(line.rstrip())
+    except IOError:
+        print("Routes were not generated for these conditions: {}"
+              .format(filename))
+    return routes
+
+def get_nodes_from_routes(routes):
     nodes = []
     for route in routes:
         nodes.extend(route.split(" -- "))
     return list(set(nodes))
 
 
-def getEdgesFromRoutes(dot, routes):
+def get_edges_from_routes(dot, routes):
+    # keep track to avoid dups
+    matrix = set()
     for route in routes:
-        if "-- 0 --" not in route:
-            nodes = route.split(" -- ")
-            if "-- -1 --" not in route:
-                for i in range(0, len(nodes)-1):
-                    dot.edge(nodes[i], nodes[i+1])
-            else:
-                nodes.remove('-1')
-                for i in range(0, len(nodes)-2):
-                    dot.edge(nodes[i], nodes[i+1], color="red")
-                dot.edge(nodes[len(nodes)-3],
-                         nodes[len(nodes) - 1],
-                         label="LOOP FOR ROUTES TO THIS DEST",
-                         color="red")
+        if "-- 0 --" in route:
+            continue
+        nodes = route.split(" -- ")
+        if "-- -1 --" not in route:
+            for prev, next in zip(nodes, nodes[1:]):
+                if (prev, next) not in matrix:
+                    dot.edge(prev, next)
+                    matrix.add((prev, next))
+        else:
+            nodes.remove('-1')
+            for i in range(0, len(nodes)-2):
+                dot.edge(nodes[i], nodes[i+1], color="red")
+            dot.edge(nodes[len(nodes)-3],
+                     nodes[len(nodes) - 1],
+                     label="LOOP FOR ROUTES TO THIS DEST",
+                     color="red")
     return dot
 
 
-# xxx need to read scrambler_id from the trace file in the results dir
 def routing_graph(run_name, interference,
-                  source, protocol, *, scrambler_id=5, sample=None):
+                  source, protocol):
+    scrambler_id = retrieve_scrambler_id(run_name, protocol, interference)
     node_to_pos, _, _ = maps(lambda x: x+1, lambda y: 5-y)
     dot = Digraph(comment='Routing table for fit{:02d}'
                   .format(source), engine='fdp')
@@ -287,13 +256,8 @@ def routing_graph(run_name, interference,
     #dot.format = 'png'
     directory = naming_scheme(run_name=run_name, protocol=protocol,
                               interference=interference)
-    if sample is None:
-        routes = get_all_routes(directory / "ROUTES-{:02d}".format(source))
-    else:
-        routes = get_all_routes_sample(
-            directory / "SAMPLES" / "ROUTES-{:02d}-SAMPLE".format(source),
-            sample)
-    nodes = getNodesFromRoutes(routes)
+    routes = get_all_routes(directory / "ROUTES-{:02d}".format(source))
+    nodes = get_nodes_from_routes(routes)
     nodes = list(set(nodes)- set(['0']))
 
     # pillars
@@ -316,6 +280,6 @@ def routing_graph(run_name, interference,
                      shape='doublecircle',
                      )
     if nodes:
-        dot = getEdgesFromRoutes(dot, routes)
+        dot = get_edges_from_routes(dot, routes)
 
         return dot
