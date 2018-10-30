@@ -15,9 +15,10 @@
 
 # was done in two passes
 interferences="10 15 20 25 30 35 40 None"
-datadir=datasample11
+datadir=datasample12
 
 ./runs.py "$@" \
     --protocol olsr batman --all-sources \
+    --all-destinations \
     --interference $interferences \
     --warmup --map -o $datadir >& ${datadir}.log
