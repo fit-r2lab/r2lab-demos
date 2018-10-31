@@ -39,7 +39,7 @@ default_slicename = 'inria_batman'
 default_run_name = 'default-output-dir'
 
 
-choices_protocols = ['olsr', 'batman']
+choices_protocol = ['olsr', 'batman']
 default_protocol = ['batman']
 # a fixed amount of time that we wait for,
 # once all the nodes have their wireless interface configured
@@ -52,14 +52,14 @@ all_node_ids = [str(i) for i in range(1, 38)]
 # actual ping parameters
 ping_timeout = 3
 ping_size = 254
-ping_interval = 0.1
+ping_interval = 0.03
 ping_messages = 100
 
 # warmup ping parameters
-warmup_ping_timeout = 5
+warmup_ping_timeout = 1
 warmup_ping_size = 64
 warmup_ping_interval = 0.5
-warmup_ping_messages = 60
+warmup_ping_messages = 20
 
 
 # convenience
@@ -233,19 +233,21 @@ def one_run(*, protocol, interference,
 
     green_light = check_lease
 
+    # at some point we did not load the scrambler if interference was None
+    # and that was a way to run faster loads with no interference
+    # but now we always load the scrambler node with gnuradio
+    # this is because when we do runs.py -i None 15 30 ...
+    # then the first call to one_run is with interference being None
+    # but it is still important to load the scrambler
     if load_images:
+        # copy node_ids
+        load_ids = node_ids[:]
+        load_ids.append(scrambler_id)
         # the nodes that we **do not** use should be turned off
         # so if we have selected e.g. nodes 10 12 and 15, we will do
         # rhubarbe off -a ~10 ~12 ~15, meaning all nodes except 10, 12 and 15
-        negated_node_ids = [f"~{id}" for id in node_ids]
-        # if interferences are requested, add the
-        # id of the scrambler in the list and load the gnuradio image
-        if interference:
-            negated_node_ids.append(f"~{scrambler_id}")
-        # copy node_ids
-        load_ids = node_ids[:]
-        if interference:
-            load_ids.append(scrambler_id)
+        negated_node_ids = [f"~{id}" for id in load_ids]
+
         # we can do these three things in parallel
         ready_jobs = [
             SshJob(node=faraday, required=green_light,
@@ -259,17 +261,16 @@ def one_run(*, protocol, interference,
                                "batman-olsr",
                                *node_ids,
                                label=f"load ubuntu on {node_ids}")),
+            SshJob(
+                node=faraday, required=green_light,
+                scheduler=scheduler, verbose=verbose_jobs,
+                label="load gnuradio image",
+                command=Run("rhubarbe", "load", "-i",
+                            "batman-olsr-gnuradio",
+                            scrambler_id,
+                            label=f"load gnuradio on {scrambler_id}")),
         ]
-        if interference:
-            ready_jobs.append(
-                SshJob(
-                    node=faraday, required=green_light,
-                    scheduler=scheduler, verbose=verbose_jobs,
-                    label="load gnuradio image",
-                    command=Run("rhubarbe", "load", "-i",
-                                "batman-olsr-gnuradio",
-                                scrambler_id,
-                                label=f"load gnuradio on {scrambler_id}")))
+
         # replace green_light in this case
         green_light = SshJob(
             node=faraday, required=ready_jobs,
@@ -323,7 +324,6 @@ def one_run(*, protocol, interference,
 
     if interference:
         # Run uhd_siggen with the chosen power
-        frequency_str = f"{frequency}M"
         init_scrambler_job = SshJob(
             scheduler=scheduler,
             required=green_light,
@@ -336,7 +336,7 @@ def one_run(*, protocol, interference,
                                 "init-scrambler",
                                 label="init scrambler"),
                       Run(f"systemd-run --unit=uhd_siggen -t ",
-                          f"uhd_siggen -a usrp -f {frequency}",
+                          f"uhd_siggen -a usrp -f {frequency}M",
                           f"--sine --amplitude 0.{interference}",
                           label="systemctl start uhd_siggen")
                       ]
@@ -817,19 +817,13 @@ def all_runs(*args, interferences, protocols,
              **kwds):
     """
     calls one_run with the cartesian product of
-    protocols, interferences,
-    tx_powers, phy_rates, antenna_masks and channels,
-    that are expected to be lists of strings
+    protocols, interferences
 
     All other arguments to one_run may/must be specified as well
 
     Example:
-        all_runs(protocols=['olsr'],
-                 interferences=[None],
-                 tx_powers=[5, 14],
-                 phy_rates=[1],
-                 antenna_masks=[1],
-                 channels=[1, 40],
+        all_runs(protocols=['olsr', 'batman'],
+                 interferences=[None, '10'],
                  ...)
         will call one_run exactly 4 times
     """
@@ -881,10 +875,14 @@ def main():
 
     parser.add_argument(
         "-p", "--protocol", dest='protocol', metavar='protocol',
-        default=default_protocol, choices=choices_protocols,
+        default=default_protocol, choices=choices_protocol,
         nargs='+',
         help=f"specify the WMN protocols you want to use,"
-             f" among {set(choices_protocols)}")
+             f" among {set(choices_protocol)}")
+
+    parser.add_argument(
+        "-P", "--all-protocols", default=False, action='store_true',
+        help="use both protocols")
 
     parser.add_argument(
         "-i", "--interference", dest='interference', metavar='interference',
@@ -893,6 +891,10 @@ def main():
         help=f"amplitude (in %%) for the white sine noise"
              f" generated from scrambler node,"
              f" among {' '.join(CHOICES_INTERFERENCE)}")
+
+    parser.add_argument(
+        "-I", "--all-interferences", default=False, action='store_true',
+        help=f"Use all values of interference in {CHOICES_INTERFERENCE}")
 
     parser.add_argument(
         "-N", "--node", dest='node_ids', metavar='routing-node',
@@ -973,6 +975,10 @@ def main():
         for feature in ( #'tshark', # tshark really involves too big a volume
                 'map', 'warmup', 'iperf', 'route_sampling'):
             setattr(args, feature, True)
+    if args.all_interferences:
+        args.interference = CHOICES_INTERFERENCE
+    if args.all_protocols:
+        args.protocol = choices_protocol
 
     return all_runs(
         protocols=args.protocol,
