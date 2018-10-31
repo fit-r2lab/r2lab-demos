@@ -18,9 +18,8 @@ from ipywidgets import (fixed, Dropdown, Layout, HBox, VBox, Text,
 from IPython.display import display
 
 # import a dictionary channel -> frequency
-from datastore import naming_scheme
+from datastore import naming_scheme, receiver_nodes, sender_nodes
 from channels import channel_options
-
 from constants import CHOICES_INTERFERENCE
 
 def to_python(x):
@@ -95,16 +94,33 @@ def _dashboard(datadir, *,
     return mapping
 
 
-def dashboard_source(datadir, on_nodes, *,
+# we use sender_nodes() and receiver_nodes() to compute
+# the choices that make sense; no slider is shown when only
+# one node in that position (sender or receiver) is available
+def dashboard_sender(datadir, *,
                      continuous_sender=False):
-    return _dashboard(datadir, show_node_slider=True,
-                      on_nodes=on_nodes,
-                      node_legend="sender",
-                      node_key='source',
-                      continuous_sender=continuous_sender)
+    nodes = [int(x) for x in sender_nodes(datadir)]
+    show_node_slider = len(nodes) > 1
+    variables = _dashboard(datadir,
+                           show_node_slider=show_node_slider,
+                           on_nodes=nodes,
+                           node_legend="sender",
+                           node_key='source',
+                           continuous_sender=continuous_sender)
+    if not show_node_slider:
+        variables['sender'] = fixed(nodes[0])
+    return variables
 
-def dashboard_receiver(datadir, receiver, *,
+def dashboard_receiver(datadir, *,
                        continuous_sender=False):
-    variables = _dashboard(datadir, show_node_slider=False)
-    variables['receiver'] = fixed(receiver)
+    nodes = [int(x) for x in receiver_nodes(datadir)]
+    show_node_slider = len(nodes) > 1
+    variables = _dashboard(datadir,
+                           show_node_slider=show_node_slider,
+                           on_nodes=nodes,
+                           node_legend="receiver",
+                           node_key='receiver',
+                           continuous_sender=continuous_sender)
+    if not show_node_slider:
+        variables['receiver'] = fixed(nodes[0])
     return variables

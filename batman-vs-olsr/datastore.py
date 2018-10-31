@@ -61,6 +61,26 @@ def retrieve_scrambler_id(run_name, protocol, interference):
                     scrambler_id = match.group('scrambler_id')
                     return int(scrambler_id) if interference != "None" else None
 
+
+def sender_nodes(run_name):
+    """
+    Scans directory run_name and returns all nodes that have been
+    the destination of at least one ping
+    """
+    all_pings = Path(run_name).glob("*/PING-??-??")
+
+    return sorted({ping.name[-5:-3] for ping in all_pings})
+
+
+def receiver_nodes(run_name):
+    """
+    Scans directory run_name and returns all nodes that have been
+    the destination of at least one ping
+    """
+    all_pings = Path(run_name).glob("*/PING-??-??")
+
+    return sorted({ping.name[-2:] for ping in all_pings})
+
 ####################
 ### helpers
 def apssh_time():
