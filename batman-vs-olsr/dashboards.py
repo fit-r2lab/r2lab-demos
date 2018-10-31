@@ -56,7 +56,7 @@ def _dashboard(datadir, *,
     return a dictionary name->widget suitable for interactive_output
 
     """
-    show_node_slider=show_node_slider = len(nodes) > 1
+    show_node_slider = len(nodes) > 1
 
     lfull = Layout(width='100%')
     lsmall = Layout(width='25%')
@@ -69,7 +69,7 @@ def _dashboard(datadir, *,
     w_interference = Dropdown(
         options=interference_options, value="None",
         description="Interference amplitude in % : ",
-        layout= lsmall if show_node_slider else lfull)
+        layout=lsmall if show_node_slider else lfull)
     row = [w_interference]
     mapping = dict(
         datadir=w_datadir,
