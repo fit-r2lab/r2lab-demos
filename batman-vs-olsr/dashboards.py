@@ -44,10 +44,8 @@ def available_interference_options(datadir):
     }
 
 
-
 def _dashboard(datadir, *,
-               show_node_slider,
-               on_nodes=None,
+               nodes,
                continuous_sender=False,
                node_legend="node",
                node_key='node_id'):
@@ -58,38 +56,43 @@ def _dashboard(datadir, *,
     return a dictionary name->widget suitable for interactive_output
 
     """
-    # dashboard pieces as widgets
-    l100 = Layout(width='100%')
-    l50 = Layout(width='50%')
-    # all space
-    w_datadir = Text(
-        description="run name", value=datadir,
-        layout=l50)
+    show_node_slider=show_node_slider = len(nodes) > 1
+
+    lfull = Layout(width='100%')
+    lsmall = Layout(width='25%')
+    llarge = Layout(width='75%')
+
+    # no longer possible to choose datadir here
+    w_datadir = fixed(datadir)
+
     interference_options = available_interference_options(datadir)
     w_interference = Dropdown(
         options=interference_options, value="None",
-        description="Interference amplitude in % : ", layout=l50)
-    lines = [HBox([w_datadir, w_interference])]
+        description="Interference amplitude in % : ",
+        layout= lsmall if show_node_slider else lfull)
+    row = [w_interference]
     mapping = dict(
         datadir=w_datadir,
         interference=w_interference)
 
-    if show_node_slider:
+    if not show_node_slider:
+        w_node = fixed(nodes[0])
+    else:
         w_node = SelectionSlider(
             description=node_legend,
-            options=on_nodes,
-            continuous_update=continuous_sender, layout=l100)
-        lines.append(HBox([w_node]))
-        mapping[node_key] = w_node
+            options=nodes,
+            continuous_update=continuous_sender, layout=llarge)
+        row.append(w_node)
+    mapping[node_key] = w_node
 
-    def update_interferences(info):
-        # info is a dict with fields like
-        # 'old', 'new' and 'owner'
-        new_datadir = info['new']
-        w_interference.options = available_interference_options(new_datadir)
-    w_datadir.observe(update_interferences, 'value')
+    #def update_interferences(info):
+    #    # info is a dict with fields like
+    #    # 'old', 'new' and 'owner'
+    #    new_datadir = info['new']
+    #    w_interference.options = available_interference_options(new_datadir)
+    #w_datadir.observe(update_interferences, 'value')
 
-    dashboard_widget = VBox(lines)
+    dashboard_widget = HBox(row)
     display(dashboard_widget)
     return mapping
 
@@ -100,27 +103,17 @@ def _dashboard(datadir, *,
 def dashboard_sender(datadir, *,
                      continuous_sender=False):
     nodes = [int(x) for x in sender_nodes(datadir)]
-    show_node_slider = len(nodes) > 1
-    variables = _dashboard(datadir,
-                           show_node_slider=show_node_slider,
-                           on_nodes=nodes,
-                           node_legend="sender",
-                           node_key='source',
-                           continuous_sender=continuous_sender)
-    if not show_node_slider:
-        variables['sender'] = fixed(nodes[0])
-    return variables
+    return _dashboard(datadir,
+                      nodes=nodes,
+                      node_legend="sender",
+                      node_key='source',
+                      continuous_sender=continuous_sender)
 
 def dashboard_receiver(datadir, *,
                        continuous_sender=False):
     nodes = [int(x) for x in receiver_nodes(datadir)]
-    show_node_slider = len(nodes) > 1
-    variables = _dashboard(datadir,
-                           show_node_slider=show_node_slider,
-                           on_nodes=nodes,
-                           node_legend="receiver",
-                           node_key='receiver',
-                           continuous_sender=continuous_sender)
-    if not show_node_slider:
-        variables['receiver'] = fixed(nodes[0])
-    return variables
+    return _dashboard(datadir,
+                      nodes=nodes,
+                      node_legend="receiver",
+                      node_key='receiver',
+                      continuous_sender=continuous_sender)
