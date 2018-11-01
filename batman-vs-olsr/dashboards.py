@@ -36,7 +36,7 @@ def available_interference_options(datadir):
     return {
         str(interference): interference
         for interference in INTERFERENCE_OPTIONS.keys()
-        if all(
+        if any(
             naming_scheme(run_name=datadir, protocol=protocol,
                           interference=interference,
                           autocreate=False).exists()
@@ -66,8 +66,10 @@ def _dashboard(datadir, *,
     w_datadir = fixed(datadir)
 
     interference_options = available_interference_options(datadir)
+    default = 'None' if 'None' in interference_options \
+              else list(interference_options.keys())[0]
     w_interference = Dropdown(
-        options=interference_options, value="None",
+        options=interference_options, value=default,
         description="Interference amplitude in % : ",
         layout=lsmall if show_node_slider else lfull)
     row = [w_interference]
