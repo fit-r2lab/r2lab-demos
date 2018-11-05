@@ -1,0 +1,79 @@
+actual 4 ➡︎ 19
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.19
+PING 10.0.0.19 (10.0.0.19) 254(282) bytes of data.
+262 bytes from 10.0.0.19: icmp_seq=1 ttl=62 time=399 ms
+262 bytes from 10.0.0.19: icmp_seq=3 ttl=62 time=348 ms
+262 bytes from 10.0.0.19: icmp_seq=5 ttl=62 time=332 ms
+262 bytes from 10.0.0.19: icmp_seq=7 ttl=62 time=283 ms
+262 bytes from 10.0.0.19: icmp_seq=9 ttl=62 time=229 ms
+262 bytes from 10.0.0.19: icmp_seq=10 ttl=62 time=190 ms
+262 bytes from 10.0.0.19: icmp_seq=11 ttl=62 time=151 ms
+262 bytes from 10.0.0.19: icmp_seq=12 ttl=62 time=114 ms
+262 bytes from 10.0.0.19: icmp_seq=16 ttl=62 time=61.4 ms
+262 bytes from 10.0.0.19: icmp_seq=17 ttl=62 time=29.1 ms
+262 bytes from 10.0.0.19: icmp_seq=18 ttl=62 time=11.0 ms
+262 bytes from 10.0.0.19: icmp_seq=20 ttl=62 time=14.8 ms
+262 bytes from 10.0.0.19: icmp_seq=21 ttl=62 time=12.9 ms
+262 bytes from 10.0.0.19: icmp_seq=22 ttl=62 time=10.4 ms
+262 bytes from 10.0.0.19: icmp_seq=23 ttl=62 time=12.0 ms
+262 bytes from 10.0.0.19: icmp_seq=24 ttl=62 time=13.7 ms
+262 bytes from 10.0.0.19: icmp_seq=25 ttl=62 time=21.9 ms
+262 bytes from 10.0.0.19: icmp_seq=26 ttl=62 time=8.67 ms
+262 bytes from 10.0.0.19: icmp_seq=29 ttl=62 time=39.9 ms
+262 bytes from 10.0.0.19: icmp_seq=31 ttl=62 time=38.3 ms
+262 bytes from 10.0.0.19: icmp_seq=32 ttl=62 time=19.9 ms
+262 bytes from 10.0.0.19: icmp_seq=34 ttl=62 time=12.8 ms
+262 bytes from 10.0.0.19: icmp_seq=35 ttl=62 time=9.77 ms
+262 bytes from 10.0.0.19: icmp_seq=36 ttl=62 time=5.27 ms
+262 bytes from 10.0.0.19: icmp_seq=37 ttl=62 time=5.91 ms
+262 bytes from 10.0.0.19: icmp_seq=38 ttl=62 time=13.7 ms
+262 bytes from 10.0.0.19: icmp_seq=39 ttl=62 time=12.5 ms
+262 bytes from 10.0.0.19: icmp_seq=41 ttl=62 time=14.9 ms
+262 bytes from 10.0.0.19: icmp_seq=42 ttl=62 time=5.85 ms
+262 bytes from 10.0.0.19: icmp_seq=43 ttl=62 time=7.65 ms
+262 bytes from 10.0.0.19: icmp_seq=44 ttl=62 time=12.1 ms
+262 bytes from 10.0.0.19: icmp_seq=45 ttl=62 time=45.0 ms
+262 bytes from 10.0.0.19: icmp_seq=46 ttl=62 time=9.16 ms
+262 bytes from 10.0.0.19: icmp_seq=48 ttl=62 time=14.1 ms
+262 bytes from 10.0.0.19: icmp_seq=50 ttl=62 time=5.24 ms
+262 bytes from 10.0.0.19: icmp_seq=52 ttl=62 time=7.78 ms
+262 bytes from 10.0.0.19: icmp_seq=53 ttl=62 time=8.88 ms
+262 bytes from 10.0.0.19: icmp_seq=55 ttl=62 time=10.7 ms
+262 bytes from 10.0.0.19: icmp_seq=56 ttl=62 time=5.93 ms
+262 bytes from 10.0.0.19: icmp_seq=57 ttl=62 time=7.71 ms
+262 bytes from 10.0.0.19: icmp_seq=58 ttl=62 time=13.3 ms
+262 bytes from 10.0.0.19: icmp_seq=59 ttl=62 time=13.0 ms
+262 bytes from 10.0.0.19: icmp_seq=60 ttl=62 time=36.1 ms
+262 bytes from 10.0.0.19: icmp_seq=61 ttl=62 time=22.8 ms
+262 bytes from 10.0.0.19: icmp_seq=62 ttl=62 time=10.5 ms
+262 bytes from 10.0.0.19: icmp_seq=63 ttl=62 time=9.17 ms
+262 bytes from 10.0.0.19: icmp_seq=65 ttl=62 time=15.4 ms
+262 bytes from 10.0.0.19: icmp_seq=66 ttl=62 time=4.96 ms
+262 bytes from 10.0.0.19: icmp_seq=69 ttl=62 time=43.0 ms
+262 bytes from 10.0.0.19: icmp_seq=70 ttl=62 time=9.52 ms
+262 bytes from 10.0.0.19: icmp_seq=71 ttl=62 time=20.2 ms
+262 bytes from 10.0.0.19: icmp_seq=72 ttl=62 time=8.79 ms
+262 bytes from 10.0.0.19: icmp_seq=73 ttl=62 time=15.6 ms
+262 bytes from 10.0.0.19: icmp_seq=75 ttl=62 time=27.1 ms
+262 bytes from 10.0.0.19: icmp_seq=76 ttl=62 time=9.22 ms
+262 bytes from 10.0.0.19: icmp_seq=77 ttl=62 time=35.3 ms
+262 bytes from 10.0.0.19: icmp_seq=78 ttl=62 time=7.97 ms
+262 bytes from 10.0.0.19: icmp_seq=79 ttl=62 time=10.4 ms
+262 bytes from 10.0.0.19: icmp_seq=80 ttl=62 time=10.7 ms
+262 bytes from 10.0.0.19: icmp_seq=83 ttl=62 time=46.8 ms
+262 bytes from 10.0.0.19: icmp_seq=84 ttl=62 time=30.4 ms
+262 bytes from 10.0.0.19: icmp_seq=85 ttl=62 time=36.5 ms
+262 bytes from 10.0.0.19: icmp_seq=86 ttl=62 time=5.30 ms
+262 bytes from 10.0.0.19: icmp_seq=87 ttl=62 time=24.8 ms
+262 bytes from 10.0.0.19: icmp_seq=88 ttl=62 time=11.4 ms
+262 bytes from 10.0.0.19: icmp_seq=89 ttl=62 time=20.5 ms
+262 bytes from 10.0.0.19: icmp_seq=90 ttl=62 time=24.0 ms
+262 bytes from 10.0.0.19: icmp_seq=91 ttl=62 time=18.5 ms
+262 bytes from 10.0.0.19: icmp_seq=94 ttl=62 time=19.4 ms
+262 bytes from 10.0.0.19: icmp_seq=95 ttl=62 time=16.0 ms
+262 bytes from 10.0.0.19: icmp_seq=96 ttl=62 time=8.92 ms
+262 bytes from 10.0.0.19: icmp_seq=98 ttl=62 time=8.84 ms
+
+--- 10.0.0.19 ping statistics ---
+100 packets transmitted, 72 received, 28% packet loss, time 3264ms
+rtt min/avg/max/mdev = 4.966/43.831/399.566/82.259 ms, pipe 11

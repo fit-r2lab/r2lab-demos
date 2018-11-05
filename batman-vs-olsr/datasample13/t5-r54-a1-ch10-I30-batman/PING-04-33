@@ -1,0 +1,29 @@
+actual 4 ➡︎ 33
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.33
+PING 10.0.0.33 (10.0.0.33) 254(282) bytes of data.
+From 10.0.0.4 icmp_seq=79 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=80 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=81 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=82 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=83 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=84 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=85 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=86 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=87 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=88 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=89 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=90 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=91 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=92 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=93 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=94 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=95 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=96 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=97 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=98 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=99 Destination Host Unreachable
+From 10.0.0.4 icmp_seq=100 Destination Host Unreachable
+
+--- 10.0.0.33 ping statistics ---
+100 packets transmitted, 0 received, +22 errors, 100% packet loss, time 14295ms
+pipe 8

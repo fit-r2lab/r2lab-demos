@@ -1,0 +1,17 @@
+actual 27 ➡︎ 19
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.19
+PING 10.0.0.19 (10.0.0.19) 254(282) bytes of data.
+262 bytes from 10.0.0.19: icmp_seq=1 ttl=64 time=3.71 ms
+262 bytes from 10.0.0.19: icmp_seq=9 ttl=64 time=15.9 ms
+262 bytes from 10.0.0.19: icmp_seq=11 ttl=64 time=4.87 ms
+262 bytes from 10.0.0.19: icmp_seq=12 ttl=64 time=5.06 ms
+262 bytes from 10.0.0.19: icmp_seq=18 ttl=64 time=5.74 ms
+262 bytes from 10.0.0.19: icmp_seq=25 ttl=64 time=159 ms
+262 bytes from 10.0.0.19: icmp_seq=31 ttl=64 time=57.6 ms
+262 bytes from 10.0.0.19: icmp_seq=34 ttl=64 time=62.6 ms
+262 bytes from 10.0.0.19: icmp_seq=39 ttl=64 time=92.7 ms
+262 bytes from 10.0.0.19: icmp_seq=42 ttl=64 time=234 ms
+
+--- 10.0.0.19 ping statistics ---
+100 packets transmitted, 10 received, 90% packet loss, time 3277ms
+rtt min/avg/max/mdev = 3.714/64.321/234.927/74.549 ms, pipe 6

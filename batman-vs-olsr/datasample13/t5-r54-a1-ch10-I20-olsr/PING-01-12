@@ -1,0 +1,40 @@
+actual 1 ➡︎ 12
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.12
+PING 10.0.0.12 (10.0.0.12) 254(282) bytes of data.
+262 bytes from 10.0.0.12: icmp_seq=4 ttl=64 time=422 ms
+262 bytes from 10.0.0.12: icmp_seq=8 ttl=64 time=318 ms
+262 bytes from 10.0.0.12: icmp_seq=10 ttl=64 time=77.6 ms
+262 bytes from 10.0.0.12: icmp_seq=14 ttl=64 time=36.2 ms
+262 bytes from 10.0.0.12: icmp_seq=17 ttl=64 time=37.6 ms
+262 bytes from 10.0.0.12: icmp_seq=18 ttl=64 time=5.48 ms
+262 bytes from 10.0.0.12: icmp_seq=22 ttl=64 time=11.1 ms
+262 bytes from 10.0.0.12: icmp_seq=25 ttl=64 time=9.33 ms
+262 bytes from 10.0.0.12: icmp_seq=27 ttl=64 time=9.15 ms
+262 bytes from 10.0.0.12: icmp_seq=29 ttl=64 time=1.42 ms
+262 bytes from 10.0.0.12: icmp_seq=31 ttl=64 time=6.73 ms
+262 bytes from 10.0.0.12: icmp_seq=33 ttl=64 time=7.83 ms
+262 bytes from 10.0.0.12: icmp_seq=34 ttl=64 time=15.9 ms
+262 bytes from 10.0.0.12: icmp_seq=40 ttl=64 time=500 ms
+262 bytes from 10.0.0.12: icmp_seq=43 ttl=64 time=815 ms
+262 bytes from 10.0.0.12: icmp_seq=46 ttl=64 time=733 ms
+262 bytes from 10.0.0.12: icmp_seq=47 ttl=64 time=461 ms
+262 bytes from 10.0.0.12: icmp_seq=50 ttl=64 time=73.6 ms
+262 bytes from 10.0.0.12: icmp_seq=51 ttl=64 time=46.1 ms
+262 bytes from 10.0.0.12: icmp_seq=57 ttl=64 time=12.3 ms
+262 bytes from 10.0.0.12: icmp_seq=59 ttl=64 time=9.35 ms
+262 bytes from 10.0.0.12: icmp_seq=62 ttl=64 time=2.73 ms
+262 bytes from 10.0.0.12: icmp_seq=63 ttl=64 time=2.22 ms
+262 bytes from 10.0.0.12: icmp_seq=65 ttl=64 time=2.80 ms
+262 bytes from 10.0.0.12: icmp_seq=70 ttl=64 time=1.45 ms
+262 bytes from 10.0.0.12: icmp_seq=79 ttl=64 time=184 ms
+262 bytes from 10.0.0.12: icmp_seq=80 ttl=64 time=158 ms
+262 bytes from 10.0.0.12: icmp_seq=85 ttl=64 time=813 ms
+262 bytes from 10.0.0.12: icmp_seq=87 ttl=64 time=757 ms
+262 bytes from 10.0.0.12: icmp_seq=88 ttl=64 time=717 ms
+262 bytes from 10.0.0.12: icmp_seq=90 ttl=64 time=66.8 ms
+262 bytes from 10.0.0.12: icmp_seq=93 ttl=64 time=29.8 ms
+262 bytes from 10.0.0.12: icmp_seq=100 ttl=64 time=1.69 ms
+
+--- 10.0.0.12 ping statistics ---
+100 packets transmitted, 33 received, 67% packet loss, time 4906ms
+rtt min/avg/max/mdev = 1.425/192.510/815.479/278.369 ms, pipe 7

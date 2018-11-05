@@ -1,0 +1,74 @@
+actual 31 ➡︎ 14
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.14
+PING 10.0.0.14 (10.0.0.14) 254(282) bytes of data.
+262 bytes from 10.0.0.14: icmp_seq=34 ttl=62 time=37.1 ms
+262 bytes from 10.0.0.14: icmp_seq=35 ttl=62 time=5.18 ms
+262 bytes from 10.0.0.14: icmp_seq=36 ttl=62 time=7.28 ms
+262 bytes from 10.0.0.14: icmp_seq=37 ttl=62 time=7.71 ms
+262 bytes from 10.0.0.14: icmp_seq=38 ttl=62 time=8.98 ms
+262 bytes from 10.0.0.14: icmp_seq=39 ttl=62 time=19.3 ms
+262 bytes from 10.0.0.14: icmp_seq=40 ttl=62 time=7.26 ms
+262 bytes from 10.0.0.14: icmp_seq=41 ttl=62 time=21.6 ms
+262 bytes from 10.0.0.14: icmp_seq=42 ttl=62 time=7.01 ms
+262 bytes from 10.0.0.14: icmp_seq=43 ttl=62 time=10.5 ms
+262 bytes from 10.0.0.14: icmp_seq=44 ttl=62 time=9.48 ms
+262 bytes from 10.0.0.14: icmp_seq=45 ttl=62 time=6.07 ms
+262 bytes from 10.0.0.14: icmp_seq=46 ttl=62 time=24.3 ms
+262 bytes from 10.0.0.14: icmp_seq=47 ttl=62 time=6.30 ms
+262 bytes from 10.0.0.14: icmp_seq=48 ttl=62 time=10.5 ms
+262 bytes from 10.0.0.14: icmp_seq=49 ttl=62 time=9.31 ms
+262 bytes from 10.0.0.14: icmp_seq=50 ttl=62 time=4.24 ms
+262 bytes from 10.0.0.14: icmp_seq=51 ttl=62 time=4.89 ms
+262 bytes from 10.0.0.14: icmp_seq=52 ttl=62 time=4.37 ms
+262 bytes from 10.0.0.14: icmp_seq=53 ttl=62 time=4.16 ms
+262 bytes from 10.0.0.14: icmp_seq=54 ttl=62 time=4.70 ms
+262 bytes from 10.0.0.14: icmp_seq=55 ttl=62 time=5.67 ms
+262 bytes from 10.0.0.14: icmp_seq=56 ttl=62 time=4.72 ms
+262 bytes from 10.0.0.14: icmp_seq=57 ttl=62 time=20.1 ms
+262 bytes from 10.0.0.14: icmp_seq=58 ttl=62 time=4.39 ms
+262 bytes from 10.0.0.14: icmp_seq=59 ttl=62 time=4.37 ms
+262 bytes from 10.0.0.14: icmp_seq=60 ttl=62 time=4.68 ms
+262 bytes from 10.0.0.14: icmp_seq=61 ttl=62 time=4.29 ms
+262 bytes from 10.0.0.14: icmp_seq=62 ttl=62 time=7.57 ms
+262 bytes from 10.0.0.14: icmp_seq=63 ttl=62 time=14.4 ms
+262 bytes from 10.0.0.14: icmp_seq=64 ttl=62 time=6.45 ms
+262 bytes from 10.0.0.14: icmp_seq=65 ttl=62 time=4.65 ms
+262 bytes from 10.0.0.14: icmp_seq=66 ttl=62 time=4.51 ms
+262 bytes from 10.0.0.14: icmp_seq=67 ttl=62 time=4.24 ms
+262 bytes from 10.0.0.14: icmp_seq=68 ttl=62 time=4.65 ms
+262 bytes from 10.0.0.14: icmp_seq=69 ttl=62 time=4.57 ms
+262 bytes from 10.0.0.14: icmp_seq=70 ttl=62 time=12.2 ms
+262 bytes from 10.0.0.14: icmp_seq=71 ttl=62 time=4.33 ms
+262 bytes from 10.0.0.14: icmp_seq=72 ttl=62 time=13.0 ms
+262 bytes from 10.0.0.14: icmp_seq=73 ttl=62 time=6.40 ms
+262 bytes from 10.0.0.14: icmp_seq=74 ttl=62 time=17.6 ms
+262 bytes from 10.0.0.14: icmp_seq=75 ttl=62 time=24.9 ms
+262 bytes from 10.0.0.14: icmp_seq=76 ttl=62 time=11.9 ms
+262 bytes from 10.0.0.14: icmp_seq=77 ttl=62 time=5.31 ms
+262 bytes from 10.0.0.14: icmp_seq=78 ttl=62 time=4.81 ms
+262 bytes from 10.0.0.14: icmp_seq=79 ttl=62 time=4.98 ms
+262 bytes from 10.0.0.14: icmp_seq=80 ttl=62 time=4.43 ms
+262 bytes from 10.0.0.14: icmp_seq=81 ttl=62 time=12.3 ms
+262 bytes from 10.0.0.14: icmp_seq=82 ttl=62 time=8.98 ms
+262 bytes from 10.0.0.14: icmp_seq=83 ttl=62 time=4.82 ms
+262 bytes from 10.0.0.14: icmp_seq=84 ttl=62 time=4.94 ms
+262 bytes from 10.0.0.14: icmp_seq=85 ttl=62 time=19.2 ms
+262 bytes from 10.0.0.14: icmp_seq=86 ttl=62 time=8.20 ms
+262 bytes from 10.0.0.14: icmp_seq=87 ttl=62 time=22.9 ms
+262 bytes from 10.0.0.14: icmp_seq=88 ttl=62 time=7.86 ms
+262 bytes from 10.0.0.14: icmp_seq=89 ttl=62 time=11.4 ms
+262 bytes from 10.0.0.14: icmp_seq=90 ttl=62 time=41.3 ms
+262 bytes from 10.0.0.14: icmp_seq=91 ttl=62 time=14.6 ms
+262 bytes from 10.0.0.14: icmp_seq=92 ttl=62 time=19.1 ms
+262 bytes from 10.0.0.14: icmp_seq=93 ttl=62 time=10.6 ms
+262 bytes from 10.0.0.14: icmp_seq=94 ttl=62 time=28.7 ms
+262 bytes from 10.0.0.14: icmp_seq=95 ttl=62 time=16.0 ms
+262 bytes from 10.0.0.14: icmp_seq=96 ttl=62 time=20.7 ms
+262 bytes from 10.0.0.14: icmp_seq=97 ttl=62 time=15.4 ms
+262 bytes from 10.0.0.14: icmp_seq=98 ttl=62 time=12.5 ms
+262 bytes from 10.0.0.14: icmp_seq=99 ttl=62 time=10.7 ms
+262 bytes from 10.0.0.14: icmp_seq=100 ttl=62 time=8.42 ms
+
+--- 10.0.0.14 ping statistics ---
+100 packets transmitted, 67 received, 33% packet loss, time 3138ms
+rtt min/avg/max/mdev = 4.167/10.887/41.368/7.932 ms, pipe 2

@@ -1,0 +1,8 @@
+actual 1 ➡︎ 4
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.4
+PING 10.0.0.4 (10.0.0.4) 254(282) bytes of data.
+262 bytes from 10.0.0.4: icmp_seq=35 ttl=63 time=526 ms
+
+--- 10.0.0.4 ping statistics ---
+100 packets transmitted, 1 received, 99% packet loss, time 4568ms
+rtt min/avg/max/mdev = 526.003/526.003/526.003/0.000 ms, pipe 10

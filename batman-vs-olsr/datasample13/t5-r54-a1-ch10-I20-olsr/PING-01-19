@@ -1,0 +1,8 @@
+actual 1 ➡︎ 19
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.19
+PING 10.0.0.19 (10.0.0.19) 254(282) bytes of data.
+262 bytes from 10.0.0.19: icmp_seq=2 ttl=60 time=273 ms
+
+--- 10.0.0.19 ping statistics ---
+100 packets transmitted, 1 received, 99% packet loss, time 3496ms
+rtt min/avg/max/mdev = 273.387/273.387/273.387/0.000 ms, pipe 7

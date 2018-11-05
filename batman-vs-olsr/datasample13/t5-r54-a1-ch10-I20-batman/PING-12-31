@@ -1,0 +1,20 @@
+actual 12 ➡︎ 31
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.31
+PING 10.0.0.31 (10.0.0.31) 254(282) bytes of data.
+262 bytes from 10.0.0.31: icmp_seq=5 ttl=60 time=104 ms
+262 bytes from 10.0.0.31: icmp_seq=12 ttl=60 time=41.1 ms
+262 bytes from 10.0.0.31: icmp_seq=28 ttl=60 time=281 ms
+262 bytes from 10.0.0.31: icmp_seq=31 ttl=60 time=235 ms
+262 bytes from 10.0.0.31: icmp_seq=34 ttl=60 time=193 ms
+262 bytes from 10.0.0.31: icmp_seq=42 ttl=60 time=296 ms
+262 bytes from 10.0.0.31: icmp_seq=52 ttl=60 time=136 ms
+262 bytes from 10.0.0.31: icmp_seq=53 ttl=60 time=118 ms
+262 bytes from 10.0.0.31: icmp_seq=63 ttl=60 time=22.8 ms
+262 bytes from 10.0.0.31: icmp_seq=64 ttl=60 time=41.0 ms
+262 bytes from 10.0.0.31: icmp_seq=65 ttl=60 time=14.5 ms
+262 bytes from 10.0.0.31: icmp_seq=67 ttl=60 time=17.8 ms
+262 bytes from 10.0.0.31: icmp_seq=72 ttl=60 time=59.1 ms
+
+--- 10.0.0.31 ping statistics ---
+100 packets transmitted, 13 received, 87% packet loss, time 3261ms
+rtt min/avg/max/mdev = 14.553/120.256/296.445/97.523 ms, pipe 10

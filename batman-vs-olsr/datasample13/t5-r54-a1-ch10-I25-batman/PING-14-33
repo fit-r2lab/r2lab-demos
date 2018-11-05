@@ -1,0 +1,7 @@
+actual 14 ➡︎ 33
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.33
+PING 10.0.0.33 (10.0.0.33) 254(282) bytes of data.
+
+--- 10.0.0.33 ping statistics ---
+100 packets transmitted, 0 received, 100% packet loss, time 3657ms
+

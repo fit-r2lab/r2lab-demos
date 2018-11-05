@@ -1,0 +1,16 @@
+actual 19 ➡︎ 1
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.1
+PING 10.0.0.1 (10.0.0.1) 254(282) bytes of data.
+From 10.0.0.19 icmp_seq=1 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=2 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=3 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=4 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=5 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=6 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=7 Destination Host Unreachable
+From 10.0.0.19 icmp_seq=8 Destination Host Unreachable
+262 bytes from 10.0.0.1: icmp_seq=48 ttl=64 time=1359 ms
+
+--- 10.0.0.1 ping statistics ---
+100 packets transmitted, 1 received, +8 errors, 99% packet loss, time 35866ms
+rtt min/avg/max/mdev = 1359.967/1359.967/1359.967/0.000 ms, pipe 9

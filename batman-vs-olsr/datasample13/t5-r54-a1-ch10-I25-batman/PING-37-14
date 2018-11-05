@@ -1,0 +1,11 @@
+actual 37 ➡︎ 14
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.14
+PING 10.0.0.14 (10.0.0.14) 254(282) bytes of data.
+From 10.0.0.31 icmp_seq=1 Time to live exceeded
+From 10.0.0.31 icmp_seq=20 Time to live exceeded
+From 10.0.0.31 icmp_seq=49 Time to live exceeded
+From 10.0.0.31 icmp_seq=74 Time to live exceeded
+
+--- 10.0.0.14 ping statistics ---
+100 packets transmitted, 0 received, +4 errors, 100% packet loss, time 3453ms
+pipe 2

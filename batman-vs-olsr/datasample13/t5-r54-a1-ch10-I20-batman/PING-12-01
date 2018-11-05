@@ -1,0 +1,24 @@
+actual 12 ➡︎ 1
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.1
+PING 10.0.0.1 (10.0.0.1) 254(282) bytes of data.
+262 bytes from 10.0.0.1: icmp_seq=4 ttl=64 time=2.42 ms
+262 bytes from 10.0.0.1: icmp_seq=11 ttl=64 time=28.5 ms
+262 bytes from 10.0.0.1: icmp_seq=14 ttl=64 time=14.4 ms
+262 bytes from 10.0.0.1: icmp_seq=15 ttl=64 time=17.7 ms
+262 bytes from 10.0.0.1: icmp_seq=16 ttl=64 time=1.78 ms
+262 bytes from 10.0.0.1: icmp_seq=17 ttl=64 time=2.81 ms
+262 bytes from 10.0.0.1: icmp_seq=20 ttl=64 time=6.12 ms
+262 bytes from 10.0.0.1: icmp_seq=24 ttl=64 time=29.7 ms
+262 bytes from 10.0.0.1: icmp_seq=31 ttl=64 time=404 ms
+262 bytes from 10.0.0.1: icmp_seq=33 ttl=64 time=641 ms
+262 bytes from 10.0.0.1: icmp_seq=39 ttl=64 time=577 ms
+262 bytes from 10.0.0.1: icmp_seq=41 ttl=64 time=560 ms
+262 bytes from 10.0.0.1: icmp_seq=44 ttl=64 time=523 ms
+262 bytes from 10.0.0.1: icmp_seq=91 ttl=64 time=957 ms
+262 bytes from 10.0.0.1: icmp_seq=92 ttl=64 time=925 ms
+262 bytes from 10.0.0.1: icmp_seq=93 ttl=64 time=894 ms
+262 bytes from 10.0.0.1: icmp_seq=94 ttl=64 time=862 ms
+
+--- 10.0.0.1 ping statistics ---
+100 packets transmitted, 17 received, 83% packet loss, time 3281ms
+rtt min/avg/max/mdev = 1.783/379.460/957.374/373.251 ms, pipe 19

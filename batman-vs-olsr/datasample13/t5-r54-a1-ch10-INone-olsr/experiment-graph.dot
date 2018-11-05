@@ -1,0 +1,449 @@
+digraph asynciojobs{
+compound=true;
+graph [];
+001 [style="rounded",label="001 :inria_batman@faraday.inria.fr
+rlease",shape="box",color="lightpink4",penwidth="2"]
+002 [style="rounded",label="002 :inria_batman@faraday.inria.fr
+turn off unused nodes",shape="box",color="lightpink4",penwidth="2"]
+001 -> 002;
+003 [style="rounded",label="003 :inria_batman@faraday.inria.fr
+load ubuntu on [1, 33, 4, 37, 12, 14, 19, 27, 31]",shape="box",color="lightpink4",penwidth="2"]
+001 -> 003;
+004 [style="rounded",label="004 :inria_batman@faraday.inria.fr
+load gnuradio on 5",shape="box",color="lightpink4",penwidth="2"]
+001 -> 004;
+005 [style="rounded",label="005 :inria_batman@faraday.inria.fr
+rhubarbe wait 1 33 4 37 12 14 19 27 31 5",shape="box",color="lightpink4",penwidth="2"]
+002 -> 005;
+003 -> 005;
+004 -> 005;
+subgraph cluster_006{
+compound=true;
+graph [style="",label="006: Reset failed services",shape="box",color="lightpink4",penwidth="2"];
+007 [style="rounded",label="007 :root@fit01
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+008 [style="rounded",label="008 :root@fit33
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+009 [style="rounded",label="009 :root@fit04
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+010 [style="rounded",label="010 :root@fit37
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+011 [style="rounded",label="011 :root@fit12
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+012 [style="rounded",label="012 :root@fit14
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+013 [style="rounded",label="013 :root@fit19
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+014 [style="rounded",label="014 :root@fit27
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+015 [style="rounded",label="015 :root@fit31
+reset-failed services",shape="box",color="lightpink4",penwidth="2"]
+}
+005 -> 011 [lhead=cluster_006];
+subgraph cluster_016{
+compound=true;
+graph [style="",label="016: Initialisation of wireless chips",shape="box",color="lightpink4",penwidth="2"];
+017 [style="rounded",label="017 :root@fit01
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+018 [style="rounded",label="018 :root@fit33
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+019 [style="rounded",label="019 :root@fit04
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+020 [style="rounded",label="020 :root@fit37
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+021 [style="rounded",label="021 :root@fit12
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+022 [style="rounded",label="022 :root@fit14
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+023 [style="rounded",label="023 :root@fit19
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+024 [style="rounded",label="024 :root@fit27
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+025 [style="rounded",label="025 :root@fit31
+init add-hoc network",shape="box",color="lightpink4",penwidth="2"]
+}
+005 -> 021 [lhead=cluster_016];
+subgraph cluster_026{
+compound=true;
+graph [style="",label="026: init and run routing protocols",shape="box",color="lightpink4",penwidth="2"];
+027 [style="rounded",label="027 :root@fit01
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+028 [style="rounded",label="028 :root@fit33
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+029 [style="rounded",label="029 :root@fit04
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+030 [style="rounded",label="030 :root@fit37
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+031 [style="rounded",label="031 :root@fit12
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+032 [style="rounded",label="032 :root@fit14
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+033 [style="rounded",label="033 :root@fit19
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+034 [style="rounded",label="034 :root@fit27
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+035 [style="rounded",label="035 :root@fit31
+run olsr",shape="box",color="lightpink4",penwidth="2"]
+}
+021 -> 031 [lhead=cluster_026 ltail=cluster_016];
+011 -> 031 [lhead=cluster_026 ltail=cluster_006];
+subgraph cluster_036{
+compound=true;
+graph [style="",label="036: NOLABEL",shape="box",color="lightpink4",penwidth="2"];
+subgraph cluster_037{
+compound=true;
+graph [style="",label="037: Warmup pings",shape="box",color="lightpink4",penwidth="2"];
+038 [style="rounded",label="038 :root@fit01
+warmup 1 ➡︎ 33
+warmup 1 ➡︎ 4
+warmup 1 ➡︎ 37
+warmup 1 ➡︎ 12
+warmup 1 ➡︎ 14
+warmup 1 ➡︎ 19
+warmup 1 ➡︎ 27
+warmup 1 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+039 [style="rounded",label="039 :root@fit33
+warmup 33 ➡︎ 1
+warmup 33 ➡︎ 4
+warmup 33 ➡︎ 37
+warmup 33 ➡︎ 12
+warmup 33 ➡︎ 14
+warmup 33 ➡︎ 19
+warmup 33 ➡︎ 27
+warmup 33 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+040 [style="rounded",label="040 :root@fit04
+warmup 4 ➡︎ 1
+warmup 4 ➡︎ 33
+warmup 4 ➡︎ 37
+warmup 4 ➡︎ 12
+warmup 4 ➡︎ 14
+warmup 4 ➡︎ 19
+warmup 4 ➡︎ 27
+warmup 4 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+041 [style="rounded",label="041 :root@fit37
+warmup 37 ➡︎ 1
+warmup 37 ➡︎ 33
+warmup 37 ➡︎ 4
+warmup 37 ➡︎ 12
+warmup 37 ➡︎ 14
+warmup 37 ➡︎ 19
+warmup 37 ➡︎ 27
+warmup 37 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+042 [style="rounded",label="042 :root@fit12
+warmup 12 ➡︎ 1
+warmup 12 ➡︎ 33
+warmup 12 ➡︎ 4
+warmup 12 ➡︎ 37
+warmup 12 ➡︎ 14
+warmup 12 ➡︎ 19
+warmup 12 ➡︎ 27
+warmup 12 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+043 [style="rounded",label="043 :root@fit14
+warmup 14 ➡︎ 1
+warmup 14 ➡︎ 33
+warmup 14 ➡︎ 4
+warmup 14 ➡︎ 37
+warmup 14 ➡︎ 12
+warmup 14 ➡︎ 19
+warmup 14 ➡︎ 27
+warmup 14 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+044 [style="rounded",label="044 :root@fit19
+warmup 19 ➡︎ 1
+warmup 19 ➡︎ 33
+warmup 19 ➡︎ 4
+warmup 19 ➡︎ 37
+warmup 19 ➡︎ 12
+warmup 19 ➡︎ 14
+warmup 19 ➡︎ 27
+warmup 19 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+045 [style="rounded",label="045 :root@fit27
+warmup 27 ➡︎ 1
+warmup 27 ➡︎ 33
+warmup 27 ➡︎ 4
+warmup 27 ➡︎ 37
+warmup 27 ➡︎ 12
+warmup 27 ➡︎ 14
+warmup 27 ➡︎ 19
+warmup 27 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+046 [style="rounded",label="046 :root@fit31
+warmup 31 ➡︎ 1
+warmup 31 ➡︎ 33
+warmup 31 ➡︎ 4
+warmup 31 ➡︎ 37
+warmup 31 ➡︎ 12
+warmup 31 ➡︎ 14
+warmup 31 ➡︎ 19
+warmup 31 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+}
+047 [style="rounded",label="047: settling-warmup for 10 sec",shape="box",color="lightpink4",penwidth="2"]
+042 -> 047 [ltail=cluster_037];
+048 [style="rounded",label="048: settling for 40 sec",shape="box",color="lightpink4",penwidth="2"]
+}
+031 -> 042 [lhead=cluster_036 ltail=cluster_026];
+subgraph cluster_049{
+compound=true;
+graph [style="",label="049: Snapshoting route files",shape="box",color="lightpink4",penwidth="2"];
+050 [style="rounded",label="050 :root@fit01
+get route table",shape="box",color="lightpink4",penwidth="2"]
+051 [style="rounded",label="051 :root@fit33
+get route table",shape="box",color="lightpink4",penwidth="2"]
+052 [style="rounded",label="052 :root@fit04
+get route table",shape="box",color="lightpink4",penwidth="2"]
+053 [style="rounded",label="053 :root@fit37
+get route table",shape="box",color="lightpink4",penwidth="2"]
+054 [style="rounded",label="054 :root@fit12
+get route table",shape="box",color="lightpink4",penwidth="2"]
+055 [style="rounded",label="055 :root@fit14
+get route table",shape="box",color="lightpink4",penwidth="2"]
+056 [style="rounded",label="056 :root@fit19
+get route table",shape="box",color="lightpink4",penwidth="2"]
+057 [style="rounded",label="057 :root@fit27
+get route table",shape="box",color="lightpink4",penwidth="2"]
+058 [style="rounded",label="058 :root@fit31
+get route table",shape="box",color="lightpink4",penwidth="2"]
+}
+047 -> 054 [lhead=cluster_049 ltail=cluster_036];
+subgraph cluster_059{
+compound=true;
+graph [style="",label="059: PINGS",shape="box",color="lightpink4",penwidth="2"];
+060 [style="rounded",label="060 :root@fit01
+ping 1 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+061 [style="rounded",label="061 :root@fit01
+ping 1 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+060 -> 061;
+062 [style="rounded",label="062 :root@fit01
+ping 1 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+061 -> 062;
+063 [style="rounded",label="063 :root@fit01
+ping 1 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+062 -> 063;
+064 [style="rounded",label="064 :root@fit01
+ping 1 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+063 -> 064;
+065 [style="rounded",label="065 :root@fit01
+ping 1 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+064 -> 065;
+066 [style="rounded",label="066 :root@fit01
+ping 1 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+065 -> 066;
+067 [style="rounded",label="067 :root@fit01
+ping 1 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+066 -> 067;
+068 [style="rounded",label="068 :root@fit33
+ping 33 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+067 -> 068;
+069 [style="rounded",label="069 :root@fit33
+ping 33 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+068 -> 069;
+070 [style="rounded",label="070 :root@fit33
+ping 33 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+069 -> 070;
+071 [style="rounded",label="071 :root@fit33
+ping 33 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+070 -> 071;
+072 [style="rounded",label="072 :root@fit33
+ping 33 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+071 -> 072;
+073 [style="rounded",label="073 :root@fit33
+ping 33 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+072 -> 073;
+074 [style="rounded",label="074 :root@fit33
+ping 33 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+073 -> 074;
+075 [style="rounded",label="075 :root@fit33
+ping 33 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+074 -> 075;
+076 [style="rounded",label="076 :root@fit04
+ping 4 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+075 -> 076;
+077 [style="rounded",label="077 :root@fit04
+ping 4 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+076 -> 077;
+078 [style="rounded",label="078 :root@fit04
+ping 4 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+077 -> 078;
+079 [style="rounded",label="079 :root@fit04
+ping 4 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+078 -> 079;
+080 [style="rounded",label="080 :root@fit04
+ping 4 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+079 -> 080;
+081 [style="rounded",label="081 :root@fit04
+ping 4 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+080 -> 081;
+082 [style="rounded",label="082 :root@fit04
+ping 4 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+081 -> 082;
+083 [style="rounded",label="083 :root@fit04
+ping 4 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+082 -> 083;
+084 [style="rounded",label="084 :root@fit37
+ping 37 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+083 -> 084;
+085 [style="rounded",label="085 :root@fit37
+ping 37 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+084 -> 085;
+086 [style="rounded",label="086 :root@fit37
+ping 37 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+085 -> 086;
+087 [style="rounded",label="087 :root@fit37
+ping 37 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+086 -> 087;
+088 [style="rounded",label="088 :root@fit37
+ping 37 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+087 -> 088;
+089 [style="rounded",label="089 :root@fit37
+ping 37 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+088 -> 089;
+090 [style="rounded",label="090 :root@fit37
+ping 37 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+089 -> 090;
+091 [style="rounded",label="091 :root@fit37
+ping 37 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+090 -> 091;
+092 [style="rounded",label="092 :root@fit12
+ping 12 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+091 -> 092;
+093 [style="rounded",label="093 :root@fit12
+ping 12 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+092 -> 093;
+094 [style="rounded",label="094 :root@fit12
+ping 12 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+093 -> 094;
+095 [style="rounded",label="095 :root@fit12
+ping 12 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+094 -> 095;
+096 [style="rounded",label="096 :root@fit12
+ping 12 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+095 -> 096;
+097 [style="rounded",label="097 :root@fit12
+ping 12 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+096 -> 097;
+098 [style="rounded",label="098 :root@fit12
+ping 12 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+097 -> 098;
+099 [style="rounded",label="099 :root@fit12
+ping 12 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+098 -> 099;
+100 [style="rounded",label="100 :root@fit14
+ping 14 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+099 -> 100;
+101 [style="rounded",label="101 :root@fit14
+ping 14 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+100 -> 101;
+102 [style="rounded",label="102 :root@fit14
+ping 14 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+101 -> 102;
+103 [style="rounded",label="103 :root@fit14
+ping 14 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+102 -> 103;
+104 [style="rounded",label="104 :root@fit14
+ping 14 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+103 -> 104;
+105 [style="rounded",label="105 :root@fit14
+ping 14 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+104 -> 105;
+106 [style="rounded",label="106 :root@fit14
+ping 14 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+105 -> 106;
+107 [style="rounded",label="107 :root@fit14
+ping 14 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+106 -> 107;
+108 [style="rounded",label="108 :root@fit19
+ping 19 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+107 -> 108;
+109 [style="rounded",label="109 :root@fit19
+ping 19 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+108 -> 109;
+110 [style="rounded",label="110 :root@fit19
+ping 19 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+109 -> 110;
+111 [style="rounded",label="111 :root@fit19
+ping 19 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+110 -> 111;
+112 [style="rounded",label="112 :root@fit19
+ping 19 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+111 -> 112;
+113 [style="rounded",label="113 :root@fit19
+ping 19 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+112 -> 113;
+114 [style="rounded",label="114 :root@fit19
+ping 19 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+113 -> 114;
+115 [style="rounded",label="115 :root@fit19
+ping 19 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+114 -> 115;
+116 [style="rounded",label="116 :root@fit27
+ping 27 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+115 -> 116;
+117 [style="rounded",label="117 :root@fit27
+ping 27 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+116 -> 117;
+118 [style="rounded",label="118 :root@fit27
+ping 27 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+117 -> 118;
+119 [style="rounded",label="119 :root@fit27
+ping 27 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+118 -> 119;
+120 [style="rounded",label="120 :root@fit27
+ping 27 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+119 -> 120;
+121 [style="rounded",label="121 :root@fit27
+ping 27 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+120 -> 121;
+122 [style="rounded",label="122 :root@fit27
+ping 27 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+121 -> 122;
+123 [style="rounded",label="123 :root@fit27
+ping 27 ➡︎ 31",shape="box",color="lightpink4",penwidth="2"]
+122 -> 123;
+124 [style="rounded",label="124 :root@fit31
+ping 31 ➡︎ 1",shape="box",color="lightpink4",penwidth="2"]
+123 -> 124;
+125 [style="rounded",label="125 :root@fit31
+ping 31 ➡︎ 33",shape="box",color="lightpink4",penwidth="2"]
+124 -> 125;
+126 [style="rounded",label="126 :root@fit31
+ping 31 ➡︎ 4",shape="box",color="lightpink4",penwidth="2"]
+125 -> 126;
+127 [style="rounded",label="127 :root@fit31
+ping 31 ➡︎ 37",shape="box",color="lightpink4",penwidth="2"]
+126 -> 127;
+128 [style="rounded",label="128 :root@fit31
+ping 31 ➡︎ 12",shape="box",color="lightpink4",penwidth="2"]
+127 -> 128;
+129 [style="rounded",label="129 :root@fit31
+ping 31 ➡︎ 14",shape="box",color="lightpink4",penwidth="2"]
+128 -> 129;
+130 [style="rounded",label="130 :root@fit31
+ping 31 ➡︎ 19",shape="box",color="lightpink4",penwidth="2"]
+129 -> 130;
+131 [style="rounded",label="131 :root@fit31
+ping 31 ➡︎ 27",shape="box",color="lightpink4",penwidth="2"]
+130 -> 131;
+}
+054 -> 060 [lhead=cluster_059 ltail=cluster_049];
+subgraph cluster_132{
+compound=true;
+graph [style="",label="132: Stop routing protocols",shape="box",color="lightpink4",penwidth="2"];
+133 [style="rounded",label="133 :root@fit01
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+134 [style="rounded",label="134 :root@fit33
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+135 [style="rounded",label="135 :root@fit04
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+136 [style="rounded",label="136 :root@fit37
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+137 [style="rounded",label="137 :root@fit12
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+138 [style="rounded",label="138 :root@fit14
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+139 [style="rounded",label="139 :root@fit19
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+140 [style="rounded",label="140 :root@fit27
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+141 [style="rounded",label="141 :root@fit31
+kill-olsr",shape="box",color="lightpink4",penwidth="2"]
+}
+131 -> 137 [lhead=cluster_132 ltail=cluster_059];
+}

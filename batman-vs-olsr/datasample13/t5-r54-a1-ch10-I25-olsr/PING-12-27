@@ -1,0 +1,46 @@
+actual 12 ➡︎ 27
+ping -W 3 -c 100 -i 0.03 -s 254 10.0.0.27
+PING 10.0.0.27 (10.0.0.27) 254(282) bytes of data.
+From 10.0.0.12 icmp_seq=1 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=2 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=3 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=4 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=5 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=6 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=7 Destination Host Unreachable
+From 10.0.0.12 icmp_seq=8 Destination Host Unreachable
+262 bytes from 10.0.0.27: icmp_seq=22 ttl=62 time=940 ms
+From 10.0.0.1 icmp_seq=9 Destination Host Unreachable
+From 10.0.0.1 icmp_seq=10 Destination Host Unreachable
+From 10.0.0.1 icmp_seq=11 Destination Host Unreachable
+From 10.0.0.1 icmp_seq=12 Destination Host Unreachable
+From 10.0.0.1 icmp_seq=13 Destination Host Unreachable
+From 10.0.0.1 icmp_seq=14 Destination Host Unreachable
+262 bytes from 10.0.0.27: icmp_seq=77 ttl=63 time=1759 ms
+262 bytes from 10.0.0.27: icmp_seq=78 ttl=63 time=1729 ms
+262 bytes from 10.0.0.27: icmp_seq=79 ttl=63 time=1697 ms
+262 bytes from 10.0.0.27: icmp_seq=80 ttl=63 time=1666 ms
+262 bytes from 10.0.0.27: icmp_seq=81 ttl=63 time=1634 ms
+262 bytes from 10.0.0.27: icmp_seq=82 ttl=63 time=1603 ms
+262 bytes from 10.0.0.27: icmp_seq=83 ttl=63 time=1572 ms
+262 bytes from 10.0.0.27: icmp_seq=84 ttl=63 time=1545 ms
+262 bytes from 10.0.0.27: icmp_seq=85 ttl=63 time=1515 ms
+262 bytes from 10.0.0.27: icmp_seq=86 ttl=63 time=1484 ms
+262 bytes from 10.0.0.27: icmp_seq=87 ttl=63 time=1454 ms
+262 bytes from 10.0.0.27: icmp_seq=88 ttl=63 time=1423 ms
+262 bytes from 10.0.0.27: icmp_seq=89 ttl=63 time=1391 ms
+262 bytes from 10.0.0.27: icmp_seq=90 ttl=63 time=1359 ms
+262 bytes from 10.0.0.27: icmp_seq=91 ttl=63 time=1327 ms
+262 bytes from 10.0.0.27: icmp_seq=92 ttl=63 time=1296 ms
+262 bytes from 10.0.0.27: icmp_seq=93 ttl=63 time=1264 ms
+262 bytes from 10.0.0.27: icmp_seq=94 ttl=63 time=1232 ms
+262 bytes from 10.0.0.27: icmp_seq=95 ttl=63 time=1200 ms
+262 bytes from 10.0.0.27: icmp_seq=96 ttl=63 time=1168 ms
+262 bytes from 10.0.0.27: icmp_seq=97 ttl=63 time=1137 ms
+262 bytes from 10.0.0.27: icmp_seq=98 ttl=63 time=1107 ms
+262 bytes from 10.0.0.27: icmp_seq=99 ttl=63 time=1075 ms
+262 bytes from 10.0.0.27: icmp_seq=100 ttl=63 time=1046 ms
+
+--- 10.0.0.27 ping statistics ---
+100 packets transmitted, 25 received, +14 errors, 75% packet loss, time 6117ms
+rtt min/avg/max/mdev = 940.123/1385.424/1759.138/229.342 ms, pipe 91
