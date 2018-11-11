@@ -14,7 +14,7 @@ import glob
 
 from graphviz import Digraph
 
-from r2lab import BokehR2labMap
+from r2lab import R2labMap
 
 ####################
 
@@ -262,7 +262,7 @@ def get_edges_from_routes(dot, routes):
 def routing_graph(run_name, interference,
                   source, protocol):
     scrambler_id = retrieve_scrambler_id(run_name, protocol, interference)
-    r2labmap = BokehR2labMap()
+    r2labmap = R2labMap()
     dot = Digraph(comment=f'Routing table for fit{source:02d}',
                   engine='fdp')
     dot.attr('graph', label=protocol)
