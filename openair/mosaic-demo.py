@@ -57,7 +57,7 @@ def probe_hardware_map():
 
     # debug
     #for id in sorted(nodes_hash.keys()):
-    #    print("node[{}] = {}".format(id, nodes_hash[id]))
+    #    print(f"node[{id}] = {nodes_hash[id]}")
 
     # we search for the nodes that have usrp_type == 'e3372'
     e3372_ids = [id for id, node in nodes_hash.items()
@@ -98,7 +98,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # (*) do nothing, proceed to experiment
 
     expects e.g.
-    * slicename : s.t like inria_oai@faraday.inria.fr
+    * slicename : s.t like inria_mosaic@faraday.inria.fr
     * cn : 7
     * enb : 23
     * phones: list of indices of phones to use
@@ -184,14 +184,17 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     grace = 30 if load_nodes else 10
     grace_delay = PrintJob(
-        "Allowing grace of {grace} seconds".format(grace=grace),
+        f"Allowing grace of {grace} seconds",
         sleep=grace,
         required=enb_requirements,
         scheduler=sched,
-        label="settle for {}s".format(grace),
+        label=f"settle for {grace}s",
     )
 
     # start services
+
+    graphical_option = "-x" if oscillo else ""
+    graphical_message = "graphical" if oscillo else "regular"
 
     job_service_enb = SshJob(
         node=enbnode,
@@ -199,12 +202,12 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         # n_rb means number of resource blocks for DL, set to either 25 or 50.
         commands=[
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
-                      "start-graphical", oscillo,
+                      "start", graphical_option,
                       includes=INCLUDES,
                       x11=oscillo,
                       ),
         ],
-        label="start softmodem on eNB",
+        label=f"start {graphical_message} softmodem on eNB",
         required=grace_delay,
         scheduler=sched,
     )
@@ -214,9 +217,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # this starts at the same time as the eNB, but some
     # headstart is needed so that eNB actually is ready to serve
     delay = 12
-    msg = "wait for {delay}s for enodeb to start up"\
-          .format(delay=delay)
-    wait_command = "echo {msg}; sleep {delay}".format(msg=msg, delay=delay)
+    msg = f"wait for {delay}s for eNB to start up"
+    wait_command = f"echo {msg}; sleep {delay}"
 
     job_start_phones = [
         SshJob(
@@ -224,14 +226,14 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             commands=[
                 Run(wait_command),
                 RunScript(find_local_embedded_script("faraday.sh"),
-                          "macphone{}".format(id), "r2lab-embedded/shell/macphone.sh", "phone-on",
+                          f"macphone{id}", "r2lab-embedded/shell/macphone.sh", "phone-on",
                           includes=INCLUDES),
                 RunScript(find_local_embedded_script("faraday.sh"),
-                          "macphone{}".format(id),
+                          "macphone{id}",
                           "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                           includes=INCLUDES),
             ],
-            label="turn off airplace mode on phone {}".format(id),
+            label=f"turn off airplace mode on phone {id}",
             required=grace_delay,
             scheduler=sched)
         for id in phones]
@@ -241,9 +243,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             node=cnnode,
             commands=[
                 Run("sleep 10"),
-                Run("ping -c 100 -s 100 -i .05 172.16.0.{ip} &> /root/ping-phone".format(ip=id+1)),
+                Run(f"ping -c 100 -s 100 -i .05 172.16.0.{id+1} &> /root/ping-phone"),
                 ],
-            label="ping phone {id} from core network".format(id=id),
+            label=f"ping phone {id} from core network",
             critical=False,
             required=job_start_phones)
         for id in phones]
@@ -260,11 +262,10 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         SshJob(
             node=xterm_node,
-            command=Run("xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
-                        " -bg {} -geometry 90x10".format(color),
+            command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
+                        " -bg {color} -geometry 90x10",
                         x11=True),
-            label="xterm on node {}".format(xterm_node.hostname),
-            scheduler=sched,
+            label=f"xterm on node {xterm_node.hostname}",
             # don't set forever; if we do, then these xterms get killed
             # when all other tasks have completed
             # forever = True,
@@ -279,13 +280,13 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if load_nodes:
         for image, nodes in images_to_load.items():
             for node in nodes:
-                print("node {node} : {image}".format(node=node, image=image))
+                print(f"node {node} : {image}")
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
     print(10*"*", "phones usage summary")
     if phones:
         for phone in phones:
-            print("Using phone{phone}".format(phone=phone))
+            print(f"Using phone{phone}")
     else:
         print("No phone involved")
 
@@ -295,9 +296,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     sched.check_cycles()
     # Update the .dot and .png file for illustration purposes
     name = "mosaic-load" if load_nodes else "mosaic"
-    sched.export_as_dotfile("{name}.dot".format(name=name))
-    os.system("dot -Tpng {name}.dot -o {name}.png".format(name=name))
-    print("(Over)wrote {name}.png".format(name=name))
+    sched.export_as_dotfile(f"{name}.dot")
+    os.system(f"dot -Tpng {name}.dot -o {name}.png")
+    print(f"(Over)wrote {name}.png")
 
     if verbose or dry_run:
         sched.list()
@@ -309,7 +310,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         input('OK ? - press control C to abort ? ')
 
     if not sched.orchestrate():
-        print("RUN KO : {}".format(sched.why()))
+        print(f"RUN KO : {sched.why()}")
         sched.debrief()
         return False
     print("RUN OK")
@@ -348,19 +349,21 @@ def collect(run_name, slicename, hss, epc, enb, verbose):
     capturers = [
         SshJob(
             node=node,
-            command=RunScript(find_local_embedded_script("oai-common.sh"), "capture-{}".format(function), run_name,
-                                includes=[find_local_embedded_script("oai-{}.sh".format(function))]),
-            label="capturer on {}".format(function),
-            # capture-enb will run oai-as-enb and thus requires oai-enb.sh
+            command=RunScript(
+                find_local_embedded_script("oai-common.sh"),
+                f"capture-{function}", run_name,
+                includes=[find_local_embedded_script(f"mosaic-{function}.sh")]),
+            label="capturer on {function}",
         )
         for (node, function) in zip(nodes, functions) ]
 
     collectors = [
         SshJob(
             node=node,
-            command=Pull(remotepaths=[ "{}-{}.tgz".format(run_name, function) ],
-                           localpath="."),
-            label="collector on {}".format(function),
+            command=Pull(
+                remotepaths=[f"{run_name}-{function}.tgz"],
+                localpath="."),
+            label=f"collector on {function}",
             required=capturers,
         )
         for (node, function, capturer) in zip(nodes, functions, capturers) ]
@@ -378,13 +381,13 @@ def collect(run_name, slicename, hss, epc, enb, verbose):
         return
     print("OK")
     if os.path.exists(run_name):
-        print("local directory {} already exists = NOT UNWRAPPED !".format(run_name))
+        print(f"local directory {run_name} already exists = NOT UNWRAPPED !")
         return
     os.mkdir(run_name)
-    local_tars = [ "{run_name}-{ext}.tgz".format(run_name=run_name, ext=ext) for ext in ['hss', 'epc', 'enb']]
+    local_tars = [f"{run_name}-{ext}.tgz" for ext in ['hss', 'epc', 'enb']]
     for tar in local_tars:
-        print("Untaring {} in {}".format(tar, run_name))
-        os.system("tar -C {} -xzf {}".format(run_name, tar))
+        print(f"Untaring {tar} in {run_name}")
+        os.system(f"tar -C {run_name} -xzf {tar}")
 
 
 # raw formatting (for -x mostly) + show defaults
@@ -396,7 +399,7 @@ def main():                                      # pylint: disable=r0914, r0915
 
     hardware_map = hardwired_hardware_map()
 
-    def_slicename = "inria_oai@faraday.inria.fr"
+    def_slicename = "inria_mosaic@faraday.inria.fr"
 
     # WARNING: the core network box needs its data interface !
     # so boxes with a USRP N210 are not suitable for that job
@@ -413,85 +416,105 @@ def main():                                      # pylint: disable=r0914, r0915
 
     parser = ArgumentParser(formatter_class=RawAndDefaultsFormatter)
 
-    parser.add_argument("-s", "--slice", dest='slicename', default=def_slicename,
-                        help="slice to use for entering")
+    parser.add_argument(
+        "-s", "--slice", dest='slicename', default=def_slicename,
+        help="slice to use for entering")
 
-    parser.add_argument("--cn", default=def_cn,
-                        help="id of the node that runs the core network")
-    parser.add_argument("--enb", default=def_enb,
-                        help="""id of the node that runs the eNodeB,
+    parser.add_argument(
+        "--cn", default=def_cn,
+        help="id of the node that runs the core network")
+    parser.add_argument(
+        "--enb", default=def_enb,
+        help="""id of the node that runs the eNodeB,
 requires a USRP b210 and 'duplexer for eNodeB""")
 
-    parser.add_argument("-p", "--phones", dest='phones',
-                        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
-                        default=[1],
-                        help='Commercial phones to use; use -p 0 to choose no phone')
+    parser.add_argument(
+        "-p", "--phones", dest='phones',
+        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
+        default=[1],
+        help='Commercial phones to use; use -p 0 to choose no phone')
 
 
     e3372_nodes = hardware_map['E3372-UE']
-    parser.add_argument("-E", "--e3372", dest='e3372_ues', default=[],
-                        action=ListOfChoices, type=int, choices=e3372_nodes,
-                        help="""id(s) of nodes to be used as a E3372-based UE
-choose among {}"""
-                        .format(e3372_nodes))
-    parser.add_argument("-e", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
-                        action=ListOfChoices, type=int, choices=e3372_nodes,
-                        help ="""likewise, with an xterm on top""")
+    parser.add_argument(
+        "-E", "--e3372", dest='e3372_ues', default=[],
+        action=ListOfChoices, type=int, choices=e3372_nodes,
+        help=f"""id(s) of nodes to be used as a E3372-based UE
+choose among {e3372_nodes}""")
+    parser.add_argument(
+        "-e", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
+        action=ListOfChoices, type=int, choices=e3372_nodes,
+        help ="""likewise, with an xterm on top""")
 
     oaiue_nodes = hardware_map['OAI-UE']
-    parser.add_argument("-U", "--oai-ue", dest='oai_ues', default=[],
-                        action=ListOfChoices, type=int, choices=oaiue_nodes,
-                        help ="""id(s) of nodes to be used as a OAI-based UE
-choose among {} - note that these notes are also
-suitable for scrambling the 2.54 GHz uplink"""
-                        .format(oaiue_nodes))
-    parser.add_argument("-u", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
-                        action=ListOfChoices, type=int, choices=oaiue_nodes,
-                        help ="""likewise, with an xterm on top""")
+    parser.add_argument(
+        "-U", "--oai-ue", dest='oai_ues', default=[],
+        action=ListOfChoices, type=int, choices=oaiue_nodes,
+        help =f"""id(s) of nodes to be used as a OAI-based UE
+choose among {oaiue_nodes} - note that these notes are also
+suitable for scrambling the 2.54 GHz uplink""")
+    parser.add_argument(
+        "-u", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
+        action=ListOfChoices, type=int, choices=oaiue_nodes,
+        help ="""likewise, with an xterm on top""")
 
     # xxx could use choices here too
-    parser.add_argument("-G", "--gnuradio", dest='gnuradios', default=[], action='append',
-                        help="""id(s) of nodes intended to run gnuradio;
+    parser.add_argument(
+        "-G", "--gnuradio", dest='gnuradios', default=[], action='append',
+        help="""id(s) of nodes intended to run gnuradio;
 prefer using fit10 and fit11 (B210 without duplexer)""")
-    parser.add_argument("-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
-                        help ="""likewise, with an xterm on top""")
+    parser.add_argument(
+        "-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
+        help ="""likewise, with an xterm on top""")
 
-    parser.add_argument("-l", "--load", dest='load_nodes', action='store_true', default=False,
-                        help='load images as well')
-    parser.add_argument("-f", "--fast", dest="skip_reset_usb",
-                        default=False, action='store_true',
-                        help="""Skip resetting the USB boards if set""")
+    parser.add_argument(
+        "-l", "--load", dest='load_nodes', action='store_true', default=False,
+        help='load images as well')
+    parser.add_argument(
+        "-f", "--fast", dest="skip_reset_usb",
+        default=False, action='store_true',
+        help="""Skip resetting the USB boards if set""")
 
-    parser.add_argument("-o", "--oscillo", dest='oscillo',
-                        action='store_true', default=False,
-                        help='run eNB with oscillo function; no oscillo by default')
+    parser.add_argument(
+        "-o", "--oscillo", dest='oscillo',
+        action='store_true', default=False,
+        help='run eNB with oscillo function; no oscillo by default')
 
-    parser.add_argument("--image-cn", default=def_image_cn,
-                        help="image to load in hss and epc nodes")
-    parser.add_argument("--image-enb", default=def_image_enb,
-                        help="image to load in enb node")
-    parser.add_argument("--image-e3372-ue", default=def_image_e3372_ue,
-                        help="image to load in e3372 UE nodes")
-    parser.add_argument("--image-oai-ue", default=def_image_oai_ue,
-                        help="image to load in OAI UE nodes")
-    parser.add_argument("--image-gnuradio", default=def_image_gnuradio,
-                        help="image to load in gnuradio nodes")
+    parser.add_argument(
+        "--image-cn", default=def_image_cn,
+        help="image to load in hss and epc nodes")
+    parser.add_argument(
+        "--image-enb", default=def_image_enb,
+        help="image to load in enb node")
+    parser.add_argument(
+        "--image-e3372-ue", default=def_image_e3372_ue,
+        help="image to load in e3372 UE nodes")
+    parser.add_argument(
+        "--image-oai-ue", default=def_image_oai_ue,
+        help="image to load in OAI UE nodes")
+    parser.add_argument(
+        "--image-gnuradio", default=def_image_gnuradio,
+        help="image to load in gnuradio nodes")
 
 
-    parser.add_argument("-N", "--n-rb", dest='n_rb',
-                        default=25,
-                        type=int,
-                        choices=[25, 50],
-                        help="specify the Number of Resource Blocks (NRB) for the downlink")
+    parser.add_argument(
+        "-N", "--n-rb", dest='n_rb',
+        default=25,
+        type=int,
+        choices=[25, 50],
+        help="specify the Number of Resource Blocks (NRB) for the downlink")
 
-    parser.add_argument("-m", "--map", default=False, action='store_true',
-                        help="""Probe the testbed to get an updated hardware map
+    parser.add_argument(
+        "-m", "--map", default=False, action='store_true',
+        help="""Probe the testbed to get an updated hardware map
 that shows the nodes that currently embed the
 capabilities to run as either E3372- and
 OpenAirInterface-based UE. Does nothing else.""")
 
-    parser.add_argument("-v", "--verbose", action='store_true', default=False)
-    parser.add_argument("-n", "--dry-run", action='store_true', default=False)
+    parser.add_argument(
+        "-v", "--verbose", action='store_true', default=False)
+    parser.add_argument(
+        "-n", "--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -507,12 +530,13 @@ OpenAirInterface-based UE. Does nothing else.""")
     kwds = args.__dict__.copy()
 
     # actually run it
-    print("Experiment STARTING at {}".format(time.strftime("%H:%M:%S")))
+    now = time.strftime("%H:%M:%S")
+    print(f"Experiment STARTING at {now}")
     if not run(**kwds):
         print("exiting")
         return
 
-    print("Experiment READY at {}".format(time.strftime("%H:%M:%S")))
+    print("Experiment READY at {now}")
     # then prompt for when we're ready to collect
     try:
         run_name = input("type capture name when ready : ")
