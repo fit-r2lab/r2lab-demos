@@ -3,11 +3,10 @@
 # pylint: disable=c0103, c0111,
 
 ### standard library
-import os.path
 import time
-import asyncio
 import itertools
 from collections import defaultdict
+from pathlib import Path
 from argparse import (ArgumentParser, ArgumentDefaultsHelpFormatter,
                       RawTextHelpFormatter)
 
@@ -81,13 +80,13 @@ def show_hardware_map(hw_map):
 ############################## first stage
 def run(*,                                # pylint: disable=r0912, r0914, r0915
         # the pieces to use
-        slicename, cn, enb, phones,
+        slicename, cn, ran, phones,
         e3372_ues, oai_ues, gnuradios,
         e3372_ue_xterms, oai_ue_xterms, gnuradio_xterms,
         # boolean flags
-        load_nodes, skip_reset_usb, oscillo,
+        load_nodes, reset_usb, oscillo,
         # the images to load
-        image_cn, image_enb, image_oai_ue, image_e3372_ue, image_gnuradio,
+        image_cn, image_ran, image_oai_ue, image_e3372_ue, image_gnuradio,
         # miscell
         n_rb, verbose, dry_run):
     """
@@ -100,7 +99,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     expects e.g.
     * slicename : s.t like inria_mosaic@faraday.inria.fr
     * cn : 7
-    * enb : 23
+    * ran : 23
     * phones: list of indices of phones to use
 
     * e3372_ues : list of nodes to use as a UE using e3372
@@ -111,9 +110,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     Plus
     * load_nodes: whether to load images or not - in which case
-                  image_cn, image_enb and image_*
+                  image_cn, image_ran and image_*
                   are used to tell the image names
-    * skip_reset_usb : the USRP board will be reset as well unless this is set
+    * reset_usb : the USRP board will be reset when this is set
     """
 
     # what argparse knows as a slice actually is about the gateway (user + host)
@@ -121,15 +120,15 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     gwnode = SshNode(hostname=gwhost, username=gwuser,
                      formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
 
-    hostnames = [r2lab_hostname(x) for x in (cn, enb)]
+    hostnames = [r2lab_hostname(x) for x in (cn, ran)]
 
-    cnnode, enbnode = [
+    cnnode, rannode = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 
-    sched = Scheduler(verbose=verbose, label="CORE EXP")
+    scheduler = Scheduler(verbose=verbose, label="CORE EXP")
 
     ########## prepare the image-loading phase
     # focus on the experiment, and use
@@ -139,7 +138,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     images_to_load = defaultdict(list)
     images_to_load[image_cn] += [cn]
-    images_to_load[image_enb] += [enb]
+    images_to_load[image_ran] += [ran]
     if e3372_ues:
         images_to_load[image_e3372_ue] += e3372_ues
     if e3372_ue_xterms:
@@ -154,40 +153,60 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         images_to_load[image_gnuradio] += gnuradio_xterms
 
 
+    # turn on USRP device if in load mode, as it got switched off
+    # as part of testbed preparation
+    turn_on_usrp = None
+    if load_nodes:
+        turn_on_usrp = scheduler.add(
+            SshJob(gwnode,
+                   commands=[
+                       Run(f"rhubarbe usrpon {ran}"),
+                       Run(f"sleep 5"),
+                       ]
+                   ))
+
     # start core network
-    job_service_cn = SshJob(
+    job_start_cn = SshJob(
         node=cnnode,
         commands=[
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "configure",
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "start",
                       includes=INCLUDES)],
-        label="start HSS service",
-        scheduler=sched,
+        label="start CN service",
+        scheduler=scheduler,
     )
 
     # start enodeb
-    job_warm_enb = SshJob(
-        node=enbnode,
+    reset_option = "-r" if reset_usb else ""
+    job_warm_ran = SshJob(
+        node=rannode,
+        required=turn_on_usrp,
         commands=[
+            RunScript(find_local_embedded_script("mosaic-ran.sh"),
+                      "warm-up", reset_option,
+                      includes=INCLUDES),
+            # it's not clear what it is supposed to do,
+            # some docs apparently mention this, so just in case..
+            Run("oai-ran.init"),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
                       "configure", cn,
                       includes=INCLUDES),
         ],
-        label="Warm eNB",
-        scheduler=sched,
+        label="Configure eNB",
+        scheduler=scheduler,
     )
 
-    enb_requirements = (job_service_cn, job_warm_enb)
+    ran_requirements = (job_start_cn, job_warm_ran)
 
     # wait for everything to be ready, and add an extra grace delay
 
-    grace = 30 if load_nodes else 10
+    grace = 20 if load_nodes else 5
     grace_delay = PrintJob(
         f"Allowing grace of {grace} seconds",
         sleep=grace,
-        required=enb_requirements,
-        scheduler=sched,
+        required=ran_requirements,
+        scheduler=scheduler,
         label=f"settle for {grace}s",
     )
 
@@ -196,10 +215,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
 
-    job_service_enb = SshJob(
-        node=enbnode,
-        # run-enb expects the id of the epc as a parameter
-        # n_rb means number of resource blocks for DL, set to either 25 or 50.
+    job_service_ran = SshJob(
+        node=rannode,
         commands=[
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
                       "start", graphical_option,
@@ -209,7 +226,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         ],
         label=f"start {graphical_message} softmodem on eNB",
         required=grace_delay,
-        scheduler=sched,
+        scheduler=scheduler,
     )
 
     ########## run experiment per se
@@ -229,13 +246,13 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                           f"macphone{id}", "r2lab-embedded/shell/macphone.sh", "phone-on",
                           includes=INCLUDES),
                 RunScript(find_local_embedded_script("faraday.sh"),
-                          "macphone{id}",
+                          f"macphone{id}",
                           "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                           includes=INCLUDES),
             ],
             label=f"turn off airplace mode on phone {id}",
             required=grace_delay,
-            scheduler=sched)
+            scheduler=scheduler)
         for id in phones]
 
     job_ping_phones_from_cn = [
@@ -273,7 +290,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     # remove dangling requirements - if any
     # should not be needed but won't hurt either
-    sched.sanitize()
+    scheduler.sanitize()
 
     ##########
     print(20*"*", "nodes usage summary")
@@ -290,18 +307,17 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     else:
         print("No phone involved")
 
-    # wrap sched into global scheduler that prepares the testbed
-    sched = prepare_testbed_scheduler(gwnode, load_nodes, sched, images_to_load)
+    # wrap scheduler into global scheduler that prepares the testbed
+    scheduler = prepare_testbed_scheduler(
+        gwnode, load_nodes, scheduler, images_to_load)
 
-    sched.check_cycles()
+    scheduler.check_cycles()
     # Update the .dot and .png file for illustration purposes
     name = "mosaic-load" if load_nodes else "mosaic"
-    sched.export_as_dotfile(f"{name}.dot")
-    os.system(f"dot -Tpng {name}.dot -o {name}.png")
-    print(f"(Over)wrote {name}.png")
+    scheduler.export_as_pngfile(f"{name}")
 
     if verbose or dry_run:
-        sched.list()
+        scheduler.list()
 
     if dry_run:
         return False
@@ -309,21 +325,21 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if verbose:
         input('OK ? - press control C to abort ? ')
 
-    if not sched.orchestrate():
-        print(f"RUN KO : {sched.why()}")
-        sched.debrief()
+    if not scheduler.orchestrate():
+        print(f"RUN KO : {scheduler.why()}")
+        scheduler.debrief()
         return False
     print("RUN OK")
     return True
 
 # use the same signature in addition to run_name by convenience
-def collect(run_name, slicename, hss, epc, enb, verbose):
+def collect(run_name, slicename, cn, ran, verbose):
     """
     retrieves all relevant logs under a common name
     otherwise, same signature as run() for convenience
 
     retrieved stuff will be 3 compressed tars named
-    <run_name>-(hss|epc|enb).tar.gz
+    <run_name>-(cn|ran).tar.gz
 
     xxx - todo - it would make sense to also unwrap them all
     in a single place locally, like what "logs.sh unwrap" does
@@ -331,13 +347,12 @@ def collect(run_name, slicename, hss, epc, enb, verbose):
 
     gwuser, gwhost = r2lab_parse_slice(slicename)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
-                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                     formatter=TimeColonFormatter(verbose=verbose),
+                     debug=verbose)
 
-    functions = "hss", "epc", "enb"
-
-    hostnames = hssname, epcname, enbname = [ r2lab_hostname(x) for x in (hss, epc, enb) ]
-
-    nodes = hssnode, epcnode, enbnode = [
+    functions = "cn", "ran"
+    hostnames = [r2lab_hostname(x) for x in (cn, ran)]
+    nodes = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
@@ -346,45 +361,40 @@ def collect(run_name, slicename, hss, epc, enb, verbose):
     # first run a 'capture' function remotely to gather all the relevant
     # info into a single tar named <run_name>.tgz
 
-    capturers = [
+    scheduler = Scheduler(verbose=verbose)
+    scheduler.update({
         SshJob(
             node=node,
-            command=RunScript(
-                find_local_embedded_script("oai-common.sh"),
-                f"capture-{function}", run_name,
-                includes=[find_local_embedded_script(f"mosaic-{function}.sh")]),
-            label="capturer on {function}",
+            commands=[
+                RunScript(
+                    find_local_embedded_script("mosaic-common.sh"),
+                    f"capture-{function}", run_name,
+                    includes=[find_local_embedded_script(
+                        f"mosaic-{function}.sh")]),
+                Pull(
+                    remotepaths=[f"{run_name}-{function}.tgz"],
+                    localpath=".",
+                    label=f"Pull {function} data from {node}"),
+                ],
         )
-        for (node, function) in zip(nodes, functions) ]
+        for (node, function) in zip(nodes, functions)
+    })
 
-    collectors = [
-        SshJob(
-            node=node,
-            command=Pull(
-                remotepaths=[f"{run_name}-{function}.tgz"],
-                localpath="."),
-            label=f"collector on {function}",
-            required=capturers,
-        )
-        for (node, function, capturer) in zip(nodes, functions, capturers) ]
-
-    sched = Scheduler(verbose=verbose)
-    sched.update(capturers)
-    sched.update(collectors)
+    scheduler.export_as_pngfile("mosaic-collect")
 
     if verbose:
-        sched.list()
+        scheduler.list()
 
-    if not sched.orchestrate():
+    if not scheduler.run():
         print("KO")
-        sched.debrief()
+        scheduler.debrief()
         return
     print("OK")
-    if os.path.exists(run_name):
+    if Path(run_name).exists():
         print(f"local directory {run_name} already exists = NOT UNWRAPPED !")
         return
-    os.mkdir(run_name)
-    local_tars = [f"{run_name}-{ext}.tgz" for ext in ['hss', 'epc', 'enb']]
+    Path(run_name).mkdir()
+    local_tars = (f"{run_name}-{ext}.tgz" for ext in functions)
     for tar in local_tars:
         print(f"Untaring {tar} in {run_name}")
         os.system(f"tar -C {run_name} -xzf {tar}")
@@ -403,11 +413,11 @@ def main():                                      # pylint: disable=r0914, r0915
 
     # WARNING: the core network box needs its data interface !
     # so boxes with a USRP N210 are not suitable for that job
-    def_cn, def_enb = 7, 23
+    def_cn, def_ran = 7, 23
 
-    def_image_cn  = "mosaic-cn"
+    def_image_cn = "mosaic-cn"
     # hopefully available in the near future
-    def_image_enb = "mosaic-ran"
+    def_image_ran = "mosaic-ran"
 
     def_image_gnuradio = "gnuradio"
     # these 2 are mere intentions at this point
@@ -424,7 +434,7 @@ def main():                                      # pylint: disable=r0914, r0915
         "--cn", default=def_cn,
         help="id of the node that runs the core network")
     parser.add_argument(
-        "--enb", default=def_enb,
+        "--ran", default=def_ran,
         help="""id of the node that runs the eNodeB,
 requires a USRP b210 and 'duplexer for eNodeB""")
 
@@ -444,19 +454,19 @@ choose among {e3372_nodes}""")
     parser.add_argument(
         "-e", "--e3372-xterm", dest='e3372_ue_xterms', default=[],
         action=ListOfChoices, type=int, choices=e3372_nodes,
-        help ="""likewise, with an xterm on top""")
+        help="""likewise, with an xterm on top""")
 
     oaiue_nodes = hardware_map['OAI-UE']
     parser.add_argument(
         "-U", "--oai-ue", dest='oai_ues', default=[],
         action=ListOfChoices, type=int, choices=oaiue_nodes,
-        help =f"""id(s) of nodes to be used as a OAI-based UE
+        help=f"""id(s) of nodes to be used as a OAI-based UE
 choose among {oaiue_nodes} - note that these notes are also
 suitable for scrambling the 2.54 GHz uplink""")
     parser.add_argument(
         "-u", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
         action=ListOfChoices, type=int, choices=oaiue_nodes,
-        help ="""likewise, with an xterm on top""")
+        help="""likewise, with an xterm on top""")
 
     # xxx could use choices here too
     parser.add_argument(
@@ -465,15 +475,15 @@ suitable for scrambling the 2.54 GHz uplink""")
 prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument(
         "-g", "--gnuradio-xterm", dest='gnuradio_xterms', default=[], action='append',
-        help ="""likewise, with an xterm on top""")
+        help="""likewise, with an xterm on top""")
 
     parser.add_argument(
         "-l", "--load", dest='load_nodes', action='store_true', default=False,
         help='load images as well')
     parser.add_argument(
-        "-f", "--fast", dest="skip_reset_usb",
+        "-r", "--reset", dest="reset_usb",
         default=False, action='store_true',
-        help="""Skip resetting the USB boards if set""")
+        help="""Reset the USB board if set  (not needed with --load)""")
 
     parser.add_argument(
         "-o", "--oscillo", dest='oscillo',
@@ -484,8 +494,8 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
         "--image-cn", default=def_image_cn,
         help="image to load in hss and epc nodes")
     parser.add_argument(
-        "--image-enb", default=def_image_enb,
-        help="image to load in enb node")
+        "--image-ran", default=def_image_ran,
+        help="image to load in ran node")
     parser.add_argument(
         "--image-e3372-ue", default=def_image_e3372_ue,
         help="image to load in e3372 UE nodes")
@@ -536,17 +546,14 @@ OpenAirInterface-based UE. Does nothing else.""")
         print("exiting")
         return
 
-    print("Experiment READY at {now}")
+    print(f"Experiment READY at {now}")
     # then prompt for when we're ready to collect
     try:
         run_name = input("type capture name when ready : ")
         if not run_name:
             raise KeyboardInterrupt
-        collect(run_name, args.slicename, args.hss, args.epc, args.enb, args.verbose)
-    except KeyboardInterrupt as e:
+        collect(run_name, args.slicename, args.cn, args.ran, args.verbose)
+    except KeyboardInterrupt:
         print("OK, skipped collection, bye")
-
-    # this should maybe be taken care of in asynciojobs
-    asyncio.get_event_loop().close()
 
 main()
