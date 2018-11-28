@@ -153,22 +153,13 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         images_to_load[image_gnuradio] += gnuradio_xterms
 
 
-    # turn on USRP device if in load mode, as it got switched off
-    # as part of testbed preparation
-    turn_on_usrp = None
-    if load_nodes:
-        turn_on_usrp = scheduler.add(
-            SshJob(gwnode,
-                   commands=[
-                       Run(f"rhubarbe usrpon {ran}"),
-                       Run(f"sleep 5"),
-                       ]
-                   ))
-
     # start core network
     job_start_cn = SshJob(
         node=cnnode,
         commands=[
+            RunScript(find_local_embedded_script("mosaic-cn.sh"),
+                    "journal --vacuum-time=1s",
+                    includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "configure",
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "start",
@@ -178,17 +169,16 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     )
 
     # start enodeb
-    reset_option = "-r" if reset_usb else ""
+    reset_option = "-u" if reset_usb else ""
     job_warm_ran = SshJob(
         node=rannode,
-        required=turn_on_usrp,
         commands=[
+            RunScript(find_local_embedded_script("mosaic-ran.sh"), 
+                    "journal --vacuum-time=1s",
+                    includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
                       "warm-up", reset_option,
                       includes=INCLUDES),
-            # it's not clear what it is supposed to do,
-            # some docs apparently mention this, so just in case..
-            Run("oai-ran.init"),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
                       "configure", cn,
                       includes=INCLUDES),
@@ -367,14 +357,14 @@ def collect(run_name, slicename, cn, ran, verbose):
             node=node,
             commands=[
                 RunScript(
-                    find_local_embedded_script("mosaic-common.sh"),
-                    f"capture-{function}", run_name,
+                    find_local_embedded_script(f"mosaic-{function}.sh"),
+                    f"capture", run_name,
                     includes=[find_local_embedded_script(
-                        f"mosaic-{function}.sh")]),
+                        f"mosaic-common.sh")]),
                 Pull(
-                    remotepaths=[f"{run_name}-{function}.tgz"],
+                    remotepaths=[f"{run_name}-{function}.log"],
                     localpath=".",
-                    label=f"Pull {function} data from {node}"),
+                    label=f"Pull {run_name}-{function}.log journal from {node.hostname}"),
                 ],
         )
         for (node, function) in zip(nodes, functions)
@@ -389,15 +379,8 @@ def collect(run_name, slicename, cn, ran, verbose):
         print("KO")
         scheduler.debrief()
         return
-    print("OK")
-    if Path(run_name).exists():
-        print(f"local directory {run_name} already exists = NOT UNWRAPPED !")
-        return
-    Path(run_name).mkdir()
-    local_tars = (f"{run_name}-{ext}.tgz" for ext in functions)
-    for tar in local_tars:
-        print(f"Untaring {tar} in {run_name}")
-        os.system(f"tar -C {run_name} -xzf {tar}")
+    local_files = [f"{run_name}-{function}.log" for function in functions]
+    print(f"OK, see {' '.join(local_files)}")
 
 
 # raw formatting (for -x mostly) + show defaults
@@ -482,8 +465,8 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
         help='load images as well')
     parser.add_argument(
         "-r", "--reset", dest="reset_usb",
-        default=False, action='store_true',
-        help="""Reset the USB board if set  (not needed with --load)""")
+        default=True, action='store_false',
+        help="""Reset the USB board if set (always done with --load)""")
 
     parser.add_argument(
         "-o", "--oscillo", dest='oscillo',
