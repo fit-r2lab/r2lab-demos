@@ -133,8 +133,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     ########## prepare the image-loading phase
     # focus on the experiment, and use
     # prepare_testbed_scheduler later on to prepare testbed
-    # all we need to do at this point is compute an
-    # image -> list-of-nodes mapping
+    # all we need to do at this point is compute a mapping dict
+    # image -> list-of-nodes
 
     images_to_load = defaultdict(list)
     images_to_load[image_cn] += [cn]
@@ -157,9 +157,12 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     job_start_cn = SshJob(
         node=cnnode,
         commands=[
+            RunScript(find_local_embedded_script("nodes.sh"),
+                      "git-pull-r2lab",
+                      includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"),
-                    "journal --vacuum-time=1s",
-                    includes=INCLUDES),
+                      "journal --vacuum-time=1s",
+                      includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "configure",
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "start",
@@ -173,7 +176,10 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     job_warm_ran = SshJob(
         node=rannode,
         commands=[
-            RunScript(find_local_embedded_script("mosaic-ran.sh"), 
+            RunScript(find_local_embedded_script("nodes.sh"),
+                      "git-pull-r2lab",
+                      includes=INCLUDES),
+            RunScript(find_local_embedded_script("mosaic-ran.sh"),
                     "journal --vacuum-time=1s",
                     includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
