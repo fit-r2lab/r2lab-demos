@@ -197,7 +197,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     # wait for everything to be ready, and add an extra grace delay
 
-    grace = 20 if load_nodes else 5
+    grace = 5
     grace_delay = PrintJob(
         f"Allowing grace of {grace} seconds",
         sleep=grace,
