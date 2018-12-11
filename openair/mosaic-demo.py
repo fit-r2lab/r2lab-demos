@@ -193,7 +193,18 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         scheduler=scheduler,
     )
 
-    ran_requirements = (job_start_cn, job_warm_ran)
+    ran_requirements = [job_start_cn, job_warm_ran]
+
+    if not load_nodes:
+        job_turn_off_phones = SshJob(
+            node=gwnode,
+            commands=[
+                RunScript(find_local_embedded_script("faraday.sh"),
+                          f"macphone{phone} phone-off")
+                for phone in phones],
+            scheduler=scheduler,
+        )
+        ran_requirements.append(job_turn_off_phones)
 
     # wait for everything to be ready, and add an extra grace delay
 
