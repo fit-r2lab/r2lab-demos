@@ -186,7 +186,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                       "warm-up", reset_option,
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
-                      "configure", cn,
+                      "configure -b", n_rb, cn,
                       includes=INCLUDES),
         ],
         label="Configure eNB",
@@ -240,7 +240,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # Manage phone(s)
     # this starts at the same time as the eNB, but some
     # headstart is needed so that eNB actually is ready to serve
-    delay = 12
+    delay = 20
     msg = f"wait for {delay}s for eNB to start up"
     wait_command = f"echo {msg}; sleep {delay}"
 
