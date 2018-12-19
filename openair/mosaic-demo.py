@@ -5,8 +5,8 @@
 ### standard library
 import time
 import itertools
-from collections import defaultdict
 from pathlib import Path
+from collections import defaultdict
 from argparse import (ArgumentParser, ArgumentDefaultsHelpFormatter,
                       RawTextHelpFormatter)
 
@@ -15,8 +15,8 @@ from argparse import (ArgumentParser, ArgumentDefaultsHelpFormatter,
 from asynciojobs import Scheduler, PrintJob
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
-from apssh.formatters import TimeColonFormatter
-
+from apssh import TimeColonFormatter
+from apssh import Service
 
 ### r2lab - for illustration purposes
 # testbed preparation
@@ -76,6 +76,14 @@ def show_hardware_map(hw_map):
           ', '.join([str(id) for id in sorted(hw_map['E3372-UE'])]))
     print("Nodes that can be used as OpenAirInterface UEs (suitable for -U/-u)",
           ', '.join([str(id) for id in sorted(hw_map['OAI-UE'])]))
+
+tcpdump_cn_pcap = "data-network.pcap"
+tcpdump_cn_service = Service(
+    command=f"/bin/bash /root/r2lab-embedded/shell/nodes.sh "
+            f"tcpdump-capture data {tcpdump_cn_pcap}",
+    service_id="tcpdump-data",
+    verbose=True,
+)
 
 ############################## first stage
 def run(*,                                # pylint: disable=r0912, r0914, r0915
@@ -152,7 +160,6 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if gnuradio_xterms:
         images_to_load[image_gnuradio] += gnuradio_xterms
 
-
     # start core network
     job_start_cn = SshJob(
         node=cnnode,
@@ -166,7 +173,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "configure",
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-cn.sh"), "start",
-                      includes=INCLUDES)],
+                      includes=INCLUDES),
+            tcpdump_cn_service.start_command(),
+        ],
         label="start CN service",
         scheduler=scheduler,
     )
@@ -180,8 +189,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                       "git-pull-r2lab",
                       includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
-                    "journal --vacuum-time=1s",
-                    includes=INCLUDES),
+                      "journal --vacuum-time=1s",
+                      includes=INCLUDES),
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
                       "warm-up", reset_option,
                       includes=INCLUDES),
@@ -222,7 +231,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
 
-    job_service_ran = SshJob(
+    # we use a Python variable for consistency
+    # although it not used down the road
+    _job_service_ran = SshJob(
         node=rannode,
         commands=[
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
@@ -262,7 +273,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             scheduler=scheduler)
         for id in phones]
 
-    job_ping_phones_from_cn = [
+    # ditto
+    _job_ping_phones_from_cn = [
         SshJob(
             node=cnnode,
             commands=[
@@ -287,7 +299,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         SshJob(
             node=xterm_node,
             command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
-                        " -bg {color} -geometry 90x10",
+                        f" -bg {color} -geometry 90x10",
                         x11=True),
             label=f"xterm on node {xterm_node.hostname}",
             # don't set forever; if we do, then these xterms get killed
@@ -300,7 +312,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     scheduler.sanitize()
 
     ##########
-    print(20*"*", "nodes usage summary")
+    print(10*"*", "nodes usage summary")
     if load_nodes:
         for image, nodes in images_to_load.items():
             for node in nodes:
@@ -321,13 +333,14 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     scheduler.check_cycles()
     # Update the .dot and .png file for illustration purposes
     name = "mosaic-load" if load_nodes else "mosaic"
-    scheduler.export_as_pngfile(f"{name}")
+    print(10*'*', 'See main scheduler in',
+          scheduler.export_as_pngfile(name))
 
-    if verbose or dry_run:
+    if verbose:
         scheduler.list()
 
     if dry_run:
-        return False
+        return True
 
     if verbose:
         input('OK ? - press control C to abort ? ')
@@ -340,7 +353,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     return True
 
 # use the same signature in addition to run_name by convenience
-def collect(run_name, slicename, cn, ran, verbose):
+def collect(run_name, slicename, cn, ran, verbose, dry_run):
     """
     retrieves all relevant logs under a common name
     otherwise, same signature as run() for convenience
@@ -352,6 +365,13 @@ def collect(run_name, slicename, cn, ran, verbose):
     in a single place locally, like what "logs.sh unwrap" does
     """
 
+    local_path = Path(run_name)
+    if not local_path.exists():
+        print(f"Creating directory {local_path}")
+        local_path.mkdir()
+
+    local_files = []
+
     gwuser, gwhost = r2lab_parse_slice(slicename)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
                      formatter=TimeColonFormatter(verbose=verbose),
@@ -359,7 +379,7 @@ def collect(run_name, slicename, cn, ran, verbose):
 
     functions = "cn", "ran"
     hostnames = [r2lab_hostname(x) for x in (cn, ran)]
-    nodes = [
+    node_cn, node_ran = nodes = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
@@ -379,25 +399,40 @@ def collect(run_name, slicename, cn, ran, verbose):
                     includes=[find_local_embedded_script(
                         f"mosaic-common.sh")]),
                 Pull(
-                    remotepaths=[f"{run_name}-{function}.log"],
-                    localpath=".",
-                    label=f"Pull {run_name}-{function}.log journal from {node.hostname}"),
+                    remotepaths=f"{run_name}-{function}.log",
+                    localpath=f"{run_name}/{function}.log"),
                 ],
         )
         for (node, function) in zip(nodes, functions)
     })
+    local_files += [f"{function}.log" for function in functions]
+    scheduler.add(
+        SshJob(
+            node=node_cn,
+            commands=[
+                tcpdump_cn_service.stop_command(),
+                Pull(remotepaths=[tcpdump_cn_pcap],
+                     localpath=run_name),
+                ],
+        ))
+    local_files += [tcpdump_cn_pcap]
 
-    scheduler.export_as_pngfile("mosaic-collect")
+    print(10*'*', 'See collect scheduler in',
+          scheduler.export_as_pngfile("mosaic-collect"))
 
     if verbose:
         scheduler.list()
+
+    if dry_run:
+        return
 
     if not scheduler.run():
         print("KO")
         scheduler.debrief()
         return
-    local_files = [f"{run_name}-{function}.log" for function in functions]
-    print(f"OK, see {' '.join(local_files)}")
+    summary = [str(local_path / file) for file in local_files]
+    print(f"Collected data stored locally in:"
+          f"\n{' '.join(summary)}")
 
 
 # raw formatting (for -x mostly) + show defaults
@@ -468,7 +503,6 @@ suitable for scrambling the 2.54 GHz uplink""")
         action=ListOfChoices, type=int, choices=oaiue_nodes,
         help="""likewise, with an xterm on top""")
 
-    # xxx could use choices here too
     parser.add_argument(
         "-G", "--gnuradio", dest='gnuradios', default=[], action='append',
         help="""id(s) of nodes intended to run gnuradio;
@@ -535,7 +569,7 @@ OpenAirInterface-based UE. Does nothing else.""")
     # map is not a recognized parameter in run()
     delattr(args, 'map')
 
-    # we pass to run and collect exactly the set of arguments known to parser
+    # we pass to run exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
 
@@ -546,14 +580,22 @@ OpenAirInterface-based UE. Does nothing else.""")
         print("exiting")
         return
 
-    print(f"Experiment READY at {now}")
-    # then prompt for when we're ready to collect
-    try:
-        run_name = input("type capture name when ready : ")
-        if not run_name:
-            raise KeyboardInterrupt
-        collect(run_name, args.slicename, args.cn, args.ran, args.verbose)
-    except KeyboardInterrupt:
-        print("OK, skipped collection, bye")
+    if args.dry_run:
+        run_name = '<your-run-name>'
+    else:
+        run_name = None
+        print(f"Experiment READY at {now}")
+        # then prompt for when we're ready to collect
+        try:
+            run_name = input("type capture name when ready : ")
+            if not run_name:
+                raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            print("OK, skipped collection, bye")
+
+    if run_name:
+        collect(run_name, args.slicename,
+                args.cn, args.ran, args.verbose, args.dry_run)
+
 
 main()

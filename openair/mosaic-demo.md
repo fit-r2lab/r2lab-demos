@@ -1,11 +1,22 @@
 ![](oai-figures.002.png)
 
 
-# Access to `macphone` : the mac controlling the phone
+# commercial phones
+
+There are **2 commercial phones** in the room. Both run some **Android**.
+Each is controlled through a dedicated MAC called `macphone1` or `macphone2`, here's how to manage these.
 
 ### from faraday
 
-Only a command-line access; this will let you turn the phone on or off, but that's it:
+Using ssh you can gain a command-line access to the phone; this will let you turn the phone on or off, but not much more:
+
+```
+mylaptop $ ssh inria_r2lab.tutorial@faraday.inria.fr
+...
+inria_r2lab.tutorial@faraday:~$
+```
+
+At that point the `macphone2` command (for example) is an alias for logging in through ssh in the mac controlling phone 2:
 
 ```
 inria_r2lab.tutorial@faraday:~$ macphone2
@@ -38,12 +49,14 @@ This method gives you a screen sharing, so you can access many more features.
 From the public Internet, use e.g. target `faraday-macphone2.inria.fr` ->
 `tester/tester++`
 
-You can in particular open a terminal, and also do things like `help` or
-`phone-status`, just like above.
+You can in particular:
+
+* use Vysor to display the phone UI and use it as if you had it in your hand,
+* open a terminal, and also do things like `help` or `phone-status`, just like above.
 
 # All-in-one demo
 
-## a `nepi-ng` script is available
+## a `nepi-ng` script
 
 We have a script that sets up the experiment background completely in one run. At this point, it does:
 
@@ -54,7 +67,7 @@ We have a script that sets up the experiment background completely in one run. A
 * and then
   * setup and start a core-network on one node,
   * setup and start an radio-access-network (e-nodeB) on one node,
-  * start the phone
+  * start the phone, and pop up the 'speedtest' app
 * at that point the **5G setup is complete** and you can do what your experiment is about
   * tweak the various pieces of the infrastructures, if needed
   * **deal with the phone manually**, run youtube or skype or chrome, etc..
@@ -73,22 +86,46 @@ to be rewritten
 
 ## how to use it
 
-* install requirements `sudo pip3 install apssh asynciojobs r2lab`
-  * or update requirements `sudo pip3 install --upgrade apssh asynciojobs r2lab`
+### git repos
+You will need to clone 2 repos from the `fit-r2lab` github organization, that are named
+* `r2lab-embedded`
+* `r2lab-demos`
 
-Then from your git `r2lab-demos` repo:
+Because the demo script uses code in the embedded area, it is recommended to have **these 2 clones being siblings** on your filesystem.
 
+### python3 libraries
+The following python3 libraries are required:
+
+    pip3 install apssh asynciojobs r2lab
+
+Also note that depending on your system, you might need to invoke `pip3` through `sudo`.
+Also remember to update them as needed without
+
+    pip3 install --upgrade apssh asynciojobs r2lab
+
+### run the script
+
+**Get a reservation** at the R2lab website; then you can
+
+* go to your `r2lab-demos` repo
 * `cd openair`
 * `git pull`
-* run **with image loading** `./mosaic-demo.py --load`
-* or just **restart** it all `./mosaic-demo.py`
-* run with `--help` to see list of available options (like: select other nodes)
 
-# Manually
+From there:
+* **to specify your slicename** run the script with
+    - `./mosaic-demo.py -s inria_myslice`
+* run **with image loading**
+    - `./mosaic-demo.py -s inria_myslice`--load`
+* or just **restart** it all
+    - `./mosaic-demo.py -s inria_myslice`
+* **get help** to see list of available options (like: select other nodes)
+    - `./mosaic-demo.py --help`
 
-## Preparation
+## Manually
 
-### the CN box
+Here's a list of commands that you can run from faraday to accomplish parts of the script manually:
+
+### Prepare the CN box
 
 ```
 n 7
@@ -98,7 +135,7 @@ s1
 configure
 ```
 
-### the RAN box
+#### Prepare the RAN box
 
 ```
 n 23
@@ -111,12 +148,12 @@ configure 7
 this the place where you tell your RAN where to find the CN
 
 
-## Manage
+### Manage
 
-Following commands are available:
+Following commands are available on both boxes:
 
 * `start`
-  * optionnally on the RAN box, you can do `start-graphical true` to start
+  * optionnally on the RAN box, you can do `start -x` to start
     with a UI (requires an X11-enabled ssh session)
 
 * `stop`
@@ -125,7 +162,54 @@ Following commands are available:
   * **NOTE** that this is a wrapping call to `journalctl`,
    so you can for example use `journal -f` to observe logs as they show up.
 
-## mosaic vs oai
+### Data collection
+
+Once the script has been able to provision and start everything on both the core
+network (cn) and the radio acces network (ran), it will prompt you for a name
+where to store data from that experiment.
+
+    Experiment READY at 11:29:30
+    type capture name when ready :
+
+If you type 'Control-C' or `Enter`, the script will terminate. Otherwise if you
+do provide a name, it will be used to store various pieces from the nodes
+involved, like .e.g:
+
+    type capture name when ready : tata
+    Creating directory tata
+    11-30-41:fit23:Gathering journal (current boot) about radio access network into tata-ran.log
+    11-30-41:fit07:Gathering journal (current boot) about core network into tata-cn.log
+    Collected data stored locally in:
+    tata/cn.log tata/ran.log tata/data-network.pcap
+
+
+****
+****
+****
+
+**OBSOLETE SECTION**
+
+***From this point on, the information below is obsolete and needs more work***
+
+
+****
+****
+****
+
+**OBSOLETE SECTION**
+
+****
+****
+****
+
+**OBSOLETE SECTION**
+
+****
+****
+****
+
+
+# mosaic vs oai
 
 This demo is essentially a refactoring of the OAI demo, that takes advantage of
 the new software distribution paradigm known as mosaic5g.
@@ -136,44 +220,6 @@ As compared with the original demo:
 * captures remain to be redeon entirely
 * scrambling should be the same, but needs tested
 * we use the `r2lab` python library - notably for preparing the testbed (load images, etc..)
-
-
-****
-****
-****
-
-**OBSOLETE SECTION**
-
-****
-****
-****
-
-**OBSOLETE SECTION**
-
-****
-****
-****
-
-**OBSOLETE SECTION**
-
-****
-****
-****
-
-***From this point on, the information below is obsolete and needs more work***
-
-
-## Captures
-
-The capture system requires you to use the same name on all 3 boxes
-
-```
-capture my-experiment
-```
-
-To retrieve them, you can use from your laptop this utility script
-
-
 
 # Scrambling
 
