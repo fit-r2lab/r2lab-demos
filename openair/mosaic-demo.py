@@ -79,8 +79,7 @@ def show_hardware_map(hw_map):
 
 tcpdump_cn_pcap = "data-network.pcap"
 tcpdump_cn_service = Service(
-    command=f"/bin/bash /root/r2lab-embedded/shell/nodes.sh "
-            f"tcpdump-capture data {tcpdump_cn_pcap}",
+    command=f"tcpdump -n -U -i data -w {tcpdump_cn_pcap}",
     service_id="tcpdump-data",
     verbose=True,
 )
