@@ -77,9 +77,10 @@ def show_hardware_map(hw_map):
     print("Nodes that can be used as OpenAirInterface UEs (suitable for -U/-u)",
           ', '.join([str(id) for id in sorted(hw_map['OAI-UE'])]))
 
+# make sure to store data in $HOME on the remote box
 tcpdump_cn_pcap = "data-network.pcap"
 tcpdump_cn_service = Service(
-    command=f"tcpdump -n -U -i data -w {tcpdump_cn_pcap}",
+    command=f"tcpdump -n -U -i data -w ~/{tcpdump_cn_pcap}",
     service_id="tcpdump-data",
     verbose=True,
 )
