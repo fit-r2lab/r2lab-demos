@@ -298,10 +298,11 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         SshJob(
             node=xterm_node,
-            command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
+            command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*",
                         f" -bg {color} -geometry 90x10",
                         x11=True),
             label=f"xterm on node {xterm_node.hostname}",
+            scheduler=scheduler,
             # don't set forever; if we do, then these xterms get killed
             # when all other tasks have completed
             # forever = True,
