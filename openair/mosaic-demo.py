@@ -96,7 +96,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         # the images to load
         image_cn, image_ran, image_oai_ue, image_e3372_ue, image_gnuradio,
         # miscell
-        n_rb, verbose, dry_run):
+        n_rb, nodes_left_alone, verbose, dry_run):
     """
     ##########
     # 3 methods to get nodes ready
@@ -326,10 +326,12 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             print(f"Using phone{phone}")
     else:
         print("No phone involved")
+    if nodes_left_alone:
+        print(f"Ignore following fit nodes: {nodes_left_alone}")
 
     # wrap scheduler into global scheduler that prepares the testbed
     scheduler = prepare_testbed_scheduler(
-        gwnode, load_nodes, scheduler, images_to_load)
+        gwnode, load_nodes, scheduler, images_to_load, nodes_left_alone)
 
     scheduler.check_cycles()
     # Update the .dot and .png file for illustration purposes
@@ -555,6 +557,11 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
 that shows the nodes that currently embed the
 capabilities to run as either E3372- and
 OpenAirInterface-based UE. Does nothing else.""")
+
+    parser.add_argument(
+        "-i", "--nodes-left-alone", default=[], 
+        dest='nodes_left_alone', nargs='+', type=int,
+        help="ignore (do not switch off) those nodes")
 
     parser.add_argument(
         "-v", "--verbose", action='store_true', default=False)
