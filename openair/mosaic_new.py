@@ -210,10 +210,10 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if T_tracer:
         job_start_T_tracer = SshJob(
             node = SshNode(
-                gateway=gwnode, hostname=r2lab_hostname(T_tracer), username='root',
+                gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
             commands=[
-                Run(f"./tracer {T_tracer}", 
+                Run(f"./tracer {T_tracer[0]}", 
                     x11=True),
             ],
             label="start T_tracer service",
