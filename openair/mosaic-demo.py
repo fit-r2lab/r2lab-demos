@@ -94,9 +94,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         # boolean flags
         load_nodes, reset_usb, oscillo,
         # the images to load
-        image_cn, image_ran, image_oai_ue, image_e3372_ue, image_gnuradio,
+        image_cn, image_ran, image_oai_ue, image_e3372_ue, image_gnuradio, image_T_tracer,
         # miscell
-        n_rb, nodes_left_alone, verbose, dry_run):
+        n_rb, nodes_left_alone, T_tracer, verbose, dry_run):
     """
     ##########
     # 3 methods to get nodes ready
@@ -113,6 +113,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     * e3372_ues : list of nodes to use as a UE using e3372
     * oai_ues   : list of nodes to use as a UE using OAI
     * gnuradios : list of nodes to load with a gnuradio image
+    * T_tracer  : list of nodes to load with a tracer image
 
     * image_* : the name of the images to load on the various nodes
 
@@ -159,6 +160,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         images_to_load[image_gnuradio] += gnuradios
     if gnuradio_xterms:
         images_to_load[image_gnuradio] += gnuradio_xterms
+    if T_tracer:
+        images_to_load[image_T_tracer] += T_tracer
 
     # start core network
     job_start_cn = SshJob(
@@ -204,6 +207,21 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     ran_requirements = [job_start_cn, job_warm_ran]
 
+    # optionally start T_tracer
+    if T_tracer:
+        job_start_T_tracer = SshJob(
+            node = SshNode(
+                gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
+                formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
+            commands=[
+                Run(f"/root/trace {ran}", 
+                    x11=True),
+            ],
+            label="start T_tracer service",
+            scheduler=scheduler,
+        )
+        ran_requirements.append(job_start_T_tracer)
+
     if not load_nodes:
         job_turn_off_phones = SshJob(
             node=gwnode,
@@ -230,6 +248,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
+    tracer_option = "--T_stdout 0" if T_tracer else ""
 
     # we use a Python variable for consistency
     # although it not used down the road
@@ -237,7 +256,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         node=rannode,
         commands=[
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
-                      "start", graphical_option,
+                      "start", graphical_option, tracer_option,
                       includes=INCLUDES,
                       x11=oscillo,
                       ),
@@ -458,6 +477,7 @@ def main():                                      # pylint: disable=r0914, r0915
     def_image_ran = "mosaic-ran"
 
     def_image_gnuradio = "gnuradio"
+    def_image_T_tracer = "oai-trace"
     # these 2 are mere intentions at this point
     def_image_oai_ue = "mosaic-ue"
     def_image_e3372_ue = "e3372-ue"
@@ -528,6 +548,10 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
         help='run eNB with oscillo function; no oscillo by default')
 
     parser.add_argument(
+        "-T", "--T_tracer", dest='T_tracer', default=[], action='append',
+        help="Run the eNB with T tracer option and uses the specified node to run the GUI tracer")
+
+    parser.add_argument(
         "--image-cn", default=def_image_cn,
         help="image to load in hss and epc nodes")
     parser.add_argument(
@@ -542,6 +566,9 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
     parser.add_argument(
         "--image-gnuradio", default=def_image_gnuradio,
         help="image to load in gnuradio nodes")
+    parser.add_argument(
+        "--image-T-tracer", default=def_image_T_tracer,
+        help="image to load on the eNB tracer node")
 
 
     parser.add_argument(
