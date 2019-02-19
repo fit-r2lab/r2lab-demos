@@ -113,6 +113,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     * e3372_ues : list of nodes to use as a UE using e3372
     * oai_ues   : list of nodes to use as a UE using OAI
     * gnuradios : list of nodes to load with a gnuradio image
+    * T_tracer  : list of nodes to load with a tracer image
 
     * image_* : the name of the images to load on the various nodes
 
@@ -247,6 +248,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
+    tracer_option = f"-T {T_tracer[0]}" if T_tracer else ""
 
     # we use a Python variable for consistency
     # although it not used down the road
@@ -254,10 +256,9 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         node=rannode,
         commands=[
             RunScript(find_local_embedded_script("mosaic-ran.sh"),
-                      "start", graphical_option,
+                      "start", graphical_option, tracer_option,
                       includes=INCLUDES,
                       x11=oscillo,
-                      T_tracer=T_tracer,
                       ),
         ],
         label=f"start {graphical_message} softmodem on eNB",
