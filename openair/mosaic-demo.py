@@ -207,22 +207,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     ran_requirements = [job_start_cn, job_warm_ran]
 
-    # optionally start T_tracer
-    if T_tracer:
-        job_start_T_tracer = SshJob(
-            node = SshNode(
-                gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
-            commands=[
-                Run(f"/root/trace {ran}", 
-                    x11=True),
-            ],
-            label="start T_tracer service",
-            scheduler=scheduler,
-        )
-        ran_requirements.append(job_start_T_tracer)
-
-    if not load_nodes:
+    if not load_nodes and phones:
         job_turn_off_phones = SshJob(
             node=gwnode,
             commands=[
@@ -244,7 +229,24 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         label=f"settle for {grace}s",
     )
 
-    # start services
+    # optionally start T_tracer 
+    if T_tracer:
+        job_start_T_tracer = SshJob(
+            node = SshNode(
+                gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
+                formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
+            commands=[
+                Run(f"/root/trace {ran}", 
+                    x11=True),
+            ],
+            label="start T_tracer service",
+            required=ran_requirements,
+            scheduler=scheduler,
+        )
+#        ran_requirements.append(job_start_T_tracer)
+
+
+# start services
 
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
@@ -549,7 +551,7 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
 
     parser.add_argument(
         "-T", "--T_tracer", dest='T_tracer', default=[], action='append',
-        help="Run the eNB with T tracer option and uses the specified node to run the GUI tracer")
+        help="id of the node to run the GUI eNB tracer")
 
     parser.add_argument(
         "--image-cn", default=def_image_cn,
