@@ -253,7 +253,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     graphical_option = "-x" if oscillo else ""
     graphical_message = "graphical" if oscillo else "regular"
-    tracer_option = "--T_stdout 0" if T_tracer else ""
+    tracer_option = " -T" if T_tracer else ""
 
     # we use a Python variable for consistency
     # although it not used down the road
