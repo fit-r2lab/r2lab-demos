@@ -46,8 +46,11 @@ def hardwired_hardware_map():
 # that have the characteristics that we want
 def probe_hardware_map():
     # import here so depend on socketIO_client only if needed
-    from r2lab import R2labSidecar
-    with R2labSidecar() as sidecar:
+    from r2lab import SidecarSyncClient
+    import ssl
+    ssl_context = ssl.SSLContext()
+    ssl_context.verify_mode = ssl.CERT_NONE
+    with SidecarSyncClient(ssl=ssl_context) as sidecar:
         nodes_hash = sidecar.nodes_status()
 
     if not nodes_hash:
