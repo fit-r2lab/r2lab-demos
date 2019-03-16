@@ -186,7 +186,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         scheduler=scheduler,
     )
 
-    # start enodeb
+    # prepare enodeb
     reset_option = "-u" if reset_usb else ""
     job_warm_ran = SshJob(
         node=rannode,
@@ -209,7 +209,35 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     )
 
     ran_requirements = [job_start_cn, job_warm_ran]
+###
+    if oai_ues:
+        # prepare OAI UEs
+        for ue in oai_ues:
+            ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
+                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            job_warm_ues = [
+                SshJob(
+                    node=ue_node,
+                    commands=[
+                        RunScript(find_local_embedded_script("nodes.sh"),
+                                  "git-pull-r2lab",
+                                  includes=INCLUDES),
+                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
+                                  "journal --vacuum-time=1s",
+                                  includes=INCLUDES),
+                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
+                                  "warm-up", reset_option,
+                                  includes=INCLUDES),
+                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
+                                  "configure -b", n_rb, 
+                                  includes=INCLUDES),
+                        ],
+                    label=f"Configure OAI UE on fit{ue}",
+                    scheduler=scheduler)
+                ]
+            ran_requirements.append(job_warm_ues)
 
+###
     if not load_nodes and phones:
         job_turn_off_phones = SshJob(
             node=gwnode,
@@ -272,13 +300,31 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     )
 
     ########## run experiment per se
-    # Manage phone(s)
+    # Manage phone(s) and OAI UE(s)
     # this starts at the same time as the eNB, but some
     # headstart is needed so that eNB actually is ready to serve
     delay = 20
     msg = f"wait for {delay}s for eNB to start up"
     wait_command = f"echo {msg}; sleep {delay}"
-
+#
+    if oai_ues:
+        for ue in oai_ues:
+            ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
+                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            job_start_ues = [
+                SshJob(
+                    node=ue_node,
+                    commands=[
+                        Run(wait_command),
+                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
+                                  "start", 
+                                  includes=INCLUDES),
+                        ],
+                    label=f"Start OAI UE on fit{ue}",
+                    required=grace_delay,
+                    scheduler=scheduler)
+                ]
+#
     job_start_phones = [
         SshJob(
             node=gwnode,
