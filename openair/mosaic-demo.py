@@ -93,7 +93,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         # the pieces to use
         slicename, cn, ran, phones,
         e3372_ues, oai_ues, gnuradios,
-        e3372_ue_xterms, oai_ue_xterms, gnuradio_xterms,
+        e3372_ue_xterms, gnuradio_xterms,
         # boolean flags
         load_nodes, reset_usb, oscillo,
         # the images to load
@@ -157,8 +157,6 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         images_to_load[image_e3372_ue] += e3372_ue_xterms
     if oai_ues:
         images_to_load[image_oai_ue] += oai_ues
-    if oai_ue_xterms:
-        images_to_load[image_oai_ue] += oai_ue_xterms
     if gnuradios:
         images_to_load[image_gnuradio] += gnuradios
     if gnuradio_xterms:
@@ -360,7 +358,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     colors = ("wheat", "gray", "white", "darkolivegreen")
 
-    xterms = e3372_ue_xterms + oai_ue_xterms + gnuradio_xterms
+    xterms = e3372_ue_xterms + gnuradio_xterms
 
     for xterm, color in zip(xterms, itertools.cycle(colors)):
         xterm_node = SshNode(
@@ -426,7 +424,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     return True
 
 # use the same signature in addition to run_name by convenience
-def collect(run_name, slicename, cn, ran, verbose, dry_run):
+def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
     """
     retrieves all relevant logs under a common name
     otherwise, same signature as run() for convenience
@@ -457,6 +455,12 @@ def collect(run_name, slicename, cn, ran, verbose, dry_run):
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
+    if oai_ues:
+        hostnames_ue = [r2lab_hostname(x) for x in oai_ues]
+        nodes_ue = [
+            SshNode(gateway=gwnode, hostname=hostname, username='root',
+                    formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            for hostname in hostnames_ue]
 
     # first run a 'capture' function remotely to gather all the relevant
     # info into a single tar named <run_name>.tgz
@@ -479,6 +483,24 @@ def collect(run_name, slicename, cn, ran, verbose, dry_run):
         for (node, function) in zip(nodes, functions)
     })
     local_files += [f"{function}.log" for function in functions]
+    if oai_ues:
+        scheduler.update({
+                SshJob(
+                    node=node,
+                    commands=[
+                        RunScript(
+                            find_local_embedded_script(f"mosaic-oai-ue.sh"),
+                            f"capture", run_name,
+                            includes=[find_local_embedded_script(
+                                    f"mosaic-common.sh")]),
+                        Pull(
+                            remotepaths=f"{run_name}-oai-ue.log",
+                            localpath=f"{run_name}/oai-ue-{ue}.log"),
+                        ],
+                    )
+                for (node, ue) in zip(nodes_ue, oai_ues)
+        })
+        
     scheduler.add(
         SshJob(
             node=node_cn,
@@ -572,10 +594,6 @@ choose among {e3372_nodes}""")
         help=f"""id(s) of nodes to be used as a OAI-based UE
 choose among {oaiue_nodes} - note that these notes are also
 suitable for scrambling the 2.54 GHz uplink""")
-    parser.add_argument(
-        "-u", "--oai-ue-xterm", dest='oai_ue_xterms', default=[],
-        action=ListOfChoices, type=int, choices=oaiue_nodes,
-        help="""likewise, with an xterm on top""")
 
     parser.add_argument(
         "-G", "--gnuradio", dest='gnuradios', default=[], action='append',
@@ -637,8 +655,8 @@ capabilities to run as either E3372- and
 OpenAirInterface-based UE. Does nothing else.""")
 
     parser.add_argument(
-        "-i", "--nodes-left-alone", default=[], 
-        dest='nodes_left_alone', nargs='+', type=int,
+        "-i", "--nodes-left-alone", dest='nodes_left_alone',
+        default=[], action=ListOfChoices, type=int,
         help="ignore (do not switch off) those nodes")
 
     parser.add_argument(
@@ -681,7 +699,7 @@ OpenAirInterface-based UE. Does nothing else.""")
 
     if run_name:
         collect(run_name, args.slicename,
-                args.cn, args.ran, args.verbose, args.dry_run)
+                args.cn, args.ran, args.oai_ues, args.verbose, args.dry_run)
 
 
 main()
