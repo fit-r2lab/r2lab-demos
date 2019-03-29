@@ -548,6 +548,7 @@ def main():                                      # pylint: disable=r0914, r0915
     def_image_cn = "mosaic-cn"
     # hopefully available in the near future
     def_image_ran = "mosaic-ran"
+    def_image_ran = "/var/lib/rhubarbe-images/mosaic-ran-2019-02-25.ndz"
 
     def_image_gnuradio = "gnuradio"
     def_image_T_tracer = "oai-trace"
