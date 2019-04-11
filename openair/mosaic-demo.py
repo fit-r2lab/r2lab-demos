@@ -304,25 +304,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     delay = 20
     msg = f"wait for {delay}s for eNB to start up"
     wait_command = f"echo {msg}; sleep {delay}"
-#
-    if oai_ues:
-        for ue in oai_ues:
-            ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
-                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
-            job_start_ues = [
-                SshJob(
-                    node=ue_node,
-                    commands=[
-                        Run(wait_command),
-                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
-                                  "start", 
-                                  includes=INCLUDES),
-                        ],
-                    label=f"Start OAI UE on fit{ue}",
-                    required=grace_delay,
-                    scheduler=scheduler)
-                ]
-#
+
     job_start_phones = [
         SshJob(
             node=gwnode,
@@ -340,6 +322,44 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             required=grace_delay,
             scheduler=scheduler)
         for id in phones]
+
+    if oai_ues:
+        for ue in oai_ues:
+            msg = f"wait for {delay}s for eNB to start up ue on node fit{ue}"
+            wait_command = f"echo {msg}; sleep {delay}"
+            ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
+                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            job_start_ues = [
+                SshJob(
+                    node=ue_node,
+                    commands=[
+                        Run(wait_command),
+                        RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
+                                  "start", 
+                                  includes=INCLUDES),
+                        ],
+                    label=f"Start OAI UE on fit{ue}",
+                    required=grace_delay,
+                    scheduler=scheduler)
+                ]
+            delay += 20
+
+        for ue in oai_ues:
+            ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
+                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            msg = f"Wait 60s and ping faraday gateway from UE on fit{ue}"
+            _job_ping_gw_from_ue = [
+                SshJob(
+                    node=ue_node,
+                    commands=[
+                        Run(f"echo {msg}; sleep 60"),
+                        Run(f"ping -c 5 -I oip1 faraday.inria.fr"),
+                        ],
+                    label=f"ping faraday gateway from UE on fit{ue}",
+                    critical=False,
+                    required=job_start_ues,
+                    scheduler=scheduler)
+                ]
 
     # ditto
     _job_ping_phones_from_cn = [
