@@ -20,6 +20,8 @@ from apssh import Run, RunScript, Pull, Push
 from apssh import TimeColonFormatter
 from apssh import close_ssh_in_scheduler
 
+from r2lab import ListOfChoices
+
 # helpers
 #from processmap import Aggregator
 from processroute import ProcessRoutes
@@ -899,7 +901,7 @@ def main():
     parser.add_argument(
         "-N", "--node", dest='node_ids', metavar='routing-node',
         default=DEFAULT_NODE_IDS, choices=all_node_ids,
-        nargs='+',
+        action=ListOfChoices,
         help=f"specify as many nodes as you want to be involved in the scenario;"
              f" these will be on and run the routing protocol;"
              f" source and destination nodes are automatically added.")
