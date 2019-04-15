@@ -289,7 +289,7 @@ def routing_graph(run_name, interference,
         pos = f"{x},{y}!"
         if interference != "None" and node_id == scrambler_id:
             dot.node("", pos=pos,
-                     image="scrambler.png",
+                     image="media/scrambler.png",
                      )
         elif str(node_id) not in nodes:
             dot.node(str(node_id), '{:02d}'.format(node_id),
