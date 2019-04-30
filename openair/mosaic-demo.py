@@ -301,15 +301,15 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # Manage phone(s) and OAI UE(s)
     # this starts at the same time as the eNB, but some
     # headstart is needed so that eNB actually is ready to serve
-    delay = 20
-    msg = f"wait for {delay}s for eNB to start up"
-    wait_command = f"echo {msg}; sleep {delay}"
+    sleep = [20,30]
+    msg_phone = [f"wait for {delay}s for eNB to start up before waking up phone{id}" for delay,id in zip(sleep,phones)]
+    wait_command = [f"echo {msg}; sleep {delay}" for delay,msg in zip(sleep,msg_phone)]
 
     job_start_phones = [
         SshJob(
             node=gwnode,
             commands=[
-                Run(wait_command),
+                Run(wait_command[i]),
                 RunScript(find_local_embedded_script("faraday.sh"),
                           f"macphone{id}", "r2lab-embedded/shell/macphone.sh", "phone-on",
                           includes=INCLUDES),
@@ -321,11 +321,12 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             label=f"turn off airplace mode on phone {id}",
             required=grace_delay,
             scheduler=scheduler)
-        for id in phones]
+        for i,id in zip(range(len(phones)),phones)]
 
     if oai_ues:
+        delay = 25
         for ue in oai_ues:
-            msg = f"wait for {delay}s for eNB to start up ue on node fit{ue}"
+            msg = f"wait for {delay}s for eNB to start up before running UE on node fit{ue}"
             wait_command = f"echo {msg}; sleep {delay}"
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
                               formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
@@ -347,7 +348,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         for ue in oai_ues:
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
                               formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
-            msg = f"Wait 60s and ping faraday gateway from UE on fit{ue}"
+            msg = f"Wait 60s and then ping faraday gateway from UE on fit{ue}"
             _job_ping_gw_from_ue = [
                 SshJob(
                     node=ue_node,
@@ -366,12 +367,13 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         SshJob(
             node=cnnode,
             commands=[
-                Run("sleep 10"),
-                Run(f"ping -c 100 -s 100 -i .05 172.16.0.{id+1} &> /root/ping-phone"),
+                Run("sleep 20"),
+                Run(f"ping -c 100 -s 100 -i .05 172.16.0.{id+1} &> /root/ping-phone{id}"),
                 ],
             label=f"ping phone {id} from core network",
             critical=False,
-            required=job_start_phones)
+            required=job_start_phones,
+            scheduler=scheduler)
         for id in phones]
 
     ########## xterm nodes
