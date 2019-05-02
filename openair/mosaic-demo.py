@@ -494,17 +494,16 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
             commands=[
                 RunScript(
                     find_local_embedded_script(f"mosaic-{function}.sh"),
-                    f"capture", run_name,
-                    includes=[find_local_embedded_script(
-                        f"mosaic-common.sh")]),
+                    f"capture-all", f"{run_name}-{function}",
+                    includes=INCLUDES),
                 Pull(
-                    remotepaths=f"{run_name}-{function}.log",
-                    localpath=f"{run_name}/{function}.log"),
+                    remotepaths=f"{run_name}-{function}.tgz",
+                    localpath=f"{run_name}/{function}.tgz"),
                 ],
         )
         for (node, function) in zip(nodes, functions)
     })
-    local_files += [f"{function}.log" for function in functions]
+    local_files += [f"{function}.tgz" for function in functions]
     if oai_ues:
         scheduler.update({
                 SshJob(
