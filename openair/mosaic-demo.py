@@ -227,7 +227,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                                   "warm-up", reset_option,
                                   includes=INCLUDES),
                         RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
-                                  "configure -b", n_rb, 
+                                  "configure -b", n_rb,
                                   includes=INCLUDES),
                         ],
                     label=f"Configure OAI UE on fit{ue}",
@@ -258,14 +258,14 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         label=f"settle for {grace}s",
     )
 
-    # optionally start T_tracer 
+    # optionally start T_tracer
     if T_tracer:
         job_start_T_tracer = SshJob(
             node = SshNode(
                 gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
             commands=[
-                Run(f"/root/trace {ran}", 
+                Run(f"/root/trace {ran}",
                     x11=True),
             ],
             label="start T_tracer service",
@@ -336,7 +336,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                     commands=[
                         Run(wait_command),
                         RunScript(find_local_embedded_script("mosaic-oai-ue.sh"),
-                                  "start", 
+                                  "start",
                                   includes=INCLUDES),
                         ],
                     label=f"Start OAI UE on fit{ue}",
@@ -522,7 +522,7 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
                     )
                 for (node, ue) in zip(nodes_ue, oai_ues)
         })
-        
+
     scheduler.add(
         SshJob(
             node=node_cn,
