@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# pylint: disable=c0103, c0111,
+# pylint: disable=c0103, c0111, r0912, r0913, r0914
 
 ### standard library
 import time
@@ -260,8 +260,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     # optionally start T_tracer
     if T_tracer:
-        job_start_T_tracer = SshJob(
-            node = SshNode(
+        job_start_T_tracer = SshJob(                    # pylint: disable=w0612
+            node=SshNode(
                 gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
                 formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
             commands=[
@@ -301,27 +301,28 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # Manage phone(s) and OAI UE(s)
     # this starts at the same time as the eNB, but some
     # headstart is needed so that eNB actually is ready to serve
-    sleep = [20,30]
-    msg_phone = [f"wait for {delay}s for eNB to start up before waking up phone{id}" for delay,id in zip(sleep,phones)]
-    wait_command = [f"echo {msg}; sleep {delay}" for delay,msg in zip(sleep,msg_phone)]
+    sleeps = [20, 30]
+    phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
+                  for sleep, id in zip(sleeps, phones)]
+    wait_commands = [f"echo {msg}; sleep {sleep}"
+                     for msg, sleep in zip(phone_msgs, sleeps)]
 
     job_start_phones = [
         SshJob(
             node=gwnode,
             commands=[
-                Run(wait_command[i]),
-                RunScript(find_local_embedded_script("faraday.sh"),
-                          f"macphone{id}", "r2lab-embedded/shell/macphone.sh", "phone-on",
+                Run(wait_command),
+                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                          "r2lab-embedded/shell/macphone.sh", "phone-on",
                           includes=INCLUDES),
-                RunScript(find_local_embedded_script("faraday.sh"),
-                          f"macphone{id}",
+                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
                           "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                           includes=INCLUDES),
             ],
             label=f"turn off airplace mode on phone {id}",
             required=grace_delay,
             scheduler=scheduler)
-        for i,id in zip(range(len(phones)),phones)]
+        for id, wait_command in zip(phones, wait_commands)]
 
     if oai_ues:
         delay = 25
@@ -506,20 +507,19 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
     local_files += [f"{function}.tgz" for function in functions]
     if oai_ues:
         scheduler.update({
-                SshJob(
-                    node=node,
-                    commands=[
-                        RunScript(
-                            find_local_embedded_script(f"mosaic-oai-ue.sh"),
-                            f"capture", run_name,
-                            includes=[find_local_embedded_script(
-                                    f"mosaic-common.sh")]),
-                        Pull(
-                            remotepaths=f"{run_name}-oai-ue.log",
-                            localpath=f"{run_name}/oai-ue-{ue}.log"),
-                        ],
-                    )
-                for (node, ue) in zip(nodes_ue, oai_ues)
+            SshJob(
+                node=node,
+                commands=[
+                    RunScript(
+                        find_local_embedded_script(f"mosaic-oai-ue.sh"),
+                        f"capture", run_name,
+                        includes=[find_local_embedded_script(f"mosaic-common.sh")]),
+                    Pull(
+                        remotepaths=f"{run_name}-oai-ue.log",
+                        localpath=f"{run_name}/oai-ue-{ue}.log"),
+                    ],
+                )
+            for (node, ue) in zip(nodes_ue, oai_ues)
         })
 
     scheduler.add(
