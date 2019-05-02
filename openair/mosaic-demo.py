@@ -512,11 +512,11 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
                 commands=[
                     RunScript(
                         find_local_embedded_script(f"mosaic-oai-ue.sh"),
-                        f"capture", run_name,
+                        f"capture-all", run_name,
                         includes=[find_local_embedded_script(f"mosaic-common.sh")]),
                     Pull(
-                        remotepaths=f"{run_name}-oai-ue.log",
-                        localpath=f"{run_name}/oai-ue-{ue}.log"),
+                        remotepaths=f"{run_name}.tgz",
+                        localpath=f"{run_name}/oai-ue-{ue}.tgz"),
                     ],
                 )
             for (node, ue) in zip(nodes_ue, oai_ues)
