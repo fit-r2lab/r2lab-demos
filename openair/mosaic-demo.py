@@ -3,8 +3,9 @@
 # pylint: disable=c0103, c0111, r0912, r0913, r0914
 
 ### standard library
+import os
 import time
-import itertools
+from itertools import chain, cycle
 from pathlib import Path
 from collections import defaultdict
 from argparse import (ArgumentParser, ArgumentDefaultsHelpFormatter,
@@ -383,7 +384,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
     xterms = e3372_ue_xterms + gnuradio_xterms
 
-    for xterm, color in zip(xterms, itertools.cycle(colors)):
+    for xterm, color in zip(xterms, cycle(colors)):
         xterm_node = SshNode(
             gateway=gwnode, hostname=r2lab_hostname(xterm), username='root',
             formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
@@ -459,19 +460,18 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
     in a single place locally, like what "logs.sh unwrap" does
     """
 
-    local_path = Path(run_name)
+    # the local dir to store incoming raw files. mostly tar files
+    local_path = Path(f"{run_name}")
     if not local_path.exists():
         print(f"Creating directory {local_path}")
         local_path.mkdir()
-
-    local_files = []
 
     gwuser, gwhost = r2lab_parse_slice(slicename)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
                      formatter=TimeColonFormatter(verbose=verbose),
                      debug=verbose)
 
-    functions = "cn", "ran"
+    functions = ["cn", "ran"]
     hostnames = [r2lab_hostname(x) for x in (cn, ran)]
     node_cn, node_ran = nodes = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
@@ -485,53 +485,53 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
             for hostname in hostnames_ue]
 
-    # first run a 'capture' function remotely to gather all the relevant
-    # info into a single tar named <run_name>.tgz
+
+    # all nodes involved are  managed in the same way
+    # node: a SshNode instance
+    # id: the fit number
+    # function, a string like 'cn' or 'ran' or 'oai-ue'
+
+    local_nodedirs_tars = []
 
     scheduler = Scheduler(verbose=verbose)
-    scheduler.update({
+    for (node, id, function) in zip(
+            chain(nodes, nodes_ue),
+            chain( [cn, ran], oai_ues),
+            chain(functions, cycle(["oai-ue"]))):
+        # nodes on 2 digits
+        id0 = f"{id:02d}"
+        # node-dep collect dir
+        node_dir = local_path / id0
+        node_dir.exists() or node_dir.mkdir()
+        local_tar = f"{local_path}/{function}-{id0}.tgz"
         SshJob(
             node=node,
             commands=[
+                # first run a 'capture-all' function remotely
+                # to gather all the relevant files and commands remotely
                 RunScript(
                     find_local_embedded_script(f"mosaic-{function}.sh"),
                     f"capture-all", f"{run_name}-{function}",
                     includes=INCLUDES),
+                # and retrieve it locally
                 Pull(
                     remotepaths=f"{run_name}-{function}.tgz",
-                    localpath=f"{run_name}/{function}.tgz"),
+                    localpath=local_tar),
                 ],
-        )
-        for (node, function) in zip(nodes, functions)
-    })
-    local_files += [f"{function}.tgz" for function in functions]
-    if oai_ues:
-        scheduler.update({
-            SshJob(
-                node=node,
-                commands=[
-                    RunScript(
-                        find_local_embedded_script(f"mosaic-oai-ue.sh"),
-                        f"capture-all", run_name,
-                        includes=[find_local_embedded_script(f"mosaic-common.sh")]),
-                    Pull(
-                        remotepaths=f"{run_name}.tgz",
-                        localpath=f"{run_name}/oai-ue-{ue}.tgz"),
-                    ],
-                )
-            for (node, ue) in zip(nodes_ue, oai_ues)
-        })
+            scheduler=scheduler)
+        local_nodedirs_tars.append((node_dir, local_tar))
 
-    scheduler.add(
-        SshJob(
-            node=node_cn,
-            commands=[
-                tcpdump_cn_service.stop_command(),
-                Pull(remotepaths=[tcpdump_cn_pcap],
-                     localpath=run_name),
-                ],
-        ))
-    local_files += [tcpdump_cn_pcap]
+    
+    # retrieve tcpdump on CN
+    SshJob(
+        node=node_cn,
+        commands=[
+            tcpdump_cn_service.stop_command(),
+            Pull(remotepaths=[tcpdump_cn_pcap],
+                 localpath=local_path),
+            ],
+        scheduler=scheduler
+        )
 
     print(10*'*', 'See collect scheduler in',
           scheduler.export_as_pngfile("mosaic-collect"))
@@ -546,9 +546,11 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
         print("KO")
         scheduler.debrief()
         return
-    summary = [str(local_path / file) for file in local_files]
-    print(f"Collected data stored locally in:"
-          f"\n{' '.join(summary)}")
+
+    # unwrap
+    for node_dir, tar in local_nodedirs_tars:
+        print(f"Untaring {tar} in {node_dir}/")
+        os.system(f"tar -C {node_dir} -xzf {tar}")
 
 
 # raw formatting (for -x mostly) + show defaults
