@@ -5,6 +5,7 @@
 ### standard library
 import os
 import time
+import readline
 from itertools import chain, cycle
 from pathlib import Path
 from collections import defaultdict
@@ -521,7 +522,7 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
             scheduler=scheduler)
         local_nodedirs_tars.append((node_dir, local_tar))
 
-    
+
     # retrieve tcpdump on CN
     SshJob(
         node=node_cn,
@@ -714,12 +715,18 @@ OpenAirInterface-based UE. Does nothing else.""")
         run_name = None
         print(f"Experiment READY at {now}")
         # then prompt for when we're ready to collect
-        try:
-            run_name = input("type capture name when ready : ")
-            if not run_name:
-                raise KeyboardInterrupt
-        except KeyboardInterrupt:
-            print("OK, skipped collection, bye")
+        while True:
+            try:
+                run_name = input("type capture name when ready : ")
+                if not run_name:
+                    raise KeyboardInterrupt
+                elif Path(run_name).exists():
+                    print(f"{run_name} already exists - pick another one")
+                else:
+                    break
+            except KeyboardInterrupt:
+                print("OK, skipped collection, bye")
+                return
 
     if run_name:
         collect(run_name, args.slicename,
