@@ -454,11 +454,10 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
     retrieves all relevant logs under a common name
     otherwise, same signature as run() for convenience
 
-    retrieved stuff will be 3 compressed tars named
-    <run_name>-(cn|ran).tar.gz
-
-    xxx - todo - it would make sense to also unwrap them all
-    in a single place locally, like what "logs.sh unwrap" does
+    retrieved stuff will be made of
+    * one pcap file for the CN
+    * compressed tgz files, one per node, gathering logs and configs and datas
+    * for convenience the tgz files are unwrapped in run_name/id0
     """
 
     # the local dir to store incoming raw files. mostly tar files

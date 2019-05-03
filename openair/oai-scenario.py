@@ -389,9 +389,6 @@ def collect(run_name, slice, hss, epc, enb, verbose):
 
     retrieved stuff will be 3 compressed tars named
     <run_name>-(hss|epc|enb).tar.gz
-
-    xxx - todo - it would make sense to also unwrap them all
-    in a single place locally, like what "logs.sh unwrap" does
     """
 
     gwuser, gwhost = r2lab_parse_slice(slice)
