@@ -1,0 +1,2 @@
+#ccn:/streaming udp 10.1.1.1 
+#ccn:/streaming tcp 133.69.33.148:80
