@@ -374,7 +374,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                         commands=[
                             Run(ue_commands),
                             ],
-                        label=f"ping faraday gateway from UE on fit{ue:02d} and set up UE for TCP streaming scenario",
+                        label=f"ping faraday gateway from UE on fit{ue:02d} and set up routing for the TCP streaming scenario",
                         critical=True,
                         required=job_start_ues,
                         scheduler=scheduler)
@@ -403,7 +403,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                             Run(ue_commands),
                             cefnet_ue_service.start_command(),
                             ],
-                        label=f"ping faraday gateway from UE on fit{ue:02d} and set up UE for Cefore streaming scenario",
+                        label=f"ping faraday gateway from fit{ue:02d} UE and set up routing for the Cefore streaming scenario",
                         # ip commands may fail if routes already there (when ot using -l option)
                         critical=False,#old cefnetd not killed when running new one...
                         required=job_start_ues,
@@ -413,7 +413,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         if ns3:
             ns3_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ns3), username='root',
                                formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
-            msg = f"Wait for UE node to be ready before running the Cefore scenario with ns-3 on fit{ns3}"
+            msg = f"Wait for the UE node to be ready before running the streaming scenario with ns-3 on fit{ns3}"
 
             if load_nodes:
                 job_prepare_ns3_node = [
@@ -425,7 +425,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                             Run("ip route add default via 192.168.2.6 dev data"),
                             Run("sysctl -w net.ipv4.ip_forward=1"),
                             ],
-                        label=f"prepare ns-3 node on fit{ns3:02d}",
+                        label=f"setup routing on ns-3 fit{ns3:02d} node",
                         # ip route may already be there so the ip route command may fail
                         critical=False,
                         required=job_setup_ue,
@@ -443,10 +443,10 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                         node=cnnode,
                         commands=[
                             Run(f"echo 'ccn:/streaming tcp {publisher_ip}:80' > /usr/local/cefore/cefnetd.conf"),
-                            Run("killall cefnetd"),# notdone by default with service.start_command()
+                            Run("killall cefnetd"),# not done by default with service.start_command()
                             cefnet_ns3_service.start_command(),
                             ],
-                        label=f"Start Cefnet on EPC at fit{cn:02d}",
+                        label=f"Start Cefnet on EPC running at fit{cn:02d}",
                         critical=False,#old cefnetd not killed when running new one...
                         required=ns3_requirements,
                         scheduler=scheduler,
@@ -546,7 +546,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-tcp-test")
         print("Then, run iperf on the publisher host:")
         print("yourlogin@publisher:~# iperf -s -P 1 -p 80")
-        print(f"Log file will be on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-4/var/log/56884/stdout")
+        print(f"Log file will be available on fit{ns3:02d} at:")
+        print("  /root/NS3/source/ns-3-dce/files-4/var/log/56884/stdout")
     else:
         # Cefore streaming scenario
         print("Now, if not already done, copy cefnetd and cefputfile binaries on your publisher host")
@@ -554,8 +555,11 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         print("login@your_host:r2lab-demos/cefore# scp bin/cefputfile yourlogin@publisher_node:/user/local/bin")
         print(f"After that, run on the ns-3 fit{ns3:02d} node the following command:")
         print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-cefore-test ")
-        print("Then, run on the publisher: cefputfile can:/streaming/test -f ./[file-name] -r [1 <= streaming-rate <=32 (Mbps)]")
-        print(f"Log file will be on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-3/tmp/cefgetstream-thuputLog-126230400110000")
+        print("Then, run on the publisher host:")
+        print("yourlogin@publisher:~# cefnetd")
+        print("yourlogin@publisher:~# cefputfile ccn:/streaming/test -f ./[file-name] -r [1 <= streaming_rate <= 32 (Mbps)]")
+        print(f"Log file will be available on fit{ns3:02d} at:")
+        print("  /root/NS3/source/ns-3-dce/files-3/tmp/cefgetstream-thuputLog-126230400110000")
     print(80*'*')
 
     return True
