@@ -539,14 +539,14 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         scheduler.debrief()
         return False
     print("RUN OK")
-
+    print(80*'*')
     if tcp_streaming:
         # TCP streaming scenario 
         print(f"Now it's time to run the ns-3 script on node fit{ns3:02d}")
         print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-tcp-test")
         print("Then, run iperf on the publisher host:")
         print("yourlogin@publisher:~# iperf -s -P 1 -p 80")
-        print(f"Log file available on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-4/var/log/56884/stdout")
+        print(f"Log file will be on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-4/var/log/56884/stdout")
     else:
         # Cefore streaming scenario
         print("Now, if not already done, copy cefnetd and cefputfile binaries on your publisher host")
@@ -555,7 +555,8 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         print(f"After that, run on the ns-3 fit{ns3:02d} node the following command:")
         print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-cefore-test ")
         print("Then, run on the publisher: cefputfile can:/streaming/test -f ./[file-name] -r [1 <= streaming-rate <=32 (Mbps)]")
-        print(f"Log file available on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-3/tmp/cefgetstream-thuputLog-126230400110000")
+        print(f"Log file will be on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-3/tmp/cefgetstream-thuputLog-126230400110000")
+    print(80*'*')
 
     return True
 
