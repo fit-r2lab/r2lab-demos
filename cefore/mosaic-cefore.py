@@ -239,7 +239,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                                   "configure -b", n_rb,
                                   includes=INCLUDES),
                         ],
-                    label=f"Configure OAI UE on fit{ue}",
+                    label=f"Configure OAI UE on fit{ue:02d}",
                     scheduler=scheduler)
                 ]
             ran_requirements.append(job_warm_ues)
@@ -336,7 +336,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if oai_ues:
         delay = 25
         for ue in oai_ues:
-            msg = f"wait for {delay}s for eNB to start up before running UE on node fit{ue}"
+            msg = f"wait for {delay}s for eNB to start up before running UE on node fit{ue:02d}"
             wait_command = f"echo {msg}; sleep {delay}"
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
                               formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
@@ -349,16 +349,18 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                                   "start",
                                   includes=INCLUDES),
                         ],
-                    label=f"Start OAI UE on fit{ue}",
+                    label=f"Start OAI UE on fit{ue:02d}",
                     required=grace_delay,
                     scheduler=scheduler)
                 ]
             delay += 20
 
         for ue in oai_ues:
+            environ = {'USER': 'root'}
+            cefnet_ue_service = Service("cefnetd", service_id="cefnet", environ=environ) 
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
                               formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
-            msg = f"Wait 60s and then ping faraday gateway from UE on fit{ue}"
+            msg = f"Wait 60s and then ping faraday gateway from UE on fit{ue:02d}"
             ue_commands = f"echo {msg}; sleep 60; ping -c 5 -I oip1 faraday.inria.fr"
 
             if tcp_streaming:
@@ -372,7 +374,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                         commands=[
                             Run(ue_commands),
                             ],
-                        label=f"ping faraday gateway from UE on fit{ue} and set up UE for TCP streaming scenario",
+                        label=f"ping faraday gateway from UE on fit{ue:02d} and set up UE for TCP streaming scenario",
                         critical=True,
                         required=job_start_ues,
                         scheduler=scheduler)
@@ -399,11 +401,11 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                         node=ue_node,
                         commands=[
                             Run(ue_commands),
-                            Run("cefnetdstart"),
+                            cefnet_ue_service.start_command(),
                             ],
-                        label=f"ping faraday gateway from UE on fit{ue} and set up UE for Cefore streaming scenario",
+                        label=f"ping faraday gateway from UE on fit{ue:02d} and set up UE for Cefore streaming scenario",
                         # ip commands may fail if routes already there (when ot using -l option)
-                        critical=True,
+                        critical=False,#old cefnetd not killed when running new one...
                         required=job_start_ues,
                         scheduler=scheduler)
                     ]
@@ -423,7 +425,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                             Run("ip route add default via 192.168.2.6 dev data"),
                             Run("sysctl -w net.ipv4.ip_forward=1"),
                             ],
-                        label=f"prepare ns-3 node on fit{ns3}",
+                        label=f"prepare ns-3 node on fit{ns3:02d}",
                         # ip route may already be there so the ip route command may fail
                         critical=False,
                         required=job_setup_ue,
@@ -434,16 +436,18 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                 ns3_requirements = job_setup_ue
 
             if not tcp_streaming:
+                environ = {'USER': 'root'}
+                cefnet_ns3_service = Service("cefnetd", service_id="cefnet", environ=environ) 
                 job_start_cefnet_on_cn = [
                     SshJob(
                         node=cnnode,
                         commands=[
                             Run(f"echo 'ccn:/streaming tcp {publisher_ip}:80' > /usr/local/cefore/cefnetd.conf"),
-                            Run("killall cefnetd"),
-                            Run("cefnetdstart"),
+                            Run("killall cefnetd"),# notdone by default with service.start_command()
+                            cefnet_ns3_service.start_command(),
                             ],
-                        label=f"Start Cefnet on EPC fit{cn}",
-                        critical=True,
+                        label=f"Start Cefnet on EPC at fit{cn:02d}",
+                        critical=False,#old cefnetd not killed when running new one...
                         required=ns3_requirements,
                         scheduler=scheduler,
                         )
@@ -494,7 +498,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if load_nodes:
         for image, nodes in images_to_load.items():
             for node in nodes:
-                print(f"node {node} : {image}")
+                print(f"node fit{node:02d} : {image}")
     else:
         print("NODES ARE USED AS IS (no image loaded, no reset)")
     print(10*"*", "phones usage summary")
@@ -506,6 +510,11 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     if nodes_left_alone:
         print(f"Ignore following fit nodes: {nodes_left_alone}")
 
+    print(f"Publisher IP is {publisher_ip}")
+    if tcp_streaming:
+        print("Run streaming scenario with TCP")
+    else:
+        print("Run streaming scenario with Cefore")
     # wrap scheduler into global scheduler that prepares the testbed
     scheduler = prepare_testbed_scheduler(
         gwnode, load_nodes, scheduler, images_to_load, nodes_left_alone)
@@ -530,6 +539,24 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         scheduler.debrief()
         return False
     print("RUN OK")
+
+    if tcp_streaming:
+        # TCP streaming scenario 
+        print(f"Now it's time to run the ns-3 script on node fit{ns3:02d}")
+        print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-tcp-test")
+        print("Then, run iperf on the publisher host:")
+        print("yourlogin@publisher:~# iperf -s -P 1 -p 80")
+        print(f"Log file available on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-4/var/log/56884/stdout")
+    else:
+        # Cefore streaming scenario
+        print("Now, if not already done, copy cefnetd and cefputfile binaries on your publisher host")
+        print("login@your_host:r2lab-demos/cefore# scp bin/cefnetd yourlogin@publisher_node:/usr/local/sbin")
+        print("login@your_host:r2lab-demos/cefore# scp bin/cefputfile yourlogin@publisher_node:/user/local/bin")
+        print(f"After that, run on the ns-3 fit{ns3:02d} node the following command:")
+        print(f"root@fit{ns3:02d}:~# /root/NS3/source/ns-3-dce/waf  --run dce-cefore-test ")
+        print("Then, run on the publisher: cefputfile can:/streaming/test -f ./[file-name] -r [1 <= streaming-rate <=32 (Mbps)]")
+        print(f"Log file available on fit{ns3:02d} at /root/NS3/source/ns-3-dce/files-3/tmp/cefgetstream-thuputLog-126230400110000")
+
     return True
 
 # use the same signature in addition to run_name by convenience
@@ -763,7 +790,7 @@ prefer using fit10 and fit11 (B210 without duplexer)""")
         "--image-T-tracer", default=def_image_T_tracer,
         help="image to load on the eNB tracer node")
     parser.add_argument(
-        "--publisher-ip", default="",
+        "-P", "--publisher-ip", default="",
         help="IP address of the publisher for the Cefore scenario")
 
 
@@ -792,6 +819,9 @@ OpenAirInterface-based UE. Does nothing else.""")
         "-n", "--dry-run", action='store_true', default=False)
 
     args = parser.parse_args()
+
+    if not args.publisher_ip:  
+        parser.error('Publisher IP address not given, use -P a.b.c.d option')
 
     if args.map:
         show_hardware_map(probe_hardware_map())
