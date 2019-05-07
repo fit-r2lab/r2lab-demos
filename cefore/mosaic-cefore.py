@@ -398,7 +398,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
                     SshJob(
                         node=ue_node,
                         commands=[
-                            Run("ue_commands"),
+                            Run(ue_commands),
                             Run("cefnetdstart"),
                             ],
                         label=f"ping faraday gateway from UE on fit{ue} and set up UE for Cefore streaming scenario",
