@@ -4,6 +4,7 @@ pandas
 plotly
 bokeh
 ipyvolume
+matplotlib
 asynciojobs
 asyncssh
 apssh
