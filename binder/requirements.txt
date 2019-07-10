@@ -3,6 +3,7 @@ numpy
 pandas
 plotly
 bokeh
+ipyvolume
 asynciojobs
 asyncssh
 apssh
