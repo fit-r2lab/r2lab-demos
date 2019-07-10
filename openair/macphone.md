@@ -1,14 +1,17 @@
-# macphone per se
+# macphones
 
-## MAC addresses
+## reachable from the outside w/ VNC or Screen Sharing
 
-* `d8:30:62:a5:3b:a7` - thunderbolt -> 192.168.4.200
-* `6c:40:08:b6:c1:7e` - USB -> 192.168.4.201
-
-## iptables / port mapping 5900 from faraday to macphone
+| hostname | IP |
+|----------|
+faraday-macphone1.inria.fr has address 138.96.16.99
+root@faraday ~ (master *) #
+host faraday-macphone2.inria.fr
+faraday-macphone2.inria.fr has address 138.96.16.100
 
 ```
-iptables -t nat -A PREROUTING -j DNAT -p tcp -d 138.96.16.97 --dport 5900 --to 192.168.4.201:5900
+iptables -t nat -A PREROUTING -d 138.96.16.99/32 -p tcp -m tcp --dport 5900 -j DNAT --to-destination 192.168.4.201:5900
+iptables -t nat -A PREROUTING -d 138.96.16.100/32 -p tcp -m tcp --dport 5900 -j DNAT --to-destination 192.168.4.202:5900
 ```
 
 ## miscell : checking for switches on VLAN 40 (192.168.4.x)
