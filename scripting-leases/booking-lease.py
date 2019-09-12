@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from xmlrpc.client import ServerProxy
 
 from argparse import ArgumentParser
@@ -97,6 +97,9 @@ def main():
         "-u", "--until", dest='t_until',
         help="end of lease to book, same format as --from")
     parser.add_argument(
+        "-d", "--duration", dest='t_duration',
+        help="duration of the lease (instead of specifying the end), format 2H for 2 hours (only in hours)")
+    parser.add_argument(
         "-s", "--slice", dest='slicename',
         help="slicename to use when booking"
     )
@@ -109,6 +112,13 @@ def main():
 
     args = parser.parse_args()
     
+    if not args.t_until and args.t_duration:
+        nbHours = int(args.t_duration.replace('H',''))
+        startTime = readable_to_epoch(args.t_from)
+        endTime = startTime + timedelta(hours=nbHours).total_seconds()
+        args.t_until = epoch_to_readable(endTime)
+        print("booking lease will be " + args.t_from + "→ " + args.t_until)
+
     # mode
     if not args.get and not args.book:
         args.get = True
