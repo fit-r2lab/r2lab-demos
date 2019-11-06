@@ -439,7 +439,8 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
             SshNode(gateway=gwnode, hostname=hostname, username='root',
                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
             for hostname in hostnames_ue]
-
+    else:
+        nodes_ue = []
 
     # all nodes involved are  managed in the same way
     # node: a SshNode instance
