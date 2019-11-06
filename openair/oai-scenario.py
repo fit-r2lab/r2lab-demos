@@ -14,11 +14,14 @@ from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh import LocalNode
 from apssh.formatters import TimeColonFormatter
 
+
 # illustrating the r2lab library
 # utils
 from r2lab import r2lab_hostname, r2lab_parse_slice, find_local_embedded_script
 # argument parsing
 from r2lab import ListOfChoices, ListOfChoicesNullReset
+
+from probe_map import hardwired_hardware_map, probe_hardware_map, show_hardware_map
 
 
 # include the set of utility scripts that are included by the r2lab kit
@@ -26,53 +29,6 @@ INCLUDES = [find_local_embedded_script(x) for x in [
     "r2labutils.sh", "nodes.sh", "oai-common.sh",
 ]]
 
-
-# harware map
-# the python code for interacting with sidecar is too fragile for now
-# to be invoked every time; plus, it takes time; so:
-def hardwired_hardware_map():
-    return {
-        'E3372-UE': [2, 26],
-        'OAI-UE':  [6, 19],
-    }
-
-# build our hardware map: we compute the ids of the nodes
-# that have the characteristics that we want
-
-
-def probe_hardware_map():
-    # import here so depend on socketIO_client only if needed
-    from r2lab import R2labSidecar
-    with R2labSidecar() as sidecar:
-        nodes_hash = sidecar.nodes_status()
-
-    if not nodes_hash:
-        print("Could not probe testbed status - exiting")
-        exit(1)
-
-    # debug
-    # for id in sorted(nodes_hash.keys()):
-    #    print(f"node[{id}] = {nodes_hash[id]}")
-
-    # we search for the nodes that have usrp_type == 'e3372'
-    e3372_ids = [id for id, node in nodes_hash.items()
-                 if node['usrp_type'] == 'e3372']
-    # and here the ones that have a b210 with a 'for UE' duplexer
-    oaiue_ids = [id for id, node in nodes_hash.items()
-                 if node['usrp_type'] == 'b210'
-                 and 'ue' in node['usrp_duplexer'].lower()]
-
-    return {
-        'E3372-UE': e3372_ids,
-        'OAI-UE':  oaiue_ids,
-    }
-
-
-def show_hardware_map(map):
-    print("Nodes that can be used as E3372 UEs (suitable for -E/-e):",
-          ', '.join([str(id) for id in sorted(map['E3372-UE'])]))
-    print("Nodes that can be used as OpenAirInterface UEs (suitable for -U/-u)",
-          ', '.join([str(id) for id in sorted(map['OAI-UE'])]))
 
 # first stage
 
