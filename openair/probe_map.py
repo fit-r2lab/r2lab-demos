@@ -4,7 +4,7 @@
 def hardwired_hardware_map():
     return {
         'E3372-UE': (2, 26),
-        'OAI-UE':  (6, 19),
+        'OAI-UE':  (6, 8, 19),
         'OAI-ENB': (16, 23, 25),
     }
 
