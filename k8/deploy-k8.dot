@@ -1,0 +1,46 @@
+digraph asynciojobs{
+compound=true;
+graph [];
+1 [style="rounded",label="1: inria_mosaic@faraday.inria.fr
+rhubarbe leases --check",shape="box",color="red",penwidth="2"]
+2 [style="rounded",label="2: inria_mosaic@faraday.inria.fr
+rhubarbe load -i k8base 1 2 3 23
+rhubarbe wait 1 2 3 23",shape="box",color="red",penwidth="2"]
+1 -> 2;
+3 [style="rounded",label="3: root@fit01
+sudo swapoff -a
+hostnamectl set-hostname master-node
+kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/join_msg.txt
+tail -2 /tmp/join_msg.txt > /tmp/join_msg
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+kubectl get pods --all-namespaces",shape="box",color="red",penwidth="2"]
+2 -> 3;
+4 [style="rounded",label="4: root@fit03
+sudo swapoff -a
+scp -o 'StrictHostKeyChecking no' fit01:/tmp/join_msg /tmp/join_msg
+chmod a+x /tmp/join_msg
+/tmp/join_msg",shape="box",color="red",penwidth="2"]
+3 -> 4;
+5 [style="rounded",label="5: root@fit23
+sudo swapoff -a
+scp -o 'StrictHostKeyChecking no' fit01:/tmp/join_msg /tmp/join_msg
+chmod a+x /tmp/join_msg
+/tmp/join_msg",shape="box",color="red",penwidth="2"]
+3 -> 5;
+6 [style="rounded",label="6: root@fit02
+sudo swapoff -a
+scp -o 'StrictHostKeyChecking no' fit01:/tmp/join_msg /tmp/join_msg
+chmod a+x /tmp/join_msg
+/tmp/join_msg",shape="box",color="red",penwidth="2"]
+3 -> 6;
+7 [style="rounded",label="7: settling k8",shape="box",color="red",penwidth="2"]
+5 -> 7;
+4 -> 7;
+6 -> 7;
+8 [style="rounded",label="8: root@fit01
+kubectl get nodes",shape="box",color="red",penwidth="2"]
+7 -> 8;
+}
