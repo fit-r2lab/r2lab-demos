@@ -16,7 +16,7 @@ from r2lab import ListOfChoices
 ##########
 default_gateway  = 'faraday.inria.fr'
 gateway_username  = 'inria_mosaic'
-master_image = "kube5g-master"
+master_image = "kube5g-master" # this image is a k8base with mosaic5G snap installed
 worker_image = "k8base"
 verbose_mode = True
 dry_run = False
@@ -53,10 +53,9 @@ def run(slicename=gateway_username, load_images=load_images,
     if node_master not in node_ids:
         print("master node {} must be part of selected fit nodes {}".format(node_master, node_ids))
         exit(1)
-
     worker_ids = node_ids[:]
     worker_ids.remove(node_master)
-    
+
     faraday = SshNode(hostname=default_gateway, username=slicename,
                       verbose=verbose_mode,
                       formatter=TimeColonFormatter())
@@ -100,8 +99,8 @@ def run(slicename=gateway_username, load_images=load_images,
                 critical=True,
                 verbose=verbose_mode,
                 commands=[
-                    Run("rhubarbe", "load", "-i", master_image, node_master),
-                    Run("rhubarbe", "wait", node_master),
+                    Run(f"rhubarbe load -i {master_image} {node_master}"),
+                    Run(f"rhubarbe wait {node_master}"),
                 ]
             ),
             SshJob(
@@ -111,91 +110,84 @@ def run(slicename=gateway_username, load_images=load_images,
                 critical=True,
                 verbose=verbose_mode,
                 commands=[
-                    Run("rhubarbe", "uoff", node_ids[node_enb]), # if usrp is on, load could be problematic sometimes...
+                    Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
                     Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
-                    Run("rhubarbe", "wait", *node_ids),
-                    Run("rhubarbe", "uon", node_ids[node_enb]), # ensure a reset of the USRP on the enB node
+                    Run("rhubarbe", "wait", *worker_ids),
+                    Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
                 ],
             ),
         ]
     else:
-        # reset nodes if images are already loaded
-        green_light = SshJob(
-            scheduler=scheduler,
-            required=check_lease,
-            node=faraday,
-            critical=True,
-            verbose=verbose_mode,
-            commands=[
-                Run("rhubarbe", "reset", *node_ids),
-                Run("rhubarbe", "wait", *node_ids),
-                Run("rhubarbe", "uoff", node_enb), # ensure a reset of the USRP on the enB node
-                Run("rhubarbe", "uon", node_enb),
-            ],
-        )
-
-    ##########
-    # setting up the wireless interface on all nodes
-
-
-    # Initialize k8 on the master node
-    if load_images:
-        init_master = SshJob(
-            scheduler=scheduler,
-            required=green_light,
-            node=master,
-            critical=True,
-            verbose=verbose_mode,
-            commands = [
-                Run("sudo swapoff -a"),
-                Run("hostnamectl set-hostname master-node"),
-                Run("kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/join_msg.txt"),
-                Run("tail -2 /tmp/join_msg.txt > /tmp/join_msg"),
-                Run("mkdir -p $HOME/.kube"),
-                Run("cp -i /etc/kubernetes/admin.conf $HOME/.kube/config"),
-                Run("chown $(id -u):$(id -g) $HOME/.kube/config"),
-                Run("kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"),
-                Run("kubectl get pods --all-namespaces"),
-            ],
-        )
-        init_workers = [
+        # reset usrp on eNB and remove all 5G pods 
+        green_light = [
             SshJob(
                 scheduler=scheduler,
-                required=init_master,
-                node=node,
+                required=check_lease,
+                node=faraday,
                 critical=True,
                 verbose=verbose_mode,
-                label=f"Init k8 on fit node {id} and join the cluster",
-                commands = [
-                    Run("sudo swapoff -a"),
-                    Run(f"scp -o 'StrictHostKeyChecking no' {fit_master}:/tmp/join_msg /tmp/join_msg"),
-                    Run("chmod a+x /tmp/join_msg"),
-                    Run("/tmp/join_msg"),
+                commands=[
+                    Run(f"rhubarbe usrpoff {node_enb}"), # better to reset the usrp
+                    Run(f"rhubarbe usrpon {node_enb}"),
                 ],
-            ) for id, node in worker_index.items()
+            ),
+            SshJob(
+	        scheduler=scheduler,
+                required=check_lease,
+                node = master,
+	        verbose=verbose_mode,
+	        commands = [
+                    Run("kubectl get nodes -Lusrp"),
+                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container stop;sleep 1"),
+                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -d; sleep 1"),
+                ],
+            )
         ]
-    else:
-        init_master = SshJob(
+            
+
+    ##########
+    # Initialize k8 on the master node
+    init_master = SshJob(
+        scheduler=scheduler,
+        required=green_light,
+        node=master,
+        critical=True,
+        verbose=verbose_mode,
+        commands = [
+            Run("sudo swapoff -a"),
+            Run("hostnamectl set-hostname master-node"),
+            Run("kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/join_msg.txt"),
+            Run("tail -2 /tmp/join_msg.txt > /tmp/join_msg"),
+            Run("mkdir -p $HOME/.kube"),
+            Run("cp -i /etc/kubernetes/admin.conf $HOME/.kube/config"),
+            Run("chown $(id -u):$(id -g) $HOME/.kube/config"),
+            Run("kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"),
+            Run("kubectl get pods --all-namespaces"),
+        ],
+    )
+    init_workers = [
+        SshJob(
             scheduler=scheduler,
-            required=green_light,
-            node=master,
+            required=init_master,
+            node=node,
             critical=True,
             verbose=verbose_mode,
+            label=f"Init k8 on fit node {id} and join the cluster",
             commands = [
-                Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -d"),
-                Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container stop"),
-                Run("kubectl get pods --all-namespaces"),
+                Run("sudo swapoff -a"),
+                Run(f"scp -o 'StrictHostKeyChecking no' {fit_master}:/tmp/join_msg /tmp/join_msg"),
+                Run("chmod a+x /tmp/join_msg"),
+                Run("/tmp/join_msg"),
             ],
-        )
-        
-
+        ) for id, node in worker_index.items()
+    ]
     
-    # wait a bit for K8 nodes setup
+    # wait 1mn for K8 nodes setup
     wait_k8nodes_ready = PrintJob(
         "Let k8 set up",
         scheduler=scheduler,
         required=init_master,
-        sleep=15,
+        sleep=60,
         label="settling k8 nodes"
     )
 
@@ -207,11 +199,11 @@ def run(slicename=gateway_username, load_images=load_images,
         verbose=verbose_mode,
         commands = [
             Run("kubectl get nodes"),
-            Run(f"kubectl label nodes {node_enb} usrp=true"), # add a label to the eNB node to inform the master a usrp is attached to
+            Run(f"kubectl label nodes fit{node_enb} usrp=true"), # add a label to the eNB node to inform the master a usrp is attached to
             Run("kubectl get nodes -Lusrp"),
-            Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container start"), # start the 5GOperator pod
-            Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -n"), # apply the Mosaic5g CRD
-            Run("kubect get pods"),
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"), # apply the Mosaic5g CRD
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"), # start the 5GOperator pod
+            Run("kubectl get pods"),
         ],
     )
 
@@ -231,17 +223,17 @@ def run(slicename=gateway_username, load_images=load_images,
         verbose=verbose_mode,
         commands = [
             Run("kubectl get nodes -Llabel"),
-            Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh deploy disaggregated-cn"), # launch the disaggregated setup
-            Run("kubect get pods"),
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy disaggregated-cn"), # launch the disaggregated setup
+            Run("kubectl get pods"),
         ],
     )
     
-    # wait 2mn for K8 5G pods setup
+    # wait 4mn for K8 5G pods setup
     wait_k8_5Gpods_ready = PrintJob(
         "Let all 5G pods set up",
         scheduler=scheduler,
         required=run_kube5g,
-        sleep=120,
+        sleep=240,
         label="settling all 5G pods"
     )
 
@@ -252,7 +244,7 @@ def run(slicename=gateway_username, load_images=load_images,
         verbose=verbose_mode,
         commands = [
             Run("kubectl get nodes -Llabel"),
-            Run("kubect get pods"),
+            Run("kubectl get pods"),
         ],
     )
 
