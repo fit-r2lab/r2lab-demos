@@ -21,6 +21,7 @@ worker_image = "k8base"
 verbose_mode = True
 dry_run = False
 load_images = False
+disag_cn = False
 node_master = 1
 node_enb = 23
 node_ids = [1,2,3,23]
@@ -36,8 +37,8 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(slicename=gateway_username, load_images=load_images,
-        node_ids=node_ids, verbose_mode=verbose_mode,
-        node_master=node_master, node_enb=node_enb, dry_run=dry_run):
+        node_ids=node_ids, node_master=node_master, node_enb=node_enb, 
+        disag_cn=disag_cn, verbose_mode=verbose_mode, dry_run=dry_run):
     """
     Install K8 on R2lab
 
@@ -48,11 +49,17 @@ def run(slicename=gateway_username, load_images=load_images,
         node_ids: a list of node ids to run the scenario on; strings or ints 
                   are OK;
         node_master: the master node id, must be part of selected nodes
+        node_enb: the node id for the enb, whcih is connected to usrp
+        disag_cn: Boolean; True for the disaggregated CN scenario. False for all-in-one CN.
     """
 
     if node_master not in node_ids:
-        print("master node {} must be part of selected fit nodes {}".format(node_master, node_ids))
+        print(f"master node {node_master} must be part of selected fit nodes {node_ids}")
         exit(1)
+    if node_enb not in node_ids:
+        print(f"eNB worker node {node_enb} must be part of selected fit nodes {node_ids}")
+        exit(1)
+
     worker_ids = node_ids[:]
     worker_ids.remove(node_master)
 
@@ -199,10 +206,13 @@ def run(slicename=gateway_username, load_images=load_images,
         verbose=verbose_mode,
         commands = [
             Run("kubectl get nodes"),
-            Run(f"kubectl label nodes fit{node_enb} usrp=true"), # add a label to the eNB node to inform the master a usrp is attached to
+            # add a label to the eNB node to inform the master a usrp is attached to
+            Run(f"kubectl label nodes fit{node_enb} usrp=true"), 
             Run("kubectl get nodes -Lusrp"),
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"), # apply the Mosaic5g CRD
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"), # start the 5GOperator pod
+            # apply the Mosaic5g CRD
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
+            # start the 5GOperator pod
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"), 
             Run("kubectl get pods"),
         ],
     )
@@ -216,6 +226,11 @@ def run(slicename=gateway_username, load_images=load_images,
         label="settling 5G Operator pod"
     )
 
+    if disag_cn:
+        cn_type="disaggregated-cn"
+    else:
+        cn_type="all-in-one"
+        
     run_kube5g = SshJob(
         scheduler=scheduler,
         required = wait_k8_5GOp_ready,
@@ -223,17 +238,17 @@ def run(slicename=gateway_username, load_images=load_images,
         verbose=verbose_mode,
         commands = [
             Run("kubectl get nodes -Llabel"),
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy disaggregated-cn"), # launch the disaggregated setup
+            Run(f"cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy {cn_type}"),
             Run("kubectl get pods"),
         ],
     )
     
-    # wait 4mn for K8 5G pods setup
+    # Coffee Break -- wait 3mn for K8 5G pods setup
     wait_k8_5Gpods_ready = PrintJob(
         "Let all 5G pods set up",
         scheduler=scheduler,
         required=run_kube5g,
-        sleep=240,
+        sleep=180,
         label="settling all 5G pods"
     )
 
@@ -277,7 +292,7 @@ def run(slicename=gateway_username, load_images=load_images,
 
 def main():
     """    
-    Command-line frontend - offers primarily all options to l2bm_scenario
+    Command-line frontend - offers primarily all options to kube5g scenario
 
     """
 
@@ -289,6 +304,9 @@ def main():
                         help="run script in verbose mode")
     parser.add_argument("-l", "--load-images", default=False, 
                         action='store_true', help="if set, load image on nodes before running the exp")
+    parser.add_argument("-D", "--disag-cn", default=False, 
+                        action='store_true',
+                        help="if set, Deploy the Disaggragated CN scenario, else deploy the all-in-one CN")
     parser.add_argument("-N", "--node-id", dest='node_ids',
                         default=node_ids, 
                         choices=[str(x+1) for x in range(37)],
@@ -302,30 +320,36 @@ def main():
         help="""specify the id of the node that runs the eNodeB,
 which requires a USRP b210 and 'duplexer for eNodeB""")
     parser.add_argument(
-	"-m", "--map", default=False, action='store_true',
-        help="""Probe the testbed to get an updated hardware map
-that shows the nodes that currently embed the
-capabilities to run as either E3372- and
-OpenAirInterface-based UE. Does nothing else.""")
-    parser.add_argument(
         "-n", "--dry-run", action='store_true', default=False, dest='dry_run',
         help="run script in dry mode")
 
 
     args = parser.parse_args()
 
-    if args.map:
-        show_hardware_map(probe_hardware_map())
-        exit(0)
-
-    # map is not a recognized parameter in run()
-    delattr(args, 'map')
-
     # we pass to run exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
 
     # actually run it
+    if(args.disag_cn):
+        print("*** Run the Disaggragated CN Scenario *** ")
+    else:
+        print("*** Run the all-in-one CN Scenario *** ")
+    if(args.load_images):
+        print("After loading R2lab images on fit nodes")
+    else:
+        print("Without loading R2lab images on nodes (assuming they are already there)")
+    print("With the following fit nodes:")
+    for i in args.node_ids:
+        if i == args.node_master:
+            role = "Master node"
+        elif i == args.node_enb:
+            role = "Worker eNB node"
+        else:
+            role = "Worker node"
+        nodename = fitname(i)
+        print(f"\t{nodename}: {role}")
+        
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
     if not run(**kwds):
