@@ -105,6 +105,7 @@ def run(slicename=gateway_username, load_images=load_images,
                 node=faraday,
                 critical=True,
                 verbose=verbose_mode,
+                label = f"Load image {master_image} on master {fit_master}",
                 commands=[
                     Run(f"rhubarbe load -i {master_image} {node_master}"),
                     Run(f"rhubarbe wait {node_master}"),
@@ -116,6 +117,7 @@ def run(slicename=gateway_username, load_images=load_images,
                 node=faraday,
                 critical=True,
                 verbose=verbose_mode,
+                label = f"Load image {worker_image} on worker nodes",
                 commands=[
                     Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
                     Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
@@ -125,7 +127,7 @@ def run(slicename=gateway_username, load_images=load_images,
             ),
         ]
     else:
-        # reset usrp on eNB and remove all 5G pods 
+        # reset all nodes and usrp on eNB #and remove all 5G pods 
         green_light = [
             SshJob(
                 scheduler=scheduler,
@@ -133,22 +135,25 @@ def run(slicename=gateway_username, load_images=load_images,
                 node=faraday,
                 critical=True,
                 verbose=verbose_mode,
+                label = f"Reset all nodes and usrp on node {fit_enb}",
                 commands=[
                     Run(f"rhubarbe usrpoff {node_enb}"), # better to reset the usrp
+                    Run("rhubarbe", "reset", *node_ids),
+                    Run("rhubarbe", "wait", *node_ids),
                     Run(f"rhubarbe usrpon {node_enb}"),
                 ],
             ),
-            SshJob(
-	        scheduler=scheduler,
-                required=check_lease,
-                node = master,
-	        verbose=verbose_mode,
-	        commands = [
-                    Run("kubectl get nodes -Lusrp"),
-                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container stop;sleep 1"),
-                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -d; sleep 1"),
-                ],
-            )
+#            SshJob(
+#	        scheduler=scheduler,
+#                required=check_lease,
+#                node = master,
+#	        verbose=verbose_mode,
+#	        commands = [
+#                    Run("kubectl get nodes -Lusrp"),
+#                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container stop;sleep 1"),
+#                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -d; sleep 1"),
+#                ],
+#            )
         ]
             
 
@@ -160,6 +165,7 @@ def run(slicename=gateway_username, load_images=load_images,
         node=master,
         critical=True,
         verbose=verbose_mode,
+        label = f"Install and launch k8 on the master {node_master}", 
         commands = [
             Run("sudo swapoff -a"),
             Run("hostnamectl set-hostname master-node"),
@@ -204,6 +210,7 @@ def run(slicename=gateway_username, load_images=load_images,
         required = wait_k8nodes_ready,
         node = master,
         verbose=verbose_mode,
+        label = f"Add usrp label to enb on {node_enb} and start 5GOperator pod",
         commands = [
             Run("kubectl get nodes"),
             # add a label to the eNB node to inform the master a usrp is attached to
@@ -236,6 +243,7 @@ def run(slicename=gateway_username, load_images=load_images,
         required = wait_k8_5GOp_ready,
         node = master,
         verbose=verbose_mode,
+        label = f"deploy CN {cn_type} then eNB pods",
         commands = [
             Run("kubectl get nodes -Llabel"),
             Run(f"cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy {cn_type}"),
@@ -257,6 +265,7 @@ def run(slicename=gateway_username, load_images=load_images,
         required = wait_k8_5Gpods_ready,
         node = master,
         verbose=verbose_mode,
+        label = "Check which pods are deployed", 
         commands = [
             Run("kubectl get nodes -Llabel"),
             Run("kubectl get pods"),
