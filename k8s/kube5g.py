@@ -210,12 +210,12 @@ def run(slicename=gateway_username, load_images=load_images,
         required = wait_k8nodes_ready,
         node = master,
         verbose=verbose_mode,
-        label = f"Add usrp label to enb on {node_enb} and start 5GOperator pod",
+        label = f"Add oai:ran label to oai-ran pod on {node_enb} and start 5GOperator pod",
         commands = [
             Run("kubectl get nodes"),
-            # add a label to the eNB node to inform the master a usrp is attached to
-            Run(f"kubectl label nodes fit{node_enb} usrp=true"), 
-            Run("kubectl get nodes -Lusrp"),
+            # add label to the eNB node to help k8s scheduler selects the right fit node
+            Run(f"kubectl label nodes fit{node_enb} oai=ran"), 
+            Run("kubectl get nodes -Loai"),
             # apply the Mosaic5g CRD
             Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
             # start the 5GOperator pod
