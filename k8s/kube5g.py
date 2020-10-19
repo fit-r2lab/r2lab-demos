@@ -11,7 +11,12 @@ from apssh import SshNode, SshJob, Run
 from apssh import RunString, RunScript, TimeColonFormatter
 
 # make sure to pip install r2lab
-from r2lab import ListOfChoices
+from r2lab import ListOfChoices, ListOfChoicesNullReset, find_local_embedded_script
+
+# include the set of utility scripts that are included by the r2lab kit
+INCLUDES = [find_local_embedded_script(x) for x in (
+    "r2labutils.sh", "nodes.sh", "mosaic-common.sh",
+)]
 
 ##########
 default_gateway  = 'faraday.inria.fr'
@@ -20,12 +25,11 @@ master_image = "kube5g-master" # this image is a k8base with mosaic5G snap insta
 worker_image = "k8base"
 verbose_mode = True
 dry_run = False
-load_images = False
 disag_cn = False
 node_master = 1
 node_enb = 23
 node_ids = [1,2,3,23]
-
+phones = [1,]
 
 ##########
 
@@ -36,7 +40,7 @@ def fitname(node_id):
     int_id = int(node_id)
     return "fit{:02d}".format(int_id)
 
-def run(slicename=gateway_username, load_images=load_images,
+def run(slicename=gateway_username, phones=phones, 
         node_ids=node_ids, node_master=node_master, node_enb=node_enb, 
         disag_cn=disag_cn, verbose_mode=verbose_mode, dry_run=dry_run):
     """
@@ -44,8 +48,7 @@ def run(slicename=gateway_username, load_images=load_images,
 
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
-        load_images: a boolean specifying whether nodes should be re-imaged 
-                     first, else nodes will be reset to allow reconfiguration
+        phones: list of indices of phones to use
         node_ids: a list of node ids to run the scenario on; strings or ints 
                   are OK;
         node_master: the master node id, must be part of selected nodes
@@ -97,64 +100,34 @@ def run(slicename=gateway_username, load_images=load_images,
         command = Run("rhubarbe leases --check"),
     )
 
-    if load_images:
-        green_light = [
-            SshJob(
-                scheduler=scheduler,
-                required=check_lease,
-                node=faraday,
-                critical=True,
-                verbose=verbose_mode,
-                label = f"Load image {master_image} on master {fit_master}",
-                commands=[
-                    Run(f"rhubarbe load -i {master_image} {node_master}"),
-                    Run(f"rhubarbe wait {node_master}"),
-                ]
-            ),
-            SshJob(
-                scheduler=scheduler,
-                required=check_lease,
-                node=faraday,
-                critical=True,
-                verbose=verbose_mode,
-                label = f"Load image {worker_image} on worker nodes",
-                commands=[
-                    Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
-                    Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
-                    Run("rhubarbe", "wait", *worker_ids),
-                    Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
-                ],
-            ),
-        ]
-    else:
-        # reset all nodes and usrp on eNB #and remove all 5G pods 
-        green_light = [
-            SshJob(
-                scheduler=scheduler,
-                required=check_lease,
-                node=faraday,
-                critical=True,
-                verbose=verbose_mode,
-                label = f"Reset all nodes and usrp on node {fit_enb}",
-                commands=[
-                    Run(f"rhubarbe usrpoff {node_enb}"), # better to reset the usrp
-                    Run("rhubarbe", "reset", *node_ids),
-                    Run("rhubarbe", "wait", *node_ids),
-                    Run(f"rhubarbe usrpon {node_enb}"),
-                ],
-            ),
-#            SshJob(
-#	        scheduler=scheduler,
-#                required=check_lease,
-#                node = master,
-#	        verbose=verbose_mode,
-#	        commands = [
-#                    Run("kubectl get nodes -Loai"),
-#                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh container stop;sleep 1"),
-#                    Run("/root/mosaic5g/kube5g/openshift/m5g-operator/m5goperator.sh -d; sleep 1"),
-#                ],
-#            )
-        ]
+    green_light = [
+        SshJob(
+            scheduler=scheduler,
+            required=check_lease,
+            node=faraday,
+            critical=True,
+            verbose=verbose_mode,
+            label = f"Load image {master_image} on master {fit_master}",
+            commands=[
+                Run(f"rhubarbe load -i {master_image} {node_master}"),
+                Run(f"rhubarbe wait {node_master}"),
+            ]
+        ),
+        SshJob(
+            scheduler=scheduler,
+            required=check_lease,
+            node=faraday,
+            critical=True,
+            verbose=verbose_mode,
+            label = f"Load image {worker_image} on worker nodes",
+            commands=[
+                Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
+                Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
+                Run("rhubarbe", "wait", *worker_ids),
+                Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
+            ],
+        ),
+    ]
             
 
     ##########
@@ -224,19 +197,21 @@ def run(slicename=gateway_username, load_images=load_images,
         ],
     )
 
-    # wait 30s for K8 5G Operator setup
+    # wait 20s for K8 5G Operator setup
     wait_k8_5GOp_ready = PrintJob(
         "Let 5G Operator set up",
         scheduler=scheduler,
         required=init_kube5g,
-        sleep=60,
+        sleep=20,
         label="settling 5G Operator pod"
     )
 
     if disag_cn:
         cn_type="disaggregated-cn"
+        setup_time = 120
     else:
         cn_type="all-in-one"
+        setup_time = 60
         
     run_kube5g = SshJob(
         scheduler=scheduler,
@@ -251,12 +226,12 @@ def run(slicename=gateway_username, load_images=load_images,
         ],
     )
     
-    # Coffee Break -- wait 3mn for K8 5G pods setup
+    # Coffee Break -- wait 1 or 2mn for K8 5G pods setup
     wait_k8_5Gpods_ready = PrintJob(
         "Let all 5G pods set up",
         scheduler=scheduler,
         required=run_kube5g,
-        sleep=180,
+        sleep=setup_time,
         label="settling all 5G pods"
     )
 
@@ -272,6 +247,31 @@ def run(slicename=gateway_username, load_images=load_images,
         ],
     )
 
+    ########## Test phone(s) connectivity
+
+    sleeps = [40, 60]
+    phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
+                  for sleep, id in zip(sleeps, phones)]
+    wait_commands = [f"echo {msg}; sleep {sleep}"
+                     for msg, sleep in zip(phone_msgs, sleeps)]
+
+    job_start_phones = [
+        SshJob(
+            node=faraday,
+            commands=[
+                Run(wait_command),
+                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                          "r2lab-embedded/shell/macphone.sh", "phone-on",
+                          includes=INCLUDES),
+                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                          "r2lab-embedded/shell/macphone.sh", "phone-start-app",
+                          includes=INCLUDES),
+            ],
+            label=f"turn off airplane mode on phone {id}",
+            required=check_kube5g,
+            scheduler=scheduler)
+        for id, wait_command in zip(phones, wait_commands)]
+    
 
     ##########
     # Update the .dot and .png file for illustration purposes
@@ -311,8 +311,6 @@ def main():
     parser.add_argument("-v", "--verbose-mode", default=False, 
                         action='store_true', dest='verbose_mode',
                         help="run script in verbose mode")
-    parser.add_argument("-l", "--load-images", default=False, 
-                        action='store_true', help="if set, load image on nodes before running the exp")
     parser.add_argument("-D", "--disag-cn", default=False, 
                         action='store_true',
                         help="if set, Deploy the Disaggragated CN scenario, else deploy the all-in-one CN")
@@ -329,6 +327,12 @@ def main():
         help="""specify the id of the node that runs the eNodeB,
 which requires a USRP b210 and 'duplexer for eNodeB""")
     parser.add_argument(
+        "-p", "--phones", dest='phones',
+        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
+        default=[1],
+        help='Commercial phones to use; use -p 0 to choose no phone')
+
+    parser.add_argument(
         "-n", "--dry-run", action='store_true', default=False, dest='dry_run',
         help="run script in dry mode")
 
@@ -344,10 +348,6 @@ which requires a USRP b210 and 'duplexer for eNodeB""")
         print("*** Run the Disaggragated CN Scenario *** ")
     else:
         print("*** Run the all-in-one CN Scenario *** ")
-    if(args.load_images):
-        print("After loading R2lab images on fit nodes")
-    else:
-        print("Without loading R2lab images on nodes (assuming they are already there)")
     print("With the following fit nodes:")
     for i in args.node_ids:
         if i == args.node_master:
@@ -358,6 +358,11 @@ which requires a USRP b210 and 'duplexer for eNodeB""")
             role = "Worker node"
         nodename = fitname(i)
         print(f"\t{nodename}: {role}")
+    if args.phones:
+        for phone in args.phones:
+            print(f"Using phone{phone}")
+    else:
+        print("No phone involved")
         
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
