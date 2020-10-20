@@ -197,12 +197,12 @@ def run(slicename=gateway_username, phones=phones,
         ],
     )
 
-    # wait 20s for K8 5G Operator setup
+    # wait 30s for K8 5G Operator setup
     wait_k8_5GOp_ready = PrintJob(
         "Let 5G Operator set up",
         scheduler=scheduler,
         required=init_kube5g,
-        sleep=20,
+        sleep=30,
         label="settling 5G Operator pod"
     )
 
@@ -249,11 +249,16 @@ def run(slicename=gateway_username, phones=phones,
 
     ########## Test phone(s) connectivity
 
-    sleeps = [40, 60]
+    sleeps_ran = [70, 90]
     phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
-                  for sleep, id in zip(sleeps, phones)]
+                  for sleep, id in zip(sleeps_ran, phones)]
     wait_commands = [f"echo {msg}; sleep {sleep}"
-                     for msg, sleep in zip(phone_msgs, sleeps)]
+                     for msg, sleep in zip(phone_msgs, sleeps_ran)]
+    sleeps_phone = [20, 20]
+    phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
+                   for sleep, id in zip(sleeps_phone, phones)]
+    wait2_commands = [f"echo {msg}; sleep {sleep}"
+                      for msg, sleep in zip(phone2_msgs, sleeps_phone)]
 
     job_start_phones = [
         SshJob(
@@ -263,6 +268,10 @@ def run(slicename=gateway_username, phones=phones,
                 RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
                           "r2lab-embedded/shell/macphone.sh", "phone-on",
                           includes=INCLUDES),
+                Run(wait2_command),
+                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                          "r2lab-embedded/shell/macphone.sh", "phone-check-cx",
+                          includes=INCLUDES),
                 RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
                           "r2lab-embedded/shell/macphone.sh", "phone-start-app",
                           includes=INCLUDES),
@@ -270,7 +279,7 @@ def run(slicename=gateway_username, phones=phones,
             label=f"turn off airplane mode on phone {id}",
             required=check_kube5g,
             scheduler=scheduler)
-        for id, wait_command in zip(phones, wait_commands)]
+        for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
     
 
     ##########
