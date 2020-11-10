@@ -20,7 +20,7 @@ INCLUDES = [find_local_embedded_script(x) for x in (
 
 ##########
 default_gateway  = 'faraday.inria.fr'
-gateway_username  = 'inria_mosaic'
+gateway_username  = 'inria_kube'
 master_image = "kube5g-master" # this image is a k8base with mosaic5G snap installed
 worker_image = "k8base"
 verbose_mode = True
@@ -34,14 +34,14 @@ phones = [1,]
 ##########
 
 def fitname(node_id):
-    """                                                                      
-    Return a valid hostname from a node number - either str or int           
+    """
+    Return a valid hostname from a node number - either str or int
     """
     int_id = int(node_id)
     return "fit{:02d}".format(int_id)
 
-def run(slicename=gateway_username, phones=phones, 
-        node_ids=node_ids, node_master=node_master, node_enb=node_enb, 
+def run(slicename=gateway_username, phones=phones,
+        node_ids=node_ids, node_master=node_master, node_enb=node_enb,
         disag_cn=disag_cn, verbose_mode=verbose_mode, dry_run=dry_run):
     """
     Install K8 on R2lab
@@ -49,7 +49,7 @@ def run(slicename=gateway_username, phones=phones,
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
         phones: list of indices of phones to use
-        node_ids: a list of node ids to run the scenario on; strings or ints 
+        node_ids: a list of node ids to run the scenario on; strings or ints
                   are OK;
         node_master: the master node id, must be part of selected nodes
         node_enb: the node id for the enb, whcih is connected to usrp
@@ -70,14 +70,14 @@ def run(slicename=gateway_username, phones=phones,
                       verbose=verbose_mode,
                       formatter=TimeColonFormatter())
 
-    master = SshNode(gateway=faraday, hostname=fitname(node_master), 
+    master = SshNode(gateway=faraday, hostname=fitname(node_master),
                      username="root",
                      verbose=verbose_mode,
                      formatter=TimeColonFormatter())
 
     node_index = {
-        id: SshNode(gateway=faraday, hostname=fitname(id), 
-                    username="root",formatter=TimeColonFormatter(), 
+        id: SshNode(gateway=faraday, hostname=fitname(id),
+                    username="root",formatter=TimeColonFormatter(),
                     verbose=verbose_mode)
         for id in node_ids
     }
@@ -86,8 +86,8 @@ def run(slicename=gateway_username, phones=phones,
     del worker_index[node_master]
     fit_master = fitname(node_master)
     fit_enb = fitname(node_enb)
-    
-    # the global scheduler                                                   
+
+    # the global scheduler
     scheduler = Scheduler(verbose=verbose_mode)
 
 
@@ -128,7 +128,7 @@ def run(slicename=gateway_username, phones=phones,
             ],
         ),
     ]
-            
+
 
     ##########
     # Initialize k8 on the master node
@@ -138,7 +138,7 @@ def run(slicename=gateway_username, phones=phones,
         node=master,
         critical=True,
         verbose=verbose_mode,
-        label = f"Install and launch k8 on the master {node_master}", 
+        label = f"Install and launch k8 on the master {node_master}",
         commands = [
             Run("sudo swapoff -a"),
             Run("hostnamectl set-hostname master-node"),
@@ -167,7 +167,7 @@ def run(slicename=gateway_username, phones=phones,
             ],
         ) for id, node in worker_index.items()
     ]
-    
+
     # wait 1mn for K8 nodes setup
     wait_k8nodes_ready = PrintJob(
         "Let k8 set up",
@@ -187,12 +187,12 @@ def run(slicename=gateway_username, phones=phones,
         commands = [
             Run("kubectl get nodes"),
             # add label to the eNB node to help k8s scheduler selects the right fit node
-            Run(f"kubectl label nodes fit{node_enb} oai=ran"), 
+            Run(f"kubectl label nodes fit{node_enb} oai=ran"),
             Run("kubectl get nodes -Loai"),
             # apply the Mosaic5g CRD
             Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
             # start the 5GOperator pod
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"), 
+            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"),
             Run("kubectl get pods"),
         ],
     )
@@ -212,7 +212,7 @@ def run(slicename=gateway_username, phones=phones,
     else:
         cn_type="all-in-one"
         setup_time = 60
-        
+
     run_kube5g = SshJob(
         scheduler=scheduler,
         required = wait_k8_5GOp_ready,
@@ -225,7 +225,7 @@ def run(slicename=gateway_username, phones=phones,
             Run("kubectl get pods"),
         ],
     )
-    
+
     # Coffee Break -- wait 1 or 2mn for K8 5G pods setup
     wait_k8_5Gpods_ready = PrintJob(
         "Let all 5G pods set up",
@@ -240,7 +240,7 @@ def run(slicename=gateway_username, phones=phones,
         required = wait_k8_5Gpods_ready,
         node = master,
         verbose=verbose_mode,
-        label = "Check which pods are deployed", 
+        label = "Check which pods are deployed",
         commands = [
             Run("kubectl get nodes -Loai"),
             Run("kubectl get pods"),
@@ -280,7 +280,7 @@ def run(slicename=gateway_username, phones=phones,
             required=check_kube5g,
             scheduler=scheduler)
         for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
-    
+
 
     ##########
     # Update the .dot and .png file for illustration purposes
@@ -288,7 +288,7 @@ def run(slicename=gateway_username, phones=phones,
     name = "deploy-k8"
     print(10*'*', 'See main scheduler in',
           scheduler.export_as_pngfile(name))
-    
+
     # orchestration scheduler jobs
     if verbose_mode:
         scheduler.list()
@@ -304,12 +304,12 @@ def run(slicename=gateway_username, phones=phones,
         scheduler.debrief()
         return False
     print("RUN OK")
-    print(80*'*')  
+    print(80*'*')
 
-##########                                                    
+##########
 
 def main():
-    """    
+    """
     Command-line frontend - offers primarily all options to kube5g scenario
 
     """
@@ -317,19 +317,19 @@ def main():
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument("-s", "--slicename", default=gateway_username,
                         help="specify an alternate slicename, default={}".format(gateway_username))
-    parser.add_argument("-v", "--verbose-mode", default=False, 
+    parser.add_argument("-v", "--verbose-mode", default=False,
                         action='store_true', dest='verbose_mode',
                         help="run script in verbose mode")
-    parser.add_argument("-D", "--disag-cn", default=False, 
+    parser.add_argument("-D", "--disag-cn", default=False,
                         action='store_true',
                         help="if set, Deploy the Disaggragated CN scenario, else deploy the all-in-one CN")
     parser.add_argument("-N", "--node-id", dest='node_ids',
-                        default=node_ids, 
+                        default=node_ids,
                         choices=[str(x+1) for x in range(37)],
                         action=ListOfChoices,
                         help="specify as many node ids as you want, including master and eNB nodes")
     parser.add_argument("-M", "--node-master", dest='node_master',
-                        default=node_master, 
+                        default=node_master,
                         help="specify master id node")
     parser.add_argument(
 	"-R", "--ran", default=node_enb, dest='node_enb',
@@ -372,13 +372,13 @@ which requires a USRP b210 and 'duplexer for eNodeB""")
             print(f"Using phone{phone}")
     else:
         print("No phone involved")
-        
+
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
     if not run(**kwds):
         print("exiting")
-        return    
-    
+        return
+
 
 
 ##########
