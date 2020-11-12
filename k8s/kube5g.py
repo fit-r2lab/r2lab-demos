@@ -37,7 +37,7 @@ default_verbose = False
 default_dry_run = False
 
 default_load_images = False
-default_master_image = "kube5g-master" # this image is a k8base with mosaic5G snap installed
+default_master_image = "kube5g-master-v2" # this image is a k8base with latest kube5g snap installed
 default_worker_image = "k8base"
 
 
@@ -216,9 +216,9 @@ def run(*, gateway, slicename,
             Run(f"kubectl label nodes fit{node_enb} oai=ran"),
             Run("kubectl get nodes -Loai"),
             # apply the Mosaic5g CRD
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
+            Run("cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
             # start the 5GOperator pod
-            Run("cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"),
+            Run("cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"),
             Run("kubectl get pods"),
         ],
     )
@@ -247,7 +247,7 @@ def run(*, gateway, slicename,
         label = f"deploy CN {cn_type} then eNB pods",
         commands = [
             Run("kubectl get nodes -Loai"),
-            Run(f"cd /root/mosaic5g/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy {cn_type}"),
+            Run(f"cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy v2 {cn_type}"),
             Run("kubectl get pods"),
         ],
     )
