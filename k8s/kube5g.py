@@ -1,9 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -u
 
 import time
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
+
+# the default for asyncssh is to be rather verbose
+import logging
+from asyncssh.logging import set_log_level as asyncssh_set_log_level
 
 from asynciojobs import Job, Scheduler, PrintJob
 
@@ -20,16 +24,22 @@ INCLUDES = [find_local_embedded_script(x) for x in (
 
 ##########
 default_gateway  = 'faraday.inria.fr'
-gateway_username  = 'inria_kube'
-master_image = "kube5g-master" # this image is a k8base with mosaic5G snap installed
-worker_image = "k8base"
-verbose_mode = True
-dry_run = False
-disag_cn = False
-node_master = 1
-node_enb = 23
-node_ids = [1,2,3,23]
-phones = [1,]
+default_slicename  = 'inria_kube'
+
+default_disag_cn = False
+
+default_nodes = [1, 2, 3, 23]
+default_node_master = 1
+default_node_enb = 23
+default_phones = [1,]
+
+default_verbose = False
+default_dry_run = False
+
+default_load_images = False
+default_master_image = "kube5g-master" # this image is a k8base with mosaic5G snap installed
+default_worker_image = "k8base"
+
 
 ##########
 
@@ -40,46 +50,47 @@ def fitname(node_id):
     int_id = int(node_id)
     return "fit{:02d}".format(int_id)
 
-def run(slicename=gateway_username, phones=phones,
-        node_ids=node_ids, node_master=node_master, node_enb=node_enb,
-        disag_cn=disag_cn, verbose_mode=verbose_mode, dry_run=dry_run):
+def run(*, gateway, slicename,
+        disag_cn, nodes, node_master, node_enb, phones,
+        verbose, dry_run,
+        load_images, master_image, worker_image):
     """
     Install K8 on R2lab
 
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
         phones: list of indices of phones to use
-        node_ids: a list of node ids to run the scenario on; strings or ints
+        nodes: a list of node ids to run the scenario on; strings or ints
                   are OK;
         node_master: the master node id, must be part of selected nodes
         node_enb: the node id for the enb, whcih is connected to usrp
         disag_cn: Boolean; True for the disaggregated CN scenario. False for all-in-one CN.
     """
 
-    if node_master not in node_ids:
-        print(f"master node {node_master} must be part of selected fit nodes {node_ids}")
+    if node_master not in nodes:
+        print(f"master node {node_master} must be part of selected fit nodes {nodes}")
         exit(1)
-    if node_enb not in node_ids:
-        print(f"eNB worker node {node_enb} must be part of selected fit nodes {node_ids}")
+    if node_enb not in nodes:
+        print(f"eNB worker node {node_enb} must be part of selected fit nodes {nodes}")
         exit(1)
 
-    worker_ids = node_ids[:]
+    worker_ids = nodes[:]
     worker_ids.remove(node_master)
 
     faraday = SshNode(hostname=default_gateway, username=slicename,
-                      verbose=verbose_mode,
+                      verbose=verbose,
                       formatter=TimeColonFormatter())
 
     master = SshNode(gateway=faraday, hostname=fitname(node_master),
                      username="root",
-                     verbose=verbose_mode,
+                     verbose=verbose,
                      formatter=TimeColonFormatter())
 
     node_index = {
         id: SshNode(gateway=faraday, hostname=fitname(id),
                     username="root",formatter=TimeColonFormatter(),
-                    verbose=verbose_mode)
-        for id in node_ids
+                    verbose=verbose)
+        for id in nodes
     }
 
     worker_index = dict(node_index)
@@ -88,7 +99,7 @@ def run(slicename=gateway_username, phones=phones,
     fit_enb = fitname(node_enb)
 
     # the global scheduler
-    scheduler = Scheduler(verbose=verbose_mode)
+    scheduler = Scheduler(verbose=verbose)
 
 
     ##########
@@ -96,38 +107,53 @@ def run(slicename=gateway_username, phones=phones,
         scheduler=scheduler,
         node = faraday,
         critical = True,
-        verbose=verbose_mode,
+        verbose=verbose,
         command = Run("rhubarbe leases --check"),
     )
 
-    green_light = [
-        SshJob(
-            scheduler=scheduler,
-            required=check_lease,
-            node=faraday,
-            critical=True,
-            verbose=verbose_mode,
-            label = f"Load image {master_image} on master {fit_master}",
-            commands=[
-                Run(f"rhubarbe load -i {master_image} {node_master}"),
-                Run(f"rhubarbe wait {node_master}"),
-            ]
-        ),
-        SshJob(
-            scheduler=scheduler,
-            required=check_lease,
-            node=faraday,
-            critical=True,
-            verbose=verbose_mode,
-            label = f"Load image {worker_image} on worker nodes",
-            commands=[
-                Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
-                Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
-                Run("rhubarbe", "wait", *worker_ids),
-                Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
-            ],
-        ),
-    ]
+    green_light = check_lease
+
+    if load_images:
+        green_light = [
+            SshJob(
+                scheduler=scheduler,
+                required=check_lease,
+                node=faraday,
+                critical=True,
+                verbose=verbose,
+                label = f"Load image {master_image} on master {fit_master}",
+                commands=[
+                    Run(f"rhubarbe load -i {master_image} {node_master}"),
+                    Run(f"rhubarbe wait {node_master}"),
+                ]
+            ),
+            SshJob(
+                scheduler=scheduler,
+                required=check_lease,
+                node=faraday,
+                critical=True,
+                verbose=verbose,
+                label = f"Load image {worker_image} on worker nodes",
+                commands=[
+                    Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
+                    Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
+                    Run("rhubarbe", "wait", *worker_ids),
+                    Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
+                ],
+            ),
+            SshJob(
+                scheduler=scheduler,
+                required=check_lease,
+                node=faraday,
+                critical=False,
+                verbose=verbose,
+                label="turning off unused nodes",
+                command=[
+                    Run("rhubarbe bye --all " 
+                        + "".join(f"~{x} " for x in nodes))
+                ]
+            )
+        ]
 
 
     ##########
@@ -137,10 +163,10 @@ def run(slicename=gateway_username, phones=phones,
         required=green_light,
         node=master,
         critical=True,
-        verbose=verbose_mode,
+        verbose=verbose,
         label = f"Install and launch k8 on the master {node_master}",
         commands = [
-            Run("sudo swapoff -a"),
+            Run("swapoff -a"),
             Run("hostnamectl set-hostname master-node"),
             Run("kubeadm init --pod-network-cidr=10.244.0.0/16 > /tmp/join_msg.txt"),
             Run("tail -2 /tmp/join_msg.txt > /tmp/join_msg"),
@@ -157,10 +183,10 @@ def run(slicename=gateway_username, phones=phones,
             required=init_master,
             node=node,
             critical=True,
-            verbose=verbose_mode,
+            verbose=verbose,
             label=f"Init k8 on fit node {id} and join the cluster",
             commands = [
-                Run("sudo swapoff -a"),
+                Run("swapoff -a"),
                 Run(f"scp -o 'StrictHostKeyChecking no' {fit_master}:/tmp/join_msg /tmp/join_msg"),
                 Run("chmod a+x /tmp/join_msg"),
                 Run("/tmp/join_msg"),
@@ -182,7 +208,7 @@ def run(slicename=gateway_username, phones=phones,
         scheduler=scheduler,
         required = wait_k8nodes_ready,
         node = master,
-        verbose=verbose_mode,
+        verbose=verbose,
         label = f"Add oai:ran label to oai-ran pod on {node_enb} and start 5GOperator pod",
         commands = [
             Run("kubectl get nodes"),
@@ -217,7 +243,7 @@ def run(slicename=gateway_username, phones=phones,
         scheduler=scheduler,
         required = wait_k8_5GOp_ready,
         node = master,
-        verbose=verbose_mode,
+        verbose=verbose,
         label = f"deploy CN {cn_type} then eNB pods",
         commands = [
             Run("kubectl get nodes -Loai"),
@@ -239,7 +265,7 @@ def run(slicename=gateway_username, phones=phones,
         scheduler=scheduler,
         required = wait_k8_5Gpods_ready,
         node = master,
-        verbose=verbose_mode,
+        verbose=verbose,
         label = "Check which pods are deployed",
         commands = [
             Run("kubectl get nodes -Loai"),
@@ -290,14 +316,11 @@ def run(slicename=gateway_username, phones=phones,
           scheduler.export_as_pngfile(name))
 
     # orchestration scheduler jobs
-    if verbose_mode:
+    if verbose:
         scheduler.list()
 
     if dry_run:
         return True
-
-    if verbose_mode:
-        input('OK ? - press control C to abort ? ')
 
     if not scheduler.orchestrate():
         print(f"RUN KO : {scheduler.why()}")
@@ -315,38 +338,57 @@ def main():
     """
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-s", "--slicename", default=gateway_username,
-                        help="specify an alternate slicename, default={}".format(gateway_username))
-    parser.add_argument("-v", "--verbose-mode", default=False,
-                        action='store_true', dest='verbose_mode',
-                        help="run script in verbose mode")
-    parser.add_argument("-D", "--disag-cn", default=False,
+
+    parser.add_argument("-g", "--gateway", default=default_gateway,
+                        help="specify an alternate gateway")
+    parser.add_argument("-s", "--slicename", default=default_slicename,
+                        help="specify an alternate slicename")
+
+    parser.add_argument("-D", "--disag-cn", default=default_disag_cn,
                         action='store_true',
-                        help="if set, Deploy the Disaggragated CN scenario, else deploy the all-in-one CN")
-    parser.add_argument("-N", "--node-id", dest='node_ids',
-                        default=node_ids,
+                        help="if set, Deploy the Disaggragated CN scenario,"
+                             " otherwise deploy the all-in-one CN")
+    parser.add_argument("-N", "--node-id", dest='nodes', default=default_nodes,
                         choices=[str(x+1) for x in range(37)],
                         action=ListOfChoices,
-                        help="specify as many node ids as you want, including master and eNB nodes")
+                        help="specify as many node ids as you want,"
+                             " including master and eNB nodes")
     parser.add_argument("-M", "--node-master", dest='node_master',
-                        default=node_master,
+                        default=default_node_master,
                         help="specify master id node")
-    parser.add_argument(
-	"-R", "--ran", default=node_enb, dest='node_enb',
-        help="""specify the id of the node that runs the eNodeB,
-which requires a USRP b210 and 'duplexer for eNodeB""")
-    parser.add_argument(
-        "-p", "--phones", dest='phones',
-        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
-        default=[1],
-        help='Commercial phones to use; use -p 0 to choose no phone')
+    parser.add_argument("-R", "--ran", default=default_node_enb, dest='node_enb',
+                        help="specify the id of the node that runs the eNodeB,"
+                             " which requires a USRP b210 and 'duplexer for eNodeB")
+    parser.add_argument("-P", "--phones", dest='phones',
+                        action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
+                        default=[1],
+                        help='Commercial phones to use; use -p 0 to choose no phone')
 
-    parser.add_argument(
-        "-n", "--dry-run", action='store_true', default=False, dest='dry_run',
-        help="run script in dry mode")
+    parser.add_argument("-v", "--verbose", default=default_verbose,
+                        action='store_true', dest='verbose',
+                        help="run script in verbose mode")
+    parser.add_argument("-d", "--debug", default=False,
+                        action='store_true', dest='debug',
+                        help="print out asyncssh INFO-level messages")
+    parser.add_argument("-n", "--dry-runmode", default=default_dry_run,
+                        action='store_true', dest='dry_run',
+                        help="only pretend to run, don't do anything")
+
+    parser.add_argument("-l", "--load-images", default=False, action='store_true',
+                        help="use this for reloading images on used nodes;"
+                             " unused nodes will be turned off")
+    parser.add_argument("--master-image", dest="master_image",
+                        default=default_master_image)
+    parser.add_argument("--worker-image", dest="worker_image",
+                        default=default_worker_image)
 
 
     args = parser.parse_args()
+
+    # asyncssh info messages are turned on by default
+    if not args.debug:
+        asyncssh_set_log_level(logging.WARNING)
+    del args.debug
 
     # we pass to run exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
@@ -358,7 +400,7 @@ which requires a USRP b210 and 'duplexer for eNodeB""")
     else:
         print("*** Run the all-in-one CN Scenario *** ")
     print("With the following fit nodes:")
-    for i in args.node_ids:
+    for i in args.nodes:
         if i == args.node_master:
             role = "Master node"
         elif i == args.node_enb:
@@ -378,7 +420,6 @@ which requires a USRP b210 and 'duplexer for eNodeB""")
     if not run(**kwds):
         print("exiting")
         return
-
 
 
 ##########
