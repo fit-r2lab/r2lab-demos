@@ -155,7 +155,6 @@ def run(*, gateway, slicename,
             )
         ]
 
-
     ##########
     # Initialize k8 on the master node
     init_master = SshJob(
@@ -187,6 +186,7 @@ def run(*, gateway, slicename,
             label=f"Init k8 on fit node {id} and join the cluster",
             commands = [
                 Run("swapoff -a"),
+                Run("increase-control-mtu"),
                 Run(f"scp -o 'StrictHostKeyChecking no' {fit_master}:/tmp/join_msg /tmp/join_msg"),
                 Run("chmod a+x /tmp/join_msg"),
                 Run("/tmp/join_msg"),
@@ -194,12 +194,12 @@ def run(*, gateway, slicename,
         ) for id, node in worker_index.items()
     ]
 
-    # wait 1mn for K8 nodes setup
+    # wait 30s for K8 nodes setup
     wait_k8nodes_ready = PrintJob(
         "Let k8 set up",
         scheduler=scheduler,
         required=init_master,
-        sleep=60,
+        sleep=30,
         label="settling k8 nodes"
     )
 
@@ -275,12 +275,12 @@ def run(*, gateway, slicename,
 
     ########## Test phone(s) connectivity
 
-    sleeps_ran = [70, 90]
+    sleeps_ran = [60, 80]
     phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
                   for sleep, id in zip(sleeps_ran, phones)]
     wait_commands = [f"echo {msg}; sleep {sleep}"
                      for msg, sleep in zip(phone_msgs, sleeps_ran)]
-    sleeps_phone = [20, 20]
+    sleeps_phone = [30, 30]
     phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
                    for sleep, id in zip(sleeps_phone, phones)]
     wait2_commands = [f"echo {msg}; sleep {sleep}"
