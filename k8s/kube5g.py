@@ -27,6 +27,7 @@ default_gateway  = 'faraday.inria.fr'
 default_slicename  = 'inria_kube'
 
 default_disag_cn = False
+default_version = 'v2'
 
 default_nodes = [1, 2, 3, 23]
 default_node_master = 1
@@ -36,8 +37,9 @@ default_phones = [1,]
 default_verbose = False
 default_dry_run = False
 
-default_load_images = False
-default_master_image = "kube5g-master-v2" # this image is a k8base with latest kube5g snap installed
+default_load_images = True
+default_master_image = "kube5g-master-v2" # this image is a k8base with latest kube5g v1 and v2 installed
+#default_master_image = "k8base" # now kube5g is installed in this script
 default_worker_image = "k8base"
 
 
@@ -51,7 +53,7 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        disag_cn, nodes, node_master, node_enb, phones,
+        disag_cn, version, nodes, node_master, node_enb, phones,
         verbose, dry_run,
         load_images, master_image, worker_image):
     """
@@ -63,8 +65,9 @@ def run(*, gateway, slicename,
         nodes: a list of node ids to run the scenario on; strings or ints
                   are OK;
         node_master: the master node id, must be part of selected nodes
-        node_enb: the node id for the enb, whcih is connected to usrp
+        node_enb: the node id for the enb, which is connected to usrp/duplexer
         disag_cn: Boolean; True for the disaggregated CN scenario. False for all-in-one CN.
+        version: string "v1" or "v2".
     """
 
     if node_master not in nodes:
@@ -215,10 +218,18 @@ def run(*, gateway, slicename,
             # add label to the eNB node to help k8s scheduler selects the right fit node
             Run(f"kubectl label nodes fit{node_enb} oai=ran"),
             Run("kubectl get nodes -Loai"),
+            ## retrieve the kube5g operator
+            #Run("git clone -b develop git@gitlab.eurecom.fr:mosaic5g/kube5g.git"),
+            # install a few dependencies
+            Run("apt install -y python3-pip"),
+            Run("pip3 install --upgrade pip"),
+            Run("pip3 install ruamel.yaml==0.16.12 colorlog==4.6.2"),
+            # apply the R2lab specific configuration
+            Run("cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml"),
             # apply the Mosaic5g CRD
-            Run("cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh -n"),
+            Run("cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh -n"),
             # start the 5GOperator pod
-            Run("cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh container start"),
+            Run("cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh container start"),
             Run("kubectl get pods"),
         ],
     )
@@ -247,7 +258,7 @@ def run(*, gateway, slicename,
         label = f"deploy CN {cn_type} then eNB pods",
         commands = [
             Run("kubectl get nodes -Loai"),
-            Run(f"cd /root/kube5g/openshift/m5g-operator; ./m5goperator.sh deploy v2 {cn_type}"),
+            Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {version} {cn_type}"),
             Run("kubectl get pods"),
         ],
     )
@@ -363,6 +374,8 @@ def main():
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=[1],
                         help='Commercial phones to use; use -p 0 to choose no phone')
+    parser.add_argument("-K", "--version", default=default_version,
+                        help="specify a version for kube5gOperator", choices=("v1", "v2")),
 
     parser.add_argument("-v", "--verbose", default=default_verbose,
                         action='store_true', dest='verbose',
@@ -374,7 +387,7 @@ def main():
                         action='store_true', dest='dry_run',
                         help="only pretend to run, don't do anything")
 
-    parser.add_argument("-l", "--load-images", default=False, action='store_true',
+    parser.add_argument("-l", "--load-images", default=True, action='store_true',
                         help="use this for reloading images on used nodes;"
                              " unused nodes will be turned off")
     parser.add_argument("--master-image", dest="master_image",
@@ -396,9 +409,9 @@ def main():
 
     # actually run it
     if(args.disag_cn):
-        print("*** Run the Disaggragated CN Scenario *** ")
+        print(f"*** Run the Disaggragated CN Scenario with kube5g {args.version} *** ")
     else:
-        print("*** Run the all-in-one CN Scenario *** ")
+        print(f"*** Run the all-in-one CN Scenario with kube5g {args.version} *** ")
     print("With the following fit nodes:")
     for i in args.nodes:
         if i == args.node_master:
