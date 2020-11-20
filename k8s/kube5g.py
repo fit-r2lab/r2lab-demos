@@ -24,7 +24,7 @@ INCLUDES = [find_local_embedded_script(x) for x in (
 
 ##########
 default_gateway  = 'faraday.inria.fr'
-default_slicename  = 'inria_kube'
+default_slicename  = 'inria_kube5g'
 
 default_disag_cn = False
 default_version = 'v2'
@@ -38,7 +38,8 @@ default_verbose = False
 default_dry_run = False
 
 default_load_images = True
-default_master_image = "kube5g-master-v2" # this image is a k8base with latest kube5g v1 and v2 installed
+default_master_image = "kube5g-master-v2"
+# v2 master image is a k8base with latest kube5g v2 installed (latest core version but not latest ran)
 #default_master_image = "k8base" # now kube5g is installed in this script
 default_worker_image = "k8base"
 
@@ -70,6 +71,11 @@ def run(*, gateway, slicename,
         version: string "v1" or "v2".
     """
 
+    if version=="none":
+        only_kube5g=True
+    else:
+        only_kube5g=False
+    
     if node_master not in nodes:
         print(f"master node {node_master} must be part of selected fit nodes {nodes}")
         exit(1)
@@ -224,11 +230,11 @@ def run(*, gateway, slicename,
             Run("apt install -y python3-pip"),
             Run("pip3 install --upgrade pip"),
             Run("pip3 install ruamel.yaml==0.16.12 colorlog==4.6.2"),
-            # apply the R2lab specific configuration
+            # specify the R2lab specific configuration
             Run("cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml"),
-            # apply the Mosaic5g CRD
+            # apply the R2lab CRD
             Run("cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh -n"),
-            # start the 5GOperator pod
+            # start the kube5g operator pod
             Run("cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh container start"),
             Run("kubectl get pods"),
         ],
@@ -243,86 +249,99 @@ def run(*, gateway, slicename,
         label="settling 5G Operator pod"
     )
 
-    if disag_cn:
-        cn_type="disaggregated-cn"
-        setup_time = 120
-    else:
-        cn_type="all-in-one"
-        setup_time = 60
-
-    run_kube5g = SshJob(
-        scheduler=scheduler,
-        required = wait_k8_5GOp_ready,
-        node = master,
-        verbose=verbose,
-        label = f"deploy CN {cn_type} then eNB pods",
-        commands = [
-            Run("kubectl get nodes -Loai"),
-            Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {version} {cn_type}"),
-            Run("kubectl get pods"),
-        ],
-    )
-
-    # Coffee Break -- wait 1 or 2mn for K8 5G pods setup
-    wait_k8_5Gpods_ready = PrintJob(
-        "Let all 5G pods set up",
-        scheduler=scheduler,
-        required=run_kube5g,
-        sleep=setup_time,
-        label="settling all 5G pods"
-    )
-
-    check_kube5g = SshJob(
-        scheduler=scheduler,
-        required = wait_k8_5Gpods_ready,
-        node = master,
-        verbose=verbose,
-        label = "Check which pods are deployed",
-        commands = [
-            Run("kubectl get nodes -Loai"),
-            Run("kubectl get pods"),
-        ],
-    )
-
-    ########## Test phone(s) connectivity
-
-    sleeps_ran = [60, 80]
-    phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
-                  for sleep, id in zip(sleeps_ran, phones)]
-    wait_commands = [f"echo {msg}; sleep {sleep}"
-                     for msg, sleep in zip(phone_msgs, sleeps_ran)]
-    sleeps_phone = [30, 30]
-    phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
-                   for sleep, id in zip(sleeps_phone, phones)]
-    wait2_commands = [f"echo {msg}; sleep {sleep}"
-                      for msg, sleep in zip(phone2_msgs, sleeps_phone)]
-
-    job_start_phones = [
-        SshJob(
-            node=faraday,
-            commands=[
-                Run(wait_command),
-                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                          "r2lab-embedded/shell/macphone.sh", "phone-on",
-                          includes=INCLUDES),
-                Run(wait2_command),
-                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                          "r2lab-embedded/shell/macphone.sh", "phone-check-cx",
-                          includes=INCLUDES),
-                RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                          "r2lab-embedded/shell/macphone.sh", "phone-start-app",
-                          includes=INCLUDES),
+    if only_kube5g:
+        finish = SshJob(
+            scheduler=scheduler,
+            required = wait_k8_5GOp_ready,
+            node = master,
+            verbose=verbose,
+            label = f"showing nodes and pods before leaving",
+            commands = [
+                Run("kubectl get nodes -Loai"),
+                Run("kubectl get pods"),
             ],
-            label=f"turn off airplane mode on phone {id}",
-            required=check_kube5g,
-            scheduler=scheduler)
-        for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
+        )
+    else:
+        if disag_cn:
+            cn_type="disaggregated-cn"
+            setup_time = 120
+        else:
+            cn_type="all-in-one"
+            setup_time = 60
+
+        run_kube5g = SshJob(
+            scheduler=scheduler,
+            required = wait_k8_5GOp_ready,
+            node = master,
+            verbose=verbose,
+            label = f"deploy CN {cn_type} then eNB pods",
+            commands = [
+                Run("kubectl get nodes -Loai"),
+                Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {version} {cn_type}"),
+                Run("kubectl get pods"),
+            ],
+        )
+
+        # Coffee Break -- wait 1 or 2mn for K8 5G pods setup
+        wait_k8_5Gpods_ready = PrintJob(
+            "Let all 5G pods set up",
+            scheduler=scheduler,
+            required=run_kube5g,
+            sleep=setup_time,
+            label="settling all 5G pods"
+        )
+
+        check_kube5g = SshJob(
+            scheduler=scheduler,
+            required = wait_k8_5Gpods_ready,
+            node = master,
+            verbose=verbose,
+            label = "Check which pods are deployed",
+            commands = [
+                Run("kubectl get nodes -Loai"),
+                Run("kubectl get pods"),
+            ],
+        )
+
+        ########## Test phone(s) connectivity
+
+        sleeps_ran = [80, 100]
+        phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
+                      for sleep, id in zip(sleeps_ran, phones)]
+        wait_commands = [f"echo {msg}; sleep {sleep}"
+                         for msg, sleep in zip(phone_msgs, sleeps_ran)]
+        sleeps_phone = [10, 10]
+        phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
+                       for sleep, id in zip(sleeps_phone, phones)]
+        wait2_commands = [f"echo {msg}; sleep {sleep}"
+                          for msg, sleep in zip(phone2_msgs, sleeps_phone)]
+
+        job_start_phones = [
+            SshJob(
+                node=faraday,
+                commands=[
+                    Run(wait_command),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-on",
+                              includes=INCLUDES),
+                    Run(wait2_command),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-check-cx",
+                              includes=INCLUDES),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-start-app",
+                              includes=INCLUDES),
+                ],
+                label=f"turn off airplane mode on phone {id}",
+                required=check_kube5g,
+                scheduler=scheduler)
+            for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
 
 
     ##########
     # Update the .dot and .png file for illustration purposes
     scheduler.check_cycles()
-    name = "deploy-k8"
+    name = "deploy-kube5g"
     print(10*'*', 'See main scheduler in',
           scheduler.export_as_pngfile(name))
 
@@ -337,7 +356,7 @@ def run(*, gateway, slicename,
         print(f"RUN KO : {scheduler.why()}")
         scheduler.debrief()
         return False
-    print("RUN OK")
+    print(f"RUN OK, you can log now on master node {fit_master} to manually change the scenario")
     print(80*'*')
 
 ##########
@@ -375,7 +394,9 @@ def main():
                         default=[1],
                         help='Commercial phones to use; use -p 0 to choose no phone')
     parser.add_argument("-K", "--version", default=default_version,
-                        help="specify a version for kube5gOperator", choices=("v1", "v2")),
+                        choices=("none","v1", "v2"),
+                        help="specify a version for Core Network,"
+                        ' if "none" is set, only run the kube5g operator'),
 
     parser.add_argument("-v", "--verbose", default=default_verbose,
                         action='store_true', dest='verbose',
@@ -408,25 +429,28 @@ def main():
     kwds = args.__dict__.copy()
 
     # actually run it
-    if(args.disag_cn):
-        print(f"*** Run the Disaggragated CN Scenario with kube5g {args.version} *** ")
+    if args.version == "none":
+        print(f"*** Deploy the k8s nodes and only run the kube5g operator, not the OAI VNFs  *** ")
     else:
-        print(f"*** Run the all-in-one CN Scenario with kube5g {args.version} *** ")
-    print("With the following fit nodes:")
-    for i in args.nodes:
-        if i == args.node_master:
-            role = "Master node"
-        elif i == args.node_enb:
-            role = "Worker eNB node"
+        if(args.disag_cn):
+            print(f"*** Run the Disaggragated CN Scenario with kube5g {args.version} *** ")
         else:
-            role = "Worker node"
-        nodename = fitname(i)
-        print(f"\t{nodename}: {role}")
-    if args.phones:
-        for phone in args.phones:
-            print(f"Using phone{phone}")
-    else:
-        print("No phone involved")
+            print(f"*** Run the all-in-one CN Scenario with kube5g {args.version} *** ")
+            print("With the following fit nodes:")
+        for i in args.nodes:
+            if i == args.node_master:
+                role = "Master node"
+            elif i == args.node_enb:
+                role = "Worker eNB node"
+            else:
+                role = "Worker node"
+                nodename = fitname(i)
+            print(f"\t{nodename}: {role}")
+            if args.phones:
+                for phone in args.phones:
+                    print(f"Using phone{phone}")
+            else:
+                print("No phone involved")
 
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
