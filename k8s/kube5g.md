@@ -23,7 +23,7 @@ Different 4G scenarios are possible. Two versions of the core network (CN) are p
 - v2: the CN is implemented with multiple VNFs (**oai-hss**, **oai-mme**, **oai-spgwc**, **oai-spgwu**)
  ![](./oai-cn-v2.png)
 
-And for both versions, it is possible to run them in two modes (*all-in-one* (all in the same pod, see Fig. ) or *disaggregated* (each VNF in a different pod, see Figure ).
+And for both versions, it is possible to run them in two modes (*all-in-one* (all in the same pod) or *disaggregated* (each VNF in a different pod).
 
 
 
@@ -33,11 +33,11 @@ Once the network is deployed, the nepi-ng script will switch on phones and will 
 
 It is then possible to log on the worker node and modify manually some configuration parameters or launch a new 4G scenario on top of the k8s/R2lab platform.
 
-Note that there is an option `-K none` on the **kube5g.py** script to only deploy k8s and the **k5goperator**, which let the user manually start the 4G scenario it prefers, after tuning the configuration parameters.
+Note that using the **kube5g.py** option `-K none`, the script will only deploy k8s and the **k5goperator**, and let the user manually start the 4G scenario it prefers, possibly after tuning the configuration parameters.
 
-## Play with the k5goperator
+## Playing with the k5goperator
 
-Log on the master node (through the R2lab **faraday** gateway, `ssh root@fit01`)
+Log on the master node (from the **faraday** R2lab gateway, `ssh root@fit01`)
 
 Then, with alias k=kubectl, first cd to the operator directory
 
@@ -53,7 +53,7 @@ fit03         Ready    <none>   55m   v1.19.4
 fit23         Ready    <none>   55m   v1.19.4
 master-node   Ready    master   56m   v1.19.4
 ```
-### List the k8s pods
+### List the k8s kube5g/OAI pods
 ```
 root@master-node:~/kube5g/openshift/kube5g-operator# k get po
 NAME                               READY   STATUS    RESTARTS   AGE
@@ -69,17 +69,41 @@ k delete -f deploy/crds/cr-v1/lte-all-in-one/mosaic5g_v1alpha1_cr_v1_lte_all_in_
 ```
 ### Remove the kube5g-operator
 ```
-./m5g_operator.sh container stop
+./k5goperator.sh container stop
 ```
 
-### Launch the v2 disaggregated 4G scenario
+### Launch the v1 disaggregated 4G scenario
 ```
-./m5goperator.sh deploy v2 disaggregated-cn
+./k5goperator.sh deploy v1 disaggregated-cn
 ```
+
+### Ssh in a pod
+
+Ge the name on the pod through `k get po`, then for instance, to log on the **oai-ran** pod and check the log:
+
+```
+root@master-node:~/kube5g/openshift/kube5g-operator# k get po|grep ran
+mosaic5g-oairan-6876b74d4c-wspmh      1/1     Running   0          2m27s
+root@master-node:~/kube5g/openshift/kube5g-operator# k exec -it mosaic5g-oairan-6876b74d4c-wspmh -- bash
+root@ubuntu:/# oai-ran.enb-journal -r |head
+-- Logs begin at Fri 2020-11-20 15:39:45 UTC, end at Fri 2020-11-20 15:40:48 UTC. --
+Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [ENB_APP]   TYPE <CTRL-C> TO TERMINATE
+Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters successfully set, (1 to default value)
+Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters successfully set, (1 to default value)****
+```
+
+### Change a parameter in the CRD and apply it
+Once the change is done on the CRD file, the current deployment (if any), will be stopped and a new one will be done with the modified CRD. Following example is for the v1 disaggregated scenario:
+
+```
+k edit -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
+k apply -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
+```
+Nota: the second command is currently required (fix TBD on **k5goperator**).
 
 ### Remove CRDs
 ```
-./m5g_operator.sh -c
+./k5goperator.sh -c
 ```
 
 ### Test the network with R2lab phones
