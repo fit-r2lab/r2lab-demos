@@ -3,7 +3,9 @@
 
 This **kube5g.py** script aims to demonstrate how to automate a 4G deployment on R2lab using both nepi-ng and a kubernetes operator.
 
-Kube5g stands for [Cloud-Native Agile 5G Service Platforms](https://mosaic5g.io/kube5g/), developed at Eurecom. Information and support regarding the Kubernetes **k5goperator** has been provided by Osama Arouk, Eurecom <osama.arouk@eurecom.fr>.
+Kube5g stands for [Cloud-Native Agile 5G Service Platforms](https://mosaic5g.io/kube5g/), developed at Eurecom. 
+
+_Acknowledgments: Support regarding the Kubernetes **k5goperator** has been provided by Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
 
 
 ## What are the different steps?
@@ -93,13 +95,13 @@ Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters s
 ```
 
 ### Change a parameter in the CRD and apply it
-Once the change is done on the CRD file, the current deployment (if any), will be stopped and a new one will be done with the modified CRD. Following example is for the v1 disaggregated scenario:
+Make your change on the CRD file, and then run the command below. The current deployment (if any), will be stopped and a new one will be started with the modified CRD. Following example corresponds to the v1 disaggregated scenario :
 
 ```
-k edit -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
+# edit the file deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
 k apply -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
 ```
-Nota: the second command is currently required (fix TBD on **k5goperator**).
+Nota: Hopefully, soon it should be possible to use the `k edit -f file` command (fix TBD on **k5goperator**).
 
 ### Remove CRDs
 ```

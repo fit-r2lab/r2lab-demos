@@ -27,7 +27,7 @@ default_gateway  = 'faraday.inria.fr'
 default_slicename  = 'inria_kube5g'
 
 default_disag_cn = False
-default_version = 'v2'
+default_version = 'v1'
 
 default_nodes = [1, 2, 3, 23]
 default_node_master = 1
@@ -391,9 +391,9 @@ def main():
                              " which requires a USRP b210 and 'duplexer for eNodeB")
     parser.add_argument("-P", "--phones", dest='phones',
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
-                        default=[1],
+                        default=default_phones,
                         help='Commercial phones to use; use -p 0 to choose no phone')
-    parser.add_argument("-K", "--version", default=default_version,
+    parser.add_argument("-V", "--version", default=default_version,
                         choices=("none","v1", "v2"),
                         help="specify a version for Core Network,"
                         ' if "none" is set, only run the kube5g operator'),
@@ -433,9 +433,9 @@ def main():
         print(f"*** Deploy the k8s nodes and only run the kube5g operator, not the OAI VNFs  *** ")
     else:
         if(args.disag_cn):
-            print(f"*** Run the Disaggragated CN Scenario with kube5g {args.version} *** ")
+            print(f"*** Run the {args.version} Disaggregated CN Scenario with kube5g *** ")
         else:
-            print(f"*** Run the all-in-one CN Scenario with kube5g {args.version} *** ")
+            print(f"*** Run the {args.version} all-in-one CN Scenario with kube5g *** ")
             print("With the following fit nodes:")
         for i in args.nodes:
             if i == args.node_master:
@@ -444,13 +444,13 @@ def main():
                 role = "Worker eNB node"
             else:
                 role = "Worker node"
-                nodename = fitname(i)
+            nodename = fitname(i)
             print(f"\t{nodename}: {role}")
-            if args.phones:
-                for phone in args.phones:
-                    print(f"Using phone{phone}")
-            else:
-                print("No phone involved")
+        if args.phones:
+            for phone in args.phones:
+                print(f"Using phone{phone}")
+        else:
+            print("No phone involved")
 
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
