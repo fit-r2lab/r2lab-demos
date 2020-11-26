@@ -26,8 +26,8 @@ INCLUDES = [find_local_embedded_script(x) for x in (
 default_gateway  = 'faraday.inria.fr'
 default_slicename  = 'inria_kube5g'
 
-default_disag_cn = False
-default_version = 'v1'
+default_disaggregated_cn = False
+default_operator_version = 'v1'
 
 default_nodes = [1, 2, 3, 23]
 default_node_master = 1
@@ -54,7 +54,7 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        disag_cn, version, nodes, node_master, node_enb, phones,
+        disaggregated_cn, operator_version, nodes, node_master, node_enb, phones,
         verbose, dry_run,
         load_images, master_image, worker_image):
     """
@@ -67,15 +67,15 @@ def run(*, gateway, slicename,
                   are OK;
         node_master: the master node id, must be part of selected nodes
         node_enb: the node id for the enb, which is connected to usrp/duplexer
-        disag_cn: Boolean; True for the disaggregated CN scenario. False for all-in-one CN.
-        version: string "v1" or "v2".
+        disaggregated_cn: Boolean; True for the disaggregated CN scenario. False for all-in-one CN.
+        operator_version: str, either "none" or "v1" or "v2".
     """
 
-    if version=="none":
-        only_kube5g=True
+    if operator_version == "none":
+        only_kube5g = True
     else:
-        only_kube5g=False
-    
+        only_kube5g = False
+
     if node_master not in nodes:
         print(f"master node {node_master} must be part of selected fit nodes {nodes}")
         exit(1)
@@ -158,7 +158,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label="turning off unused nodes",
                 command=[
-                    Run("rhubarbe bye --all " 
+                    Run("rhubarbe bye --all "
                         + "".join(f"~{x} " for x in nodes))
                 ]
             )
@@ -262,7 +262,7 @@ def run(*, gateway, slicename,
             ],
         )
     else:
-        if disag_cn:
+        if disaggregated_cn:
             cn_type="disaggregated-cn"
             setup_time = 120
         else:
@@ -277,7 +277,7 @@ def run(*, gateway, slicename,
             label = f"deploy CN {cn_type} then eNB pods",
             commands = [
                 Run("kubectl get nodes -Loai"),
-                Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {version} {cn_type}"),
+                Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {operator_version} {cn_type}"),
                 Run("kubectl get pods"),
             ],
         )
@@ -374,7 +374,7 @@ def main():
     parser.add_argument("-s", "--slicename", default=default_slicename,
                         help="specify an alternate slicename")
 
-    parser.add_argument("-D", "--disag-cn", default=default_disag_cn,
+    parser.add_argument("-D", "--disaggregated-cn", default=default_disaggregated_cn,
                         action='store_true',
                         help="if set, Deploy the Disaggragated CN scenario,"
                              " otherwise deploy the all-in-one CN")
@@ -393,8 +393,8 @@ def main():
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=default_phones,
                         help='Commercial phones to use; use -p 0 to choose no phone')
-    parser.add_argument("-V", "--version", default=default_version,
-                        choices=("none","v1", "v2"),
+    parser.add_argument("-O", "--operator-version", default=default_operator_version,
+                        choices=("none", "v1", "v2"),
                         help="specify a version for Core Network,"
                         ' if "none" is set, only run the kube5g operator'),
 
@@ -429,13 +429,13 @@ def main():
     kwds = args.__dict__.copy()
 
     # actually run it
-    if args.version == "none":
+    if args.operator_version == "none":
         print(f"*** Deploy the k8s nodes and only run the kube5g operator, not the OAI VNFs  *** ")
     else:
-        if(args.disag_cn):
-            print(f"*** Run the {args.version} Disaggregated CN Scenario with kube5g *** ")
+        if(args.disaggregated_cn):
+            print(f"*** Run the {args.operator_version} Disaggregated CN Scenario with kube5g *** ")
         else:
-            print(f"*** Run the {args.version} all-in-one CN Scenario with kube5g *** ")
+            print(f"*** Run the {args.operator_version} all-in-one CN Scenario with kube5g *** ")
             print("With the following fit nodes:")
         for i in args.nodes:
             if i == args.node_master:

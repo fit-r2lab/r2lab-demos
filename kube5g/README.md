@@ -34,7 +34,7 @@ definitions) corresponding to the 4G scenario to deploy. Afterwards, the kube5g 
 is started and it will run on the worker nodes the different VNFs corresponding of the 4G
 scenario selected.
 
-Different 4G scenarios are possible. Two versions of the core network (CN) are possible:
+Two versions of the core network (CN) are possible:
 
 * v1: the CN is implemented with one VNF called **oai-cn** that includes the different 4G
   functions (hss, mme, spgw)
@@ -48,6 +48,16 @@ Different 4G scenarios are possible. Two versions of the core network (CN) are p
 
 And for both versions, it is possible to run them in two modes (*all-in-one* (all in the
 same pod) or *disaggregated* (each VNF in a different pod).
+
+> Note: you select between both versions of the operator with  
+> `kube5g.py -Ov1` or   
+> `kube5g.py -Ov2`  
+> with `kube5g.py -Onone`, `kube5g.py` will not start the operator, so you can run it
+> yourself interactively from the master node
+
+> Note: in v1 or v2 mode, the default is tho use the *all-in-one* mode,
+> you can turn on disaggregated modes with  
+> `kube5g.py -D`
 
 Depending on the scenario, it takes between 1mn and 3mn for the operator to deploy the
 network, including the eNB (with the **oai-ran** VNF). The **k5goperator** operator
