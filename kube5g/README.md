@@ -1,37 +1,70 @@
 # kube5g demo on R2lab
 
-This **kube5g.py** script aims to demonstrate how to automate a 4G deployment on R2lab using both nepi-ng and a kubernetes operator.
+This **kube5g.py** script aims to demonstrate how to automate a 4G deployment on R2lab
+using both nepi-ng and a kubernetes operator.
 
-Kube5g stands for [Cloud-Native Agile 5G Service Platforms](https://mosaic5g.io/kube5g/), developed at Eurecom.
+Kube5g stands for [Cloud-Native Agile 5G Service Platforms](https://mosaic5g.io/kube5g/),
+developed at Eurecom.
 
-_Acknowledgments: Support regarding the Kubernetes **k5goperator** has been provided by Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
+_Acknowledgments: Support regarding the Kubernetes **k5goperator** has been provided by
+Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
 
 ## the different steps
 
-First, the nepi-ng **kube5g.py** script will deploy a Kubernetes (k8s) infrastructure on the R2lab testbed.
-By default, 4 fit nodes will be used, one master k8s node (fit01) and 3 worker k8s nodes (fit02, fit03 and fit23).
+### metal provisioning
 
-Once the k8s nodes are ready, the kube5g.py script will install the kube5g operator (called **k5goperator**) on the master node.
+First, the nepi-ng **kube5g.py** script will deploy a Kubernetes (k8s) infrastructure on
+the R2lab testbed. By default, 4 fit nodes will be used :
 
-This operator is responsible for launching the different OpenAirInterface VNFs to deploy the different flavors of a 4G network. The kube5g.py script will first apply configuration parameters specific to R2lab (such as the DNS IP address or some RAN parameters for the eNB). Then it will apply to the operator the CRD (custom resource definitions) corresponding to the 4G scenario to deploy. Afterwards, the kube5g operator is started and it will run on the worker nodes the different VNFs corresponding of the 4G scenario selected.
+* one master k8s node (fit01)
+* and 3 worker k8s nodes (fit02, fit03 and fit23)
+
+Of course these defaults can be overridden on the command line.
+
+### orchestrating the k8s cluster
+
+Once the k8s nodes are ready, the kube5g.py script will install the kube5g operator
+(called **k5goperator**) on the master node.
+
+This operator is responsible for launching the different OpenAirInterface VNFs to deploy
+the different pieces of a 4G network. The `kube5g.py` script will first apply
+configuration parameters specific to R2lab (such as the DNS IP address or some RAN
+parameters for the eNB). Then it will apply to the operator the CRD (custom resource
+definitions) corresponding to the 4G scenario to deploy. Afterwards, the kube5g operator
+is started and it will run on the worker nodes the different VNFs corresponding of the 4G
+scenario selected.
 
 Different 4G scenarios are possible. Two versions of the core network (CN) are possible:
 
-- v1: the CN is implemented with one VNF called **oai-cn** that includes the different 4G functions (hss, mme, spgw)
- ![core network - v1](./oai-cn-v1.png)
+* v1: the CN is implemented with one VNF called **oai-cn** that includes the different 4G
+  functions (hss, mme, spgw)
 
-- v2: the CN is implemented with multiple VNFs (**oai-hss**, **oai-mme**, **oai-spgwc**, **oai-spgwu**)
- ![core network - v2](./oai-cn-v2.png)
+  ![core network - v1](./oai-cn-v1.png)
 
-And for both versions, it is possible to run them in two modes (*all-in-one* (all in the same pod) or *disaggregated* (each VNF in a different pod).
+* v2: the CN is implemented with multiple VNFs (**oai-hss**, **oai-mme**, **oai-spgwc**,
+  **oai-spgwu**)
 
-Depending on the scenario, it takes between 1mn and 3mn for the operator to deploy the network, including the eNB (with the **oai-ran** VNF). The **k5goperator** operator integrates the scheduler that will decide in which worker node to run each pod, based on some labels (used for both pods and nodes). For instance, the oai-ran pod must be deployed on a specific node that corresponds to the machine connected to the USRP (B210) configured with the eNB duplexer.
+  ![core network - v2](./oai-cn-v2.png)
 
-Once the network is deployed, the nepi-ng script will switch on phones and will test the 4G connection with a speedtest.
+And for both versions, it is possible to run them in two modes (*all-in-one* (all in the
+same pod) or *disaggregated* (each VNF in a different pod).
 
-It is then possible to log on the worker node and modify manually some configuration parameters or launch a new 4G scenario on top of the k8s/R2lab platform.
+Depending on the scenario, it takes between 1mn and 3mn for the operator to deploy the
+network, including the eNB (with the **oai-ran** VNF). The **k5goperator** operator
+integrates the scheduler that will decide in which worker node to run each pod, based on
+some labels (used for both pods and nodes). For instance, the oai-ran pod must be deployed
+on a specific node that corresponds to the machine connected to the USRP (B210) configured
+with the eNB duplexer.
 
-Note that using the **kube5g.py** option `-K none`, the script will only deploy k8s and the **k5goperator**, and let the user manually start the 4G scenario it prefers, possibly after tuning the configuration parameters.
+Once the network is deployed, the nepi-ng script will switch on phones and will test the
+4G connection with a speedtest.
+
+It is then possible to log on the worker node and modify manually some configuration
+parameters or launch a new 4G scenario on top of the k8s/R2lab platform.
+
+Note that using the **kube5g.py** option `-K none`, the script will only deploy k8s and
+the **k5goperator**, and let the user manually start the 4G scenario it prefers, possibly
+after tuning the configuration parameters.
 
 ## Playing with the k5goperator
 
@@ -119,10 +152,7 @@ Nota: hopefully, soon it should be possible to use the `k edit -f file` command 
 
 You can use the two android phones available on R2lab. They are controllable through the macphone1 and macphone2 hosts with the following commands:
 
-- `phone-off` to switch on the air-plane mode
-
-- `phone-on` to switch off the air-plane mode
-
-- `phone-check-cx` to show the current network state along with the phone IP address
-
-- `phone-reset` to reset the telephone with the default parameters; this takes about 2mn.
+* `phone-off` to switch on the air-plane mode
+* `phone-on` to switch off the air-plane mode
+* `phone-check-cx` to show the current network state along with the phone IP address
+* `phone-reset` to reset the telephone with the default parameters; this takes about 2mn.
