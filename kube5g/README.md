@@ -157,15 +157,19 @@ mosaic5g-oairan-6876b74d4c-2ckpl   1/1     Running   0          46m
 
 ### bring the v1 all-in-one network down
 
-if needed, clean up your environment
+to stop the current deployment:
 
 ```bash
-kubectl delete -f deploy/crds/cr-v1/lte-all-in-one/mosaic5g_v1alpha1_cr_v1_lte_all_in_one.yaml
+./k5goperator.sh -d
 ```
 
 in our example this would terminate the 3 mosaic-* pods listed above
 
 ### remove the kube5g-operator
+
+Note that this is not required to start a new deployment
+
+To remove the kube5g-operator:
 
 ```bash
 ./k5goperator.sh container stop
@@ -174,7 +178,19 @@ in our example this would terminate the 3 mosaic-* pods listed above
 in our example this would terminate the last running pod; so at this point we start from 
 a clean slate (the same as if we had run `kube5g.py -Onone` in the first place)
 
-### launch the v1 disaggregated 4G scenario
+### then apply the custom resource definition (CRD)
+
+```bash
+./k5goperator.sh -n
+```
+
+### and restart the kube5g-operator 
+
+```bash
+./k5goperator.sh container start
+```
+
+### Now, you're ready to launch the v1 disaggregated 4G scenario
 
 ```bash
 ./k5goperator.sh deploy v1 disaggregated-cn
@@ -210,7 +226,7 @@ kubectl apply -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
 Nota: hopefully, soon it should be possible to use the `kubectl edit -f file` command (fix
 TBD on **k5goperator**).
 
-### remove CRDs
+### if ever you need to remove the CRD, use
 
 ```bash
 ./k5goperator.sh -c
@@ -225,3 +241,4 @@ macphone1 and macphone2 hosts with the following commands:
 * `phone-on` to switch off the air-plane mode
 * `phone-check-cx` to show the current network state along with the phone IP address
 * `phone-reset` to reset the telephone with the default parameters; this takes about 2mn.
+

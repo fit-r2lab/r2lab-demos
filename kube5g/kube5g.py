@@ -203,12 +203,12 @@ def run(*, gateway, slicename,
         ) for id, node in worker_index.items()
     ]
 
-    # wait 30s for K8 nodes setup
+    # wait 10s for K8 nodes setup
     wait_k8nodes_ready = PrintJob(
         "Let k8 set up",
         scheduler=scheduler,
-        required=init_master,
-        sleep=30,
+        required=init_workers,
+        sleep=10,
         label="settling k8 nodes"
     )
 
