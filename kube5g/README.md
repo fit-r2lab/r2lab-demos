@@ -8,11 +8,13 @@
     - [list the k8s kube5g/OAI pods](#list-the-k8s-kube5goai-pods)
     - [bring the v1 all-in-one network down](#bring-the-v1-all-in-one-network-down)
     - [remove the kube5g-operator](#remove-the-kube5g-operator)
-    - [launch the v1 disaggregated 4G scenario](#launch-the-v1-disaggregated-4g-scenario)
+    - [apply custom CRD](#apply-custom-crd)
+    - [restart operator](#restart-operator)
+    - [launch v1 disaggregated setup](#launch-v1-disaggregated-setup)
     - [ssh into a pod](#ssh-into-a-pod)
-    - [change a parameter in the CRD and apply it](#change-a-parameter-in-the-crd-and-apply-it)
-    - [remove CRDs](#remove-crds)
-    - [test the network with R2lab phones](#test-the-network-with-r2lab-phones)
+    - [change a CRD parameter](#change-a-crd-parameter)
+    - [test phones connectivity](#test-phones-connectivity)
+    - [cleanup](#cleanup)
 
 # kube5g demo on R2lab
 
@@ -39,7 +41,7 @@ Of course these defaults can be overridden on the command line.
 
 ### orchestrating the k8s cluster
 
-Once the k8s nodes are ready, the kube5g.py script will install the kube5g operator
+Once the k8s nodes are ready, the `kube5g.py` script will install the kube5g operator
 (called **k5goperator**) on the master node.
 
 This operator is responsible for launching the different OpenAirInterface VNFs to deploy
@@ -175,22 +177,28 @@ To remove the kube5g-operator:
 ./k5goperator.sh container stop
 ```
 
-in our example this would terminate the last running pod; so at this point we start from 
+in our example this would terminate the last running pod; so at this point we start from
 a clean slate (the same as if we had run `kube5g.py -Onone` in the first place)
 
-### then apply the custom resource definition (CRD)
+### apply custom CRD
+
+then apply the custom resource definition (CRD)
 
 ```bash
 ./k5goperator.sh -n
 ```
 
-### and restart the kube5g-operator 
+### restart operator
+
+and restart the kube5g-operator
 
 ```bash
 ./k5goperator.sh container start
 ```
 
-### Now, you're ready to launch the v1 disaggregated 4G scenario
+### launch v1 disaggregated setup
+
+Now, you're ready to launch the v1 disaggregated 4G scenario
 
 ```bash
 ./k5goperator.sh deploy v1 disaggregated-cn
@@ -198,7 +206,7 @@ a clean slate (the same as if we had run `kube5g.py -Onone` in the first place)
 
 ### ssh into a pod
 
-Ge the name on the pod through `kubectl get pods`, then for instance, to log on the
+Get the name on the pod through `kubectl get pods`, then for instance, to log on the
 **oai-ran** pod and check the log:
 
 ```bash
@@ -212,7 +220,9 @@ Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters s
 Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters successfully set, (1 to default value)****
 ```
 
-### change a parameter in the CRD and apply it
+### change a CRD parameter
+
+change a parameter in the CRD and apply it
 
 Make your change on the CRD file, and then run the command below. The current deployment
 (if any), will be stopped and a new one will be started with the modified CRD. Following
@@ -226,15 +236,13 @@ kubectl apply -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
 Nota: hopefully, soon it should be possible to use the `kubectl edit -f file` command (fix
 TBD on **k5goperator**).
 
-### if ever you need to remove the CRD, use
+### test phones connectivity
 
-```bash
-./k5goperator.sh -c
-```
+test the network with R2lab phones
 
-### test the network with R2lab phones
+You can use the two android phones available on R2lab.
 
-You can use the two android phones available on R2lab. They are controllable through the
+They are controllable through the
 macphone1 and macphone2 hosts with the following commands:
 
 * `phone-off` to switch on the air-plane mode
@@ -242,3 +250,17 @@ macphone1 and macphone2 hosts with the following commands:
 * `phone-check-cx` to show the current network state along with the phone IP address
 * `phone-reset` to reset the telephone with the default parameters; this takes about 2mn.
 
+to be clear, this is achieved in 2 steps :
+
+* from `faraday`, use the `macphone1` or `macphone2` command to log into one of the macs in the room
+* from there, issue one of the commands above to control the corresponding phone
+
+remember it is also possible to gain VNC access to these macs, as described [in the R2lab tutorials](https://r2lab.inria.fr/tuto-130-5g.md)
+
+### cleanup
+
+if you ever need to remove the CRD, use
+
+```bash
+./k5goperator.sh -c
+```
