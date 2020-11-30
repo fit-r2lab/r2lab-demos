@@ -1,4 +1,5 @@
 - [kube5g demo on R2lab](#kube5g-demo-on-r2lab)
+  - [references](#references)
   - [the different steps](#the-different-steps)
     - [metal provisioning](#metal-provisioning)
     - [orchestrating the k8s cluster](#orchestrating-the-k8s-cluster)
@@ -26,6 +27,14 @@ developed at Eurecom.
 
 _Acknowledgments: Support regarding the Kubernetes **k5goperator** has been provided by
 Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
+
+## references
+
+* [R2lab welcome page](https://r2lab.inria.fr/)
+* [R2lab run page (requires login)](https://r2lab.inria.fr/run.md)
+* [github repo for this page](https://github.com/fit-r2lab/r2lab-demos)
+* [Mosaic5G page on kube5g](https://mosaic5g.io/kube5g/)
+* [source code for the operator](https://gitlab.eurecom.fr/mosaic5g/kube5g)
 
 ## the different steps
 
