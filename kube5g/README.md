@@ -231,19 +231,22 @@ Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters s
 
 ### change a CRD parameter
 
-change a parameter in the CRD and apply it
+First make your modifications in the CRD file `~/kube5g/common/config-manager/conf_short_r2lab.yaml` 
 
-Make your change on the CRD file, and then run the command below. The current deployment
-(if any), will be stopped and a new one will be started with the modified CRD. Following
-example corresponds to the v1 disaggregated scenario :
+To apply it:
 
 ```bash
-# edit the file deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
-kubectl apply -f deploy/crds/cr-v1/lte/mosaic5g_v1alpha1_cr_v1_lte.yaml
+cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml
+```
+And to test it, for instance with v1/all-in-one scenario:
+
+```bash
+cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml
 ```
 
-Nota: hopefully, soon it should be possible to use the `kubectl edit -f file` command (fix
-TBD on **k5goperator**).
+This command will destroy the current deployment (if any) and will (re)deploy the v1/all-in-one scenario with the parameters change. 
+
+
 
 ### test phones connectivity
 
