@@ -229,9 +229,9 @@ Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters s
 Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters successfully set, (1 to default value)****
 ```
 
-### change a CRD parameter
+### change a configuration parameter
 
-First make your modifications in the CRD file `~/kube5g/common/config-manager/conf_short_r2lab.yaml` 
+First make your modifications in the R2lab-specific configuration file `~/kube5g/common/config-manager/conf_short_r2lab.yaml` 
 
 To apply it:
 
@@ -244,7 +244,7 @@ And to test it, for instance with v1/all-in-one scenario:
 cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml
 ```
 
-This command will destroy the current deployment (if any) and will (re)deploy the v1/all-in-one scenario with the parameters change. 
+This command will destroy the current deployment (if any) and will (re)deploy the v1/all-in-one scenario with the modified parameters. 
 
 
 
