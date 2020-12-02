@@ -132,7 +132,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label = f"Load image {master_image} on master {fit_master}",
                 commands=[
-                    Run(f"rhubarbe load -i {master_image} {node_master}"),
+                    Run(f"rhubarbe load {node_master} -i {master_image}"),
                     Run(f"rhubarbe wait {node_master}"),
                 ]
             ),
@@ -145,7 +145,7 @@ def run(*, gateway, slicename,
                 label = f"Load image {worker_image} on worker nodes",
                 commands=[
                     Run(f"rhubarbe usrpoff {node_enb}"), # if usrp is on, load could be problematic...
-                    Run("rhubarbe", "load", "-i", worker_image, *worker_ids),
+                    Run("rhubarbe", "load", *worker_ids, "-i", worker_image),
                     Run("rhubarbe", "wait", *worker_ids),
                     Run(f"rhubarbe usrpon {node_enb}"), # ensure a reset of the USRP on the enB node
                 ],
@@ -209,7 +209,7 @@ def run(*, gateway, slicename,
         scheduler=scheduler,
         required=init_workers,
         sleep=10,
-        label="settling k8 nodes"
+        label="sleep 10s for the k8 nodes to settle"
     )
 
 
@@ -246,7 +246,7 @@ def run(*, gateway, slicename,
         scheduler=scheduler,
         required=init_kube5g,
         sleep=30,
-        label="settling 5G Operator pod"
+        label="wait 30s for the 5G Operator pod to settle"
     )
 
     if only_kube5g:
@@ -288,7 +288,7 @@ def run(*, gateway, slicename,
             scheduler=scheduler,
             required=run_kube5g,
             sleep=setup_time,
-            label="settling all 5G pods"
+            label=f"waiting {setup_time}s for all 5G pods to settle"
         )
 
         check_kube5g = SshJob(
@@ -305,12 +305,12 @@ def run(*, gateway, slicename,
 
         ########## Test phone(s) connectivity
 
-        sleeps_ran = [80, 100]
+        sleeps_ran = (100, 100)
         phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
                       for sleep, id in zip(sleeps_ran, phones)]
         wait_commands = [f"echo {msg}; sleep {sleep}"
                          for msg, sleep in zip(phone_msgs, sleeps_ran)]
-        sleeps_phone = [10, 10]
+        sleeps_phone = (10, 10)
         phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
                        for sleep, id in zip(sleeps_phone, phones)]
         wait2_commands = [f"echo {msg}; sleep {sleep}"

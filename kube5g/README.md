@@ -7,7 +7,7 @@
     - [logging into the master node](#logging-into-the-master-node)
     - [list the k8s master and worker nodes](#list-the-k8s-master-and-worker-nodes)
     - [list the k8s kube5g/OAI pods](#list-the-k8s-kube5goai-pods)
-    - [bring the v1 all-in-one network down](#bring-the-v1-all-in-one-network-down)
+    - [stop current deployment](#stop-current-deployment)
     - [remove the kube5g-operator](#remove-the-kube5g-operator)
     - [apply custom CRD](#apply-custom-crd)
     - [restart operator](#restart-operator)
@@ -166,9 +166,7 @@ mosaic5g-oaicnv1-75f48f944-xlbbm   1/1     Running   0          47m
 mosaic5g-oairan-6876b74d4c-2ckpl   1/1     Running   0          46m
 ```
 
-### bring the v1 all-in-one network down
-
-to stop the current deployment:
+### stop current deployment
 
 ```bash
 ./k5goperator.sh -d
