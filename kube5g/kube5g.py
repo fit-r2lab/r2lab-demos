@@ -29,16 +29,18 @@ default_slicename  = 'inria_kube5g'
 default_disaggregated_cn = False
 default_operator_version = 'v1'
 
-default_nodes = [1, 2, 3, 23]
+default_nodes = [1, 2, 3, 5, 23]
 default_node_master = 1
 default_node_enb = 23
 default_phones = [1,]
+
+default_flexran = False
 
 default_verbose = False
 default_dry_run = False
 
 default_load_images = True
-default_master_image = "kube5g-master-v2"
+default_master_image = "kube5g-master-v2.1"
 # v2 master image is a k8base with latest kube5g v2 installed (latest core version but not latest ran)
 #default_master_image = "k8base" # now kube5g is installed in this script
 default_worker_image = "k8base"
@@ -54,7 +56,7 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        disaggregated_cn, operator_version, nodes, node_master, node_enb, phones,
+        disaggregated_cn, operator_version, nodes, node_master, node_enb, phones, flexran,
         verbose, dry_run,
         load_images, master_image, worker_image):
     """
@@ -268,6 +270,10 @@ def run(*, gateway, slicename,
         else:
             cn_type="all-in-one"
             setup_time = 60
+        if flexran:
+            flexran_opt="flexran"
+        else:
+            flexran_opt=""
 
         run_kube5g = SshJob(
             scheduler=scheduler,
@@ -277,7 +283,7 @@ def run(*, gateway, slicename,
             label = f"deploy CN {cn_type} then eNB pods",
             commands = [
                 Run("kubectl get nodes -Loai"),
-                Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {operator_version} {cn_type}"),
+                Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {operator_version} {cn_type} {flexran_opt}"),
                 Run("kubectl get pods"),
             ],
         )
@@ -397,6 +403,9 @@ def main():
                         choices=("none", "v1", "v2"),
                         help="specify a version for Core Network,"
                         ' if "none" is set, only run the kube5g operator'),
+    parser.add_argument("-F", "--flexran", default=default_flexran,
+                        action='store_true', dest='flexran',
+                        help="run FlexRAN")
 
     parser.add_argument("-v", "--verbose", default=default_verbose,
                         action='store_true', dest='verbose',
@@ -446,6 +455,10 @@ def main():
                 role = "Worker node"
             nodename = fitname(i)
             print(f"\t{nodename}: {role}")
+        if args.flexran:
+            print("Run also FlexRAN")
+        else:
+            print("Do not run FlexRAN")
         if args.phones:
             for phone in args.phones:
                 print(f"Using phone{phone}")
