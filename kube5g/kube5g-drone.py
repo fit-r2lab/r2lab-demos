@@ -2,6 +2,8 @@
 
 import time
 
+from sys import platform
+
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pathlib import Path
 
@@ -60,7 +62,7 @@ def run(*, gateway, slicename,
         drone, verbose, dry_run,
         load_images, master_image, worker_image):
     """
-    Install K8 on R2lab
+    Install K8S on R2lab
 
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
@@ -84,6 +86,17 @@ def run(*, gateway, slicename,
     if node_enb not in nodes:
         print(f"eNB worker node {node_enb} must be part of selected fit nodes {nodes}")
         exit(1)
+
+    # Check if the browser can be automatically run to display the Drone app
+    if drone:
+        run_browser = True
+        if platform == "linux":
+            open_cmd = "xdg-open"
+        elif platform == "darwin":
+            open_cmd = "open"
+        else:
+            run_browser = False
+        
 
     worker_ids = nodes[:]
     worker_ids.remove(node_master)
@@ -167,14 +180,14 @@ def run(*, gateway, slicename,
         ]
 
     ##########
-    # Initialize k8 on the master node
+    # Initialize k8s on the master node
     init_master = SshJob(
         scheduler=scheduler,
         required=green_light,
         node=master,
         critical=True,
         verbose=verbose,
-        label = f"Install and launch k8 on the master {node_master}",
+        label = f"Install and launch k8s on the master {node_master}",
         commands = [
             Run("swapoff -a"),
             Run("hostnamectl set-hostname master-node"),
@@ -194,7 +207,7 @@ def run(*, gateway, slicename,
             node=node,
             critical=True,
             verbose=verbose,
-            label=f"Init k8 on fit node {id} and join the cluster",
+            label=f"Init k8s on fit node {id} and join the cluster",
             commands = [
                 Run("swapoff -a"),
                 Run("increase-control-mtu"),
@@ -205,13 +218,13 @@ def run(*, gateway, slicename,
         ) for id, node in worker_index.items()
     ]
 
-    # wait 10s for K8 nodes setup
+    # wait 10s for K8S nodes setup
     wait_k8nodes_ready = PrintJob(
-        "Let k8 set up",
+        "Let k8s set up",
         scheduler=scheduler,
         required=init_workers,
         sleep=10,
-        label="sleep 10s for the k8 nodes to settle"
+        label="sleep 10s for the k8s nodes to settle"
     )
 
 
@@ -242,7 +255,7 @@ def run(*, gateway, slicename,
         ],
     )
 
-    # wait 30s for K8 5G Operator setup
+    # wait 30s for K8S 5G Operator setup
     wait_k8_5GOp_ready = PrintJob(
         "Let 5G Operator set up",
         scheduler=scheduler,
@@ -280,7 +293,7 @@ def run(*, gateway, slicename,
             required = wait_k8_5GOp_ready,
             node = master,
             verbose=verbose,
-            label = f"deploy CN {cn_type} then eNB pods",
+            label = f"deploy {operator_version} {cn_type} {flexran_opt} pods",
             commands = [
                 Run("kubectl get nodes -Loai"),
                 Run(f"cd /root/kube5g/openshift/kube5g-operator; ./k5goperator.sh deploy {operator_version} {cn_type} {flexran_opt}"),
@@ -288,7 +301,7 @@ def run(*, gateway, slicename,
             ],
         )
 
-        # Coffee Break -- wait 1 or 2mn for K8 5G pods setup
+        # Coffee Break -- wait 1 or 2mn for K8S 5G pods setup
         wait_k8_5Gpods_ready = PrintJob(
             "Let all 5G pods set up",
             scheduler=scheduler,
@@ -351,27 +364,12 @@ def run(*, gateway, slicename,
             #
             drone_service = Service(
                 command=f"python /root/mosaic5g/store/sdk/frontend/drone/drone.py --port=8088 --tasks --address=192.168.3.{node_enb}",
-                service_id="drone app",
-                verbose=verbose,
-            )
-            local_port9999_fwd_service = Service(
-                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local_port9999_fwd",
-                verbose=verbose,
-            )
-            local_port8088_fwd_service = Service(
-                command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local_port8088_fwd",
+                service_id="drone_app",
                 verbose=verbose,
             )
             k8s_port9999_fwd_service = Service(
-                command=Deferred(f"kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
+                command=Deferred("kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
                 service_id="k8s_port9999_fwd",
-                verbose=verbose,
-            )
-            browser_service = Service(
-                command=f"firefox http://127.0.0.1:8088/",
-                service_id="browser drone",
                 verbose=verbose,
             )
 
@@ -393,7 +391,7 @@ def run(*, gateway, slicename,
                 label=f"Retrieve the name of the FlexRAN pod",
                 commands=[
                     # xxx here
-                    Run("kubectl get pods -l app=flexran -o custom-columns=:metadata.name",
+                    Run("kubectl get --no-headers=true pods -l app=flexran -o custom-columns=:metadata.name",
                         capture=Capture('flexran_pod', env)),
                 ],
             )
@@ -407,36 +405,32 @@ def run(*, gateway, slicename,
                     k8s_port9999_fwd_service.start_command(),
                 ],
             )
+            # On the local machine, impossible to use Services as the latter uses systemd-run, only available on Linux
             run_local_port8088_fwd = SshJob(
                 scheduler=scheduler,
                 required = job_start_phones,
                 node = LocalNode(),
                 verbose=verbose,
-                label = f"Run port-8088 forwarding on the local node as a service",
-                commands = [
-                    local_port8088_fwd_service.command+"&",
-                ],
+                label = f"Run port-8088 forwarding on the local node in background",
+                command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr &",
             )
             run_local_port9999_fwd = SshJob(
                 scheduler=scheduler,
                 required = job_start_phones,
                 node = LocalNode(),
                 verbose=verbose,
-                label = f"Run port-9999 forwarding on the local node as a service",
-                commands = [
-                    local_port9999_fwd_service.command+"&",
-                ],
+                label = f"Run port-9999 forwarding on the local node in background",
+                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr &",
             )
-            run_browser = SshJob(
-                scheduler=scheduler,
-                required = (run_drone, run_k8s_port9999_fwd, run_local_port8088_fwd, run_local_port9999_fwd),
-                node = LocalNode(),
-                verbose=verbose,
-                label = f"Run the firefox browser on the local node as a service",
-                commands = [
-                    browser_service.command+"&",
-                ],
-            )
+            if run_browser:
+                run_local_browser = SshJob(
+                    scheduler=scheduler,
+                    required = (run_drone, run_k8s_port9999_fwd, run_local_port8088_fwd, run_local_port9999_fwd),
+                    node = LocalNode(),
+                    verbose=verbose,
+                    label = f"Run the browser on the local node in background",
+                    command=f"{cmd_open} http://127.0.0.1:8088/ &",
+                )
 
 
     ##########
@@ -531,6 +525,10 @@ def main():
         asyncssh_set_log_level(logging.WARNING)
     del args.debug
 
+    # Enforce FlexRAN option in case the Drone app is selected
+    if args.drone:
+        args.flexran = True
+
     # we pass to run exactly the set of arguments known to parser
     # build a dictionary with all the values in the args
     kwds = args.__dict__.copy()
@@ -554,7 +552,6 @@ def main():
             nodename = fitname(i)
             print(f"\t{nodename}: {role}")
         if args.drone:
-            args.flexran = True
             print("Run also FlexRAN with the Drone app")
         else:
             if args.flexran:
