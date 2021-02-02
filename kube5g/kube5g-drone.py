@@ -350,7 +350,7 @@ def run(*, gateway, slicename,
             # Define and run all the services to launch the Drone app locally on a firefox browser
             #
             drone_service = Service(
-                command=f"cd ~/mosaic5g/store/sdk/frontend/drone; python drone.py --port=8088 --sks --address=192.168.3.{node_enb}",
+                command=f"python /root/mosaic5g/store/sdk/frontend/drone/drone.py --port=8088 --tasks --address=192.168.3.{node_enb}",
                 service_id="drone app",
                 verbose=verbose,
             )
@@ -365,7 +365,6 @@ def run(*, gateway, slicename,
                 verbose=verbose,
             )
             k8s_port9999_fwd_service = Service(
-#                command=f"kubectl port-forward {mosaic5g-flexran-pod} 9999:9999 --address 0.0.0.0",
                 command=Deferred(f"kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
                 service_id="k8s_port9999_fwd",
                 verbose=verbose,
@@ -415,7 +414,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label = f"Run port-8088 forwarding on the local node as a service",
                 commands = [
-                    local_port8088_fwd_service.start_command(),
+                    local_port8088_fwd_service.command+"&",
                 ],
             )
             run_local_port9999_fwd = SshJob(
@@ -425,7 +424,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label = f"Run port-9999 forwarding on the local node as a service",
                 commands = [
-                    local_port9999_fwd_service.start_command(),
+                    local_port9999_fwd_service.command+"&",
                 ],
             )
             run_browser = SshJob(
@@ -435,7 +434,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label = f"Run the firefox browser on the local node as a service",
                 commands = [
-                    browser_service.start_command(),
+                    browser_service.command+"&",
                 ],
             )
 
