@@ -11,10 +11,8 @@ from asyncssh.logging import set_log_level as asyncssh_set_log_level
 
 from asynciojobs import Job, Scheduler, PrintJob
 
-from apssh import SshNode, SshJob, Run
-from apssh import RunString, RunScript, TimeColonFormatter
-from apssh import LocalNode
-from apssh import Service
+from apssh import (LocalNode, SshNode, SshJob, Run, RunString, RunScript,
+                   TimeColonFormatter, Service, Deferred, Capture, Variables)
 
 # make sure to pip install r2lab
 from r2lab import ListOfChoices, ListOfChoicesNullReset, find_local_embedded_script
@@ -346,6 +344,8 @@ def run(*, gateway, slicename,
             for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
 
         if drone:
+            # the place where runtime variables get stored
+            env = Variables()
             #
             # Define and run all the services to launch the Drone app locally on a firefox browser
             #
@@ -366,7 +366,7 @@ def run(*, gateway, slicename,
             )
             k8s_port9999_fwd_service = Service(
 #                command=f"kubectl port-forward {mosaic5g-flexran-pod} 9999:9999 --address 0.0.0.0",
-                command=f"kubectl port-forward XXXXXXX 9999:9999 --address 0.0.0.0",
+                command=Deferred(f"kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
                 service_id="k8s_port9999_fwd",
                 verbose=verbose,
             )
@@ -375,7 +375,7 @@ def run(*, gateway, slicename,
                 service_id="browser drone",
                 verbose=verbose,
             )
-            
+
             run_drone=SshJob(
                 scheduler=scheduler,
                 required=job_start_phones,
@@ -393,7 +393,9 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label=f"Retrieve the name of the FlexRAN pod",
                 commands=[
-                    Run("kubectl get pods -l app=flexran -o custom-columns=:metadata.name > /tmp/flexran_podname"),
+                    # xxx here
+                    Run("kubectl get pods -l app=flexran -o custom-columns=:metadata.name",
+                        capture=Capture('flexran_pod', env)),
                 ],
             )
             run_k8s_port9999_fwd=SshJob(
@@ -436,7 +438,7 @@ def run(*, gateway, slicename,
                     browser_service.start_command(),
                 ],
             )
-            
+
 
     ##########
     # Update the .dot and .png file for illustration purposes
