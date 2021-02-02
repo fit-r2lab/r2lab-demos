@@ -351,28 +351,28 @@ def run(*, gateway, slicename,
             #
             drone_service = Service(
                 command=f"cd ~/mosaic5g/store/sdk/frontend/drone; python drone.py --port=8088 --sks --address=192.168.3.{node_enb}",
-                service_id="drone",
+                service_id="drone app",
                 verbose=verbose,
             )
             local_port9999_fwd_service = Service(
-                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {default_slicename}@faraday.inria.fr",
-                service_id="local_port9999",
+                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
+                service_id="local_port9999_fwd",
                 verbose=verbose,
             )
             local_port8088_fwd_service = Service(
-                command=f"ssh -L8088:192.168.3.{node_master}:8088 -o ExitOnForwardFailure=yes -N -4 {default_slicename}@faraday.inria.fr",
-                service_id="local_port8088",
+                command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
+                service_id="local_port8088_fwd",
                 verbose=verbose,
             )
             k8s_port9999_fwd_service = Service(
 #                command=f"kubectl port-forward {mosaic5g-flexran-pod} 9999:9999 --address 0.0.0.0",
                 command=f"kubectl port-forward XXXXXXX 9999:9999 --address 0.0.0.0",
-                service_id="k8s_port9999",
+                service_id="k8s_port9999_fwd",
                 verbose=verbose,
             )
             browser_service = Service(
                 command=f"firefox http://127.0.0.1:8088/",
-                service_id="browser",
+                service_id="browser drone",
                 verbose=verbose,
             )
             
@@ -386,9 +386,19 @@ def run(*, gateway, slicename,
                     drone_service.start_command(),
                 ],
             )
-            run_k8s_port9999_fwd=SshJob(
+            get_flexran_podname=SshJob(
                 scheduler=scheduler,
                 required=job_start_phones,
+                node=master,
+                verbose=verbose,
+                label=f"Retrieve the name of the FlexRAN pod",
+                commands=[
+                    Run("kubectl get pods -l app=flexran -o custom-columns=:metadata.name > /tmp/flexran_podname"),
+                ],
+            )
+            run_k8s_port9999_fwd=SshJob(
+                scheduler=scheduler,
+                required=get_flexran_podname,
                 node=master,
                 verbose=verbose,
                 label=f"Run port forwarding on the master node as a service",
@@ -418,7 +428,7 @@ def run(*, gateway, slicename,
             )
             run_browser = SshJob(
                 scheduler=scheduler,
-                required = job_start_phones,
+                required = (run_drone, run_k8s_port9999_fwd, run_local_port8088_fwd, run_local_port9999_fwd),
                 node = LocalNode(),
                 verbose=verbose,
                 label = f"Run the firefox browser on the local node as a service",
