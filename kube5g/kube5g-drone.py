@@ -91,9 +91,9 @@ def run(*, gateway, slicename,
     if drone:
         run_browser = True
         if platform == "linux":
-            open_cmd = "xdg-open"
+            cmd_open = "xdg-open"
         elif platform == "darwin":
-            open_cmd = "open"
+            cmd_open = "open"
         else:
             run_browser = False
         
