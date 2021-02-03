@@ -373,17 +373,17 @@ def run(*, gateway, slicename,
             )
             k8s_port9999_fwd_service = Service(
                 command=Deferred("kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
-                service_id="k8s_port9999_fwd",
+                service_id="k8s-port9999-fwd",
                 verbose=verbose,
             )
             local_port9999_fwd_service = Service(
                 command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local_port9999_fwd",
+                service_id="local-port9999-fwd",
                 verbose=verbose,
             )
             local_port8088_fwd_service = Service(
                 command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local_port8088_fwd",
+                service_id="local-port8088-fwd",
                 verbose=verbose,
             )
             browser_service = Service(
