@@ -43,7 +43,7 @@ default_verbose = False
 default_dry_run = False
 
 default_load_images = True
-default_master_image = "kube5g-master-v2.1"
+default_master_image = "kube5g-master-v2.2"
 # v2 master image is a k8base with latest kube5g v2 installed (latest core version but not latest ran)
 #default_master_image = "k8base" # now kube5g is installed in this script
 default_worker_image = "k8base-v1"
@@ -444,7 +444,7 @@ def run(*, gateway, slicename,
             if run_browser:
                 run_local_browser = SshJob(
                     scheduler=scheduler,
-                    required = (run_drone, run_k8s_port9999_fwd, run_local_port8088_fwd, run_local_port9999_fwd),
+                    required = job_start_phones,
                     node = LocalNode(),
                     verbose=verbose,
                     label = f"Run the browser on the local node in background",
