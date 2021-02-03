@@ -283,10 +283,12 @@ def run(*, gateway, slicename,
     else:
         if disaggregated_cn:
             cn_type="disaggregated-cn"
-            setup_time = 120
+#            setup_time = 120
+            setup_time = 200
         else:
             cn_type="all-in-one"
-            setup_time = 60
+#            setup_time = 60
+            setup_time = 140
         if flexran:
             flexran_opt="flexran"
         else:
@@ -326,40 +328,6 @@ def run(*, gateway, slicename,
             ],
         )
 
-        ########## Test phone(s) connectivity
-
-        sleeps_ran = (100, 100)
-        phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
-                      for sleep, id in zip(sleeps_ran, phones)]
-        wait_commands = [f"echo {msg}; sleep {sleep}"
-                         for msg, sleep in zip(phone_msgs, sleeps_ran)]
-        sleeps_phone = (10, 10)
-        phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
-                       for sleep, id in zip(sleeps_phone, phones)]
-        wait2_commands = [f"echo {msg}; sleep {sleep}"
-                          for msg, sleep in zip(phone2_msgs, sleeps_phone)]
-
-        job_start_phones = [
-            SshJob(
-                node=faraday,
-                commands=[
-                    Run(wait_command),
-                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                              "r2lab-embedded/shell/macphone.sh", "phone-on",
-                              includes=INCLUDES),
-                    Run(wait2_command),
-                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                              "r2lab-embedded/shell/macphone.sh", "phone-check-cx",
-                              includes=INCLUDES),
-                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
-                              "r2lab-embedded/shell/macphone.sh", "phone-start-app",
-                              includes=INCLUDES),
-                ],
-                label=f"turn off airplane mode on phone {id}",
-                required=check_kube5g,
-                scheduler=scheduler)
-            for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
-
         if drone:
             # the place where runtime variables get stored
             env = Variables()
@@ -393,7 +361,7 @@ def run(*, gateway, slicename,
 
             run_drone=SshJob(
                 scheduler=scheduler,
-                required=job_start_phones,
+                required=check_kube5g,
                 node=worker_index[node_enb],
                 verbose=verbose,
                 label=f"Run the drone app on worker node {node_enb} as a service",
@@ -403,7 +371,7 @@ def run(*, gateway, slicename,
             )
             get_flexran_podname=SshJob(
                 scheduler=scheduler,
-                required=job_start_phones,
+                required=check_kube5g,
                 node=master,
                 verbose=verbose,
                 label=f"Retrieve the name of the FlexRAN pod",
@@ -424,9 +392,9 @@ def run(*, gateway, slicename,
                 ],
             )
             # On the local machine, impossible to use Services as the latter uses systemd-run, only available on Linux
-            run_local_port_fwd = SshJob(
+            run_local_ports_fwd = SshJob(
                 scheduler=scheduler,
-                required = job_start_phones,
+                required = check_kube5g,
                 node = LocalNode(),
                 verbose=verbose,
                 label = f"Forward local ports 8088 and 9999",
@@ -435,12 +403,53 @@ def run(*, gateway, slicename,
             if run_browser:
                 run_local_browser = SshJob(
                     scheduler=scheduler,
-                    required = job_start_phones,
+                    required = (run_drone, run_k8s_port9999_fwd, run_local_ports_fwd),
                     node = LocalNode(),
                     verbose=verbose,
                     label = f"Run the browser on the local node in background",
                     command=browser_service.command+"&",
                 )
+                phones_requirements=run_local_browser
+            else:
+                phones_requirements=run_k8s_port9999_fwd
+        else:
+            phones_requirements=check_kube5g
+
+
+        
+        ########## Test phone(s) connectivity
+
+        sleeps_ran = (10, 20)
+        phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
+                      for sleep, id in zip(sleeps_ran, phones)]
+        wait_commands = [f"echo {msg}; sleep {sleep}"
+                         for msg, sleep in zip(phone_msgs, sleeps_ran)]
+        sleeps_phone = (10, 10)
+        phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
+                       for sleep, id in zip(sleeps_phone, phones)]
+        wait2_commands = [f"echo {msg}; sleep {sleep}"
+                          for msg, sleep in zip(phone2_msgs, sleeps_phone)]
+
+        job_start_phones = [
+            SshJob(
+                node=faraday,
+                commands=[
+                    Run(wait_command),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-on",
+                              includes=INCLUDES),
+                    Run(wait2_command),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-check-cx",
+                              includes=INCLUDES),
+                    RunScript(find_local_embedded_script("faraday.sh"), f"macphone{id}",
+                              "r2lab-embedded/shell/macphone.sh", "phone-start-app",
+                              includes=INCLUDES),
+                ],
+                label=f"turn off airplane mode on phone {id}",
+                required=phones_requirements,
+                scheduler=scheduler)
+            for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
 
 
     ##########
