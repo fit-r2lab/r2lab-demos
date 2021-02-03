@@ -375,6 +375,8 @@ def run(*, gateway, slicename,
                 command=Deferred("kubectl port-forward {{flexran_pod}} 9999:9999 --address 0.0.0.0", env),
                 service_id="k8s-port9999-fwd",
                 verbose=verbose,
+                # somehow this is required for kubectl to run properly
+                environ={'KUBECONFIG': '/etc/kubernetes/admin.conf'}
             )
             local_port9999_fwd_service = Service(
                 command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
