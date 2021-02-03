@@ -100,7 +100,7 @@ def run(*, gateway, slicename,
             print(f"**** Will run the browser with command {cmd_open}")
         else:
             print(f"**** Will not be able to run the browser as platform is {platform}")
-        
+
 
     worker_ids = nodes[:]
     worker_ids.remove(node_master)
@@ -378,22 +378,19 @@ def run(*, gateway, slicename,
                 # somehow this is required for kubectl to run properly
                 environ={'KUBECONFIG': '/etc/kubernetes/admin.conf'}
             )
-            local_port9999_fwd_service = Service(
-                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local-port9999-fwd",
-                verbose=verbose,
-            )
-            local_port8088_fwd_service = Service(
-                command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
-                service_id="local-port8088-fwd",
-                verbose=verbose,
-            )
+            # can't use a Service instance on the local box if it's not a Linux
+            # and we have macs...
+            local_port_fwd = (f"ssh -f -N -4"
+                             f" -L9999:192.168.3.{node_master}:9999"
+                             f" -L8088:192.168.3.{node_enb}:8088"
+                             f" -o ExitOnForwardFailure=yes"
+                             f" {slicename}@faraday.inria.fr")
             browser_service = Service(
                 command=f"{cmd_open} http://127.0.0.1:8088/",
                 service_id="drone_browser",
                 verbose=verbose,
             )
-            
+
             run_drone=SshJob(
                 scheduler=scheduler,
                 required=job_start_phones,
@@ -427,21 +424,13 @@ def run(*, gateway, slicename,
                 ],
             )
             # On the local machine, impossible to use Services as the latter uses systemd-run, only available on Linux
-            run_local_port8088_fwd = SshJob(
+            run_local_port_fwd = SshJob(
                 scheduler=scheduler,
                 required = job_start_phones,
                 node = LocalNode(),
                 verbose=verbose,
-                label = f"Run port-8088 forwarding on the local node in background",
-                command=local_port8088_fwd_service.command+"&",
-            )
-            run_local_port9999_fwd = SshJob(
-                scheduler=scheduler,
-                required = job_start_phones,
-                node = LocalNode(),
-                verbose=verbose,
-                label = f"Run port-9999 forwarding on the local node in background",
-                command=local_port9999_fwd_service.command+"&",
+                label = f"Forward local ports 8088 and 9999",
+                command=Run(local_port_fwd + "&", ignore_outputs=True),
             )
             if run_browser:
                 run_local_browser = SshJob(
