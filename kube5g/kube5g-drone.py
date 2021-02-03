@@ -376,7 +376,22 @@ def run(*, gateway, slicename,
                 service_id="k8s_port9999_fwd",
                 verbose=verbose,
             )
-
+            local_port9999_fwd_service = Service(
+                command=f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
+                service_id="local_port9999_fwd",
+                verbose=verbose,
+            )
+            local_port8088_fwd_service = Service(
+                command=f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr",
+                service_id="local_port8088_fwd",
+                verbose=verbose,
+            )
+            browser_service = Service(
+                command=f"{cmd_open} http://127.0.0.1:8088/",
+                service_id="drone_browser",
+                verbose=verbose,
+            )
+            
             run_drone=SshJob(
                 scheduler=scheduler,
                 required=job_start_phones,
@@ -416,7 +431,7 @@ def run(*, gateway, slicename,
                 node = LocalNode(),
                 verbose=verbose,
                 label = f"Run port-8088 forwarding on the local node in background",
-                command=Run(f"ssh -L8088:192.168.3.{node_enb}:8088 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr &"),
+                command=local_port8088_fwd_service.command+"&",
             )
             run_local_port9999_fwd = SshJob(
                 scheduler=scheduler,
@@ -424,7 +439,7 @@ def run(*, gateway, slicename,
                 node = LocalNode(),
                 verbose=verbose,
                 label = f"Run port-9999 forwarding on the local node in background",
-                command=Run(f"ssh -L9999:192.168.3.{node_master}:9999 -o ExitOnForwardFailure=yes -N -4 {slicename}@faraday.inria.fr &"),
+                command=local_port9999_fwd_service.command+"&",
             )
             if run_browser:
                 run_local_browser = SshJob(
@@ -433,9 +448,7 @@ def run(*, gateway, slicename,
                     node = LocalNode(),
                     verbose=verbose,
                     label = f"Run the browser on the local node in background",
-                    commands=[
-                        Run(f"echo {cmd_open} http://127.0.0.1:8088/ &"),
-                        Run(f"{cmd_open} http://127.0.0.1:8088/ &")]
+                    command=browser_service.command+"&",
                 )
 
 
