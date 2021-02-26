@@ -46,7 +46,8 @@ default_load_images = True
 default_master_image = "kube5g-master-v2.2"
 # v2 master image is a k8base with latest kube5g v2 installed (latest core version but not latest ran)
 #default_master_image = "k8base" # now kube5g is installed in this script
-default_worker_image = "k8base-v1"
+# k8base-v2 now includes Osama's fix for drone app (git clone -b droneapp https://gitlab.eurecom.fr/mosaic5g/store.git)
+default_worker_image = "k8base-v2"
 
 ##########
 
