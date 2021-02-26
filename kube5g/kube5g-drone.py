@@ -355,7 +355,7 @@ def run(*, gateway, slicename,
                              f" -o ExitOnForwardFailure=yes"
                              f" {slicename}@faraday.inria.fr")
             browser_service = Service(
-                command=f"{cmd_open} http://127.0.0.1:8088/",
+                command=f"sleep 10; {cmd_open} http://127.0.0.1:8088/",
                 service_id="drone_browser",
                 verbose=verbose,
             )
