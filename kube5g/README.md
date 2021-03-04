@@ -28,7 +28,7 @@ developed at Eurecom.
 _Acknowledgments: Support regarding the Kubernetes **k5goperator** has been provided by
 Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
 
-## references
+## References
 
 * [R2lab welcome page](https://r2lab.inria.fr/)
 * [R2lab run page (requires login)](https://r2lab.inria.fr/run.md)
@@ -36,9 +36,9 @@ Osama Arouk at Eurecom <osama.arouk@eurecom.fr>._
 * [Mosaic5G page on kube5g](https://mosaic5g.io/kube5g/)
 * [source code for the operator](https://gitlab.eurecom.fr/mosaic5g/kube5g)
 
-## the different steps
+## The different steps...
 
-### metal provisioning
+### Metal provisioning
 
 First, the nepi-ng **kube5g.py** script will deploy a Kubernetes (k8s) infrastructure on
 the R2lab testbed. By default, 4 fit nodes will be used :
@@ -48,7 +48,7 @@ the R2lab testbed. By default, 4 fit nodes will be used :
 
 Of course these defaults can be overridden on the command line.
 
-### orchestrating the k8s cluster
+### Orchestrating the k8s cluster
 
 Once the k8s nodes are ready, the `kube5g.py` script will install the kube5g operator
 (called **k5goperator**) on the master node.
@@ -106,7 +106,7 @@ Note that using the **kube5g.py** option `-O none`, the script will only deploy 
 the **k5goperator**, and let the user manually start the 4G scenario it prefers, possibly
 after tuning the configuration parameters.
 
-## playing with the k5goperator
+## Playing with the k5goperator
 
 So `kube5g.py` allows you to choose - again, using the `-O` option - the behaviour for the
 operator tool; the idea behind the `-Onone` option is for when you want to run the
@@ -116,7 +116,7 @@ Note that the ability to run the operator interactively is also available if you
 `-Ov1` or `-Ov2`, except that of course you will need to tear down any leftover
 container/pod left behind by the previous run.
 
-### logging into the master node
+### Logging into the master node
 
 In any case, you first need to log on the master node  
 (here `inria_kube5g` is our slice name)
@@ -142,7 +142,7 @@ root@master-node:~# cd ~/kube5g/openshift/kube5g-operator
 root@master-node:~/kube5g/openshift/kube5g-operator#
 ```
 
-### list the k8s master and worker nodes
+### List the k8s master and worker nodes
 
 assuming you have run `kube5g.py -O v1`, you should see something like this :
 
@@ -155,7 +155,7 @@ fit23         Ready    <none>   25m   v1.19.4
 master-node   Ready    master   26m   v1.19.4
 ```
 
-### list the k8s kube5g/OAI pods
+### List the k8s kube5g/OAI pods
 
 ```bash
 root@master-node:~/kube5g/openshift/kube5g-operator# kubectl get pods
@@ -166,7 +166,7 @@ mosaic5g-oaicnv1-75f48f944-xlbbm   1/1     Running   0          47m
 mosaic5g-oairan-6876b74d4c-2ckpl   1/1     Running   0          46m
 ```
 
-### stop current deployment
+### Stop current deployment
 
 ```bash
 ./k5goperator.sh -d
@@ -174,7 +174,7 @@ mosaic5g-oairan-6876b74d4c-2ckpl   1/1     Running   0          46m
 
 in our example this would terminate the 3 mosaic-* pods listed above
 
-### remove the kube5g-operator
+### Remove the kube5g-operator
 
 Note that this is not required to start a new deployment
 
@@ -187,7 +187,7 @@ To remove the kube5g-operator:
 In our example this would terminate the last running pod; so at this point we start from
 a clean slate (the same as if we had run `kube5g.py -Onone` in the first place).
 
-### apply custom CRD
+### Apply custom CRD
 
 then apply the custom resource definition (CRD)
 
@@ -195,7 +195,7 @@ then apply the custom resource definition (CRD)
 ./k5goperator.sh -n
 ```
 
-### restart operator
+### Restart operator
 
 and restart the kube5g-operator
 
@@ -203,7 +203,7 @@ and restart the kube5g-operator
 ./k5goperator.sh container start
 ```
 
-### launch v1 disaggregated setup
+### Launch v1 disaggregated setup
 
 Now, you're ready to launch the v1 disaggregated 4G scenario
 
@@ -227,7 +227,7 @@ Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters s
 Nov 20 15:40:38 ubuntu oai-ran.enbd[969]: [LIBCONFIG] MCEs.[0]: 1/1 parameters successfully set, (1 to default value)****
 ```
 
-### change a configuration parameter
+### Change a configuration parameter
 
 First make your modifications in the customized short version of kube5g configuration file `~/kube5g/common/config-manager/conf_short_r2lab.yaml` 
 
@@ -256,7 +256,7 @@ There are different types of configuration files:
 
 ### How to test phones connectivity in R2lab?
 
-test the network with R2lab phones
+Test the network with R2lab phones
 
 You can use the two android phones available on R2lab.
 
@@ -268,17 +268,27 @@ macphone1 and macphone2 hosts with the following commands:
 * `phone-check-cx` to show the current network state along with the phone IP address
 * `phone-reset` to reset the telephone with the default parameters; this takes about 2mn.
 
-to be clear, this is achieved in 2 steps :
+To be clear, this is achieved in 2 steps :
 
 * from `faraday`, use the `macphone1` or `macphone2` command to log into one of the macs in the room
 * from there, issue one of the commands above to control the corresponding phone
 
-remember it is also possible to gain VNC access to these macs, as described [in the R2lab tutorials](https://r2lab.inria.fr/tuto-130-5g.md)
+Remember it is also possible to gain VNC access to these macs, as described [in the R2lab tutorials](https://r2lab.inria.fr/tuto-130-5g.md)
 
-### cleanup
+### Cleanup
 
-if you ever need to remove the CRD, use
+If you ever need to remove the CRD, use
 
 ```bash
 ./k5goperator.sh -c
 ```
+### Launch the demo with FlexRAN and the drone app
+
+[FlexRAN](https://mosaic5g.io/flexran/) is a Flexible and Programmable Platform for Software-Defined Radio Access Networks.
+
+Currently FlexRAN supports many apps such as monitoring, re- configurability through applications, mobility load balancing, network slicing and control delegation.
+
+In this demo we focus on the monitoring functionality through the [drone app](https://gitlab.eurecom.fr/mosaic5g/mosaic5g/-/wikis/tutorials/store#application-drone), which allows real-time monitoring of many RAN metrics such as CQI & SNR measurements and UL/DL throughput performance.
+
+Current version of the kube5G operator includes an option to run a FlexRAN pod on the node that hosts the eNB pod. However, it doesn't allow running the drone app. So, in this demo script, we added an option to launch the drone web server that connects to  FlexRAN once all the other pods are ready. We also added in the script the required ssh port forwarding utilities to allow running the drone client on your local machine. Basically, using the `-X` option, all the steps described above will be executed just before waking up the phone(s), and your default browser will automatically show up the drone app, as illustrated in the snapshot below.
+![drone app - web client](./drone-app.png)
