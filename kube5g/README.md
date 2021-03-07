@@ -286,9 +286,9 @@ If you ever need to remove the CRD, use
 
 [FlexRAN](https://mosaic5g.io/flexran/) is a Flexible and Programmable Platform for Software-Defined Radio Access Networks.
 
-Currently FlexRAN supports many apps such as monitoring, re- configurability through applications, mobility load balancing, network slicing and control delegation.
+Currently FlexRAN supports many apps such as monitoring, re-configurability through applications, mobility load balancing, network slicing and control delegation.
 
 In this demo we focus on the monitoring functionality through the [drone app](https://gitlab.eurecom.fr/mosaic5g/mosaic5g/-/wikis/tutorials/store#application-drone), which allows real-time monitoring of many RAN metrics such as CQI & SNR measurements and UL/DL throughput performance.
 
-Current version of the kube5G operator includes an option to run a FlexRAN pod on the node that hosts the eNB pod. However, it doesn't allow running the drone app. So, in this demo script, we added an option to launch the drone web server that connects to  FlexRAN once all the other pods are ready. We also added in the script the required ssh port forwarding utilities to allow running the drone client on your local machine. Basically, using the `-X` option, all the steps described above will be executed just before waking up the phone(s), and your default browser will automatically show up the drone app, as illustrated in the snapshot below.
+Current version of the kube5G operator includes an option to run a FlexRAN pod on the node that hosts the eNB pod. However, it doesn't allow running the drone app. So, in this demo script, we added an option to launch the drone web server that connects to  FlexRAN once all the other pods are ready. We also added in the script the required ssh port forwarding utilities to allow running the drone client on your local machine. Basically, with the `-X` option of the **kube5g.py** script, all the steps described above will be executed just before waking up the phone(s), and your default browser will automatically show up the drone app, as illustrated in the snapshot below.
 ![drone app - web client](./drone-app.png)
