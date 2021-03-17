@@ -1,21 +1,24 @@
 - [kube5g demo on R2lab](#kube5g-demo-on-r2lab)
-  - [references](#references)
-  - [the different steps](#the-different-steps)
-    - [metal provisioning](#metal-provisioning)
-    - [orchestrating the k8s cluster](#orchestrating-the-k8s-cluster)
-  - [playing with the k5goperator](#playing-with-the-k5goperator)
-    - [logging into the master node](#logging-into-the-master-node)
-    - [list the k8s master and worker nodes](#list-the-k8s-master-and-worker-nodes)
-    - [list the k8s kube5g/OAI pods](#list-the-k8s-kube5goai-pods)
-    - [stop current deployment](#stop-current-deployment)
-    - [remove the kube5g-operator](#remove-the-kube5g-operator)
-    - [apply custom CRD](#apply-custom-crd)
-    - [restart operator](#restart-operator)
-    - [launch v1 disaggregated setup](#launch-v1-disaggregated-setup)
+  - [References](#references)
+  - [The different steps...](#the-different-steps)
+    - [Metal provisioning](#metal-provisioning)
+    - [Software dependencies](#software-dependencies)
+    - [Orchestrating the k8s cluster](#orchestrating-the-k8s-cluster)
+  - [Playing with the k5goperator](#playing-with-the-k5goperator)
+    - [Logging into the master node](#logging-into-the-master-node)
+    - [List the k8s master and worker nodes](#list-the-k8s-master-and-worker-nodes)
+    - [List the k8s kube5g/OAI pods](#list-the-k8s-kube5goai-pods)
+    - [Stop current deployment](#stop-current-deployment)
+    - [Remove the kube5g-operator](#remove-the-kube5g-operator)
+    - [Apply custom CRD](#apply-custom-crd)
+    - [Restart operator](#restart-operator)
+    - [Launch v1 disaggregated setup](#launch-v1-disaggregated-setup)
     - [ssh into a pod](#ssh-into-a-pod)
-    - [change a CRD parameter](#change-a-crd-parameter)
-    - [test phones connectivity](#test-phones-connectivity)
-    - [cleanup](#cleanup)
+    - [Change a configuration parameter](#change-a-configuration-parameter)
+    - [Notes on Configuration files, CRs and CRDs](#notes-on-configuration-files-crs-and-crds)
+    - [How to test phones connectivity in R2lab?](#how-to-test-phones-connectivity-in-r2lab)
+    - [Cleanup](#cleanup)
+    - [Launch the demo with FlexRAN and the drone app](#launch-the-demo-with-flexran-and-the-drone-app)
 
 # kube5g demo on R2lab
 
@@ -48,6 +51,12 @@ the R2lab testbed. By default, 4 fit nodes will be used :
 
 Of course these defaults can be overridden on the command line.
 
+### Software dependencies
+
+Before you can run the script in this directory, make user to install its dependencies
+
+    pip install -r requirements.txt
+
 ### Orchestrating the k8s cluster
 
 Once the k8s nodes are ready, the `kube5g.py` script will install the kube5g operator
@@ -77,10 +86,10 @@ And for both versions, it is possible to run them in two modes (*all-in-one* (al
 same pod) or *disaggregated* (each VNF in a different pod).
 
 > Note: you select between both versions of the operator with  
-> `kube5g.py -Ov1` or  
-> `kube5g.py -Ov2`  
-> with `kube5g.py -Onone`, `kube5g.py` will not start the operator, so you can run it
-> yourself interactively from the master node (more about this below)
+> `kube5g.py -O v1` or  
+> `kube5g.py -O v2`  
+> with the `-O none` on the other hand, `kube5g.py` will **not start the operator**,
+> so you can run it yourself interactively from the master node (more about this below)
 
 > Note: in v1 or v2 mode, the default is to use the *all-in-one* mode,
 > you can turn on disaggregated modes with  
@@ -104,7 +113,7 @@ parameters or launch a new 4G scenario on top of the k8s/R2lab platform.
 
 Note that using the **kube5g.py** option `-O none`, the script will only deploy k8s and
 the **k5goperator**, and let the user manually start the 4G scenario it prefers, possibly
-after tuning the configuration parameters.
+**after tuning the configuration parameters**.
 
 ## Playing with the k5goperator
 
