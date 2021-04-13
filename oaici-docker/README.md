@@ -13,7 +13,7 @@ You have the choice to either deploy them automatically, through the  **deploy.p
 
 1. If you choose to deploy them automatically, just run on your local machine: (replace slicename with your slice name)
 
- ``oaici-docker $ oaici.py -s slicename``
+ ``oaici-docker $ deploy.py -s slicename``
 
  We assume that you have installed nepi-ng on your host before, see [nepi-ng tuto](https://r2lab.inria.fr/tuto-030-nepi-ng-install.md) and that you booked a R2lab timeslot with your slice, see [R2lab reservation](https://r2lab.inria.fr/tuto-010-registration.md).
 
