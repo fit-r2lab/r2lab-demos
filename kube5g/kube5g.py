@@ -227,7 +227,7 @@ def run(*, gateway, slicename,
                 command="quectel-CM -s oai.ipv4 -4",
                 service_id="QuectelCM",
                 verbose=verbose,
-            )
+        )
 
         init_quectel_nodes = [
             SshJob(
@@ -261,7 +261,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label=f"Detach Quectel UE on fit node {id}",
                 commands = [
-                    Run("python3 ci_ctl_qtel.py /dev/ttyUSB3 detach"),
+                    Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach"),
                 ],
             ) for id, node in nodes_quectel_index.items()
         ]
@@ -544,7 +544,7 @@ def run(*, gateway, slicename,
                     critical=True,
                     verbose=verbose,
                     label=f"Attach Quectel UE on fit node {id}",
-                    command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB3 wup"),
+                    command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 wup"),
                 ) for id, node in nodes_quectel_index.items()
 	    ]
         
