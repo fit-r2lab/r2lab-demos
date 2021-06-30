@@ -31,6 +31,7 @@ default_slicename  = 'inria_oaici'
 default_nodes = [17, 23]
 default_node_epc = 17
 default_node_enb = 23
+default_quectel_nodes = []
 default_phones = [1,]
 
 default_verbose = False
@@ -39,6 +40,7 @@ default_dry_run = False
 default_load_images = True
 default_epc_image = "oai-ci-cd-u18-epc-latest"
 default_enb_image = "docker-oai-u18-lowlatency-enb-ue"
+default_quectel_image = "u20.04-quectel"
 
 ##########
 
@@ -50,12 +52,14 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        nodes, node_epc, node_enb, phones, verbose, dry_run, load_images, epc_image, enb_image):
+        nodes, node_epc, node_enb, quectel_nodes, phones,
+        verbose, dry_run, load_images, epc_image, enb_image, quectel_image):
     """
     Launch latest OAICI EPC and eNB Docker images on R2lab
 
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
+        quectel_nodes: list of indices of quectel UE nodes to use
         phones: list of indices of phones to use
         nodes: a list of node ids to run the scenario on; strings or ints
                   are OK;
@@ -63,6 +67,9 @@ def run(*, gateway, slicename,
         node_enb: the node id for the enb, which is connected to B210/eNB-duplexer
 
     """
+
+    quectel_ids = quectel_nodes[:]
+    quectel = len(quectel_ids) > 0
 
     faraday = SshNode(hostname=default_gateway, username=slicename,
                       verbose=verbose,
@@ -79,7 +86,15 @@ def run(*, gateway, slicename,
                     verbose=verbose)
         for id in nodes
     }
-
+    
+    nodes_quectel_index = {
+        id: SshNode(gateway=faraday, hostname=fitname(id),
+                    username="root",formatter=TimeColonFormatter(),
+                    verbose=verbose)
+        for id in quectel_nodes
+    }
+    allnodes = nodes + quectel_nodes
+    
     fit_epc = fitname(node_epc)
     fit_enb = fitname(node_enb)
 
@@ -137,10 +152,81 @@ def run(*, gateway, slicename,
                 label="turning off unused nodes",
                 command=[
                     Run("rhubarbe bye --all "
-                        + "".join(f"~{x} " for x in nodes))
+                        + "".join(f"~{x} " for x in allnodes))
                 ]
             )
         ]
+        if quectel:
+            prepare_quectel = SshJob(
+                scheduler=scheduler,
+                required=check_lease,
+                node=faraday,
+                critical=True,
+                verbose=verbose,
+                label = f"Load image {quectel_image} on quectel UE nodes",
+                commands=[
+                    Run("rhubarbe", "usrpoff", *quectel_ids),
+                    Run("rhubarbe", "load", *quectel_ids, "-i", quectel_image),
+                    Run("rhubarbe", "wait", *quectel_ids),
+                    Run("rhubarbe", "usrpon", *quectel_ids),
+                ],
+            ),
+
+        
+    ##########
+    # Prepare the Quectel UE nodes
+    if quectel:
+        # wait 30s for Quectel modules show up
+        wait_quectel_ready = PrintJob(
+            "Let Quectel modules show up",
+            scheduler=scheduler,
+            required=prepare_quectel,
+            sleep=30,
+            label="sleep 30s for the Quectel modules to show up"
+        )
+        # run the Quectel Connection Manager as a service on each Quectel UE node
+        quectelCM_service = Service(
+                command="quectel-CM -s oai.ipv4 -4",
+                service_id="QuectelCM",
+                verbose=verbose,
+        )
+        init_quectel_nodes = [
+            SshJob(
+                scheduler=scheduler,
+                required=wait_quectel_ready,
+                node=node,
+                critical=True,
+                verbose=verbose,
+                label=f"Init Quectel UE on fit node {id}",
+                commands = [
+                    Run("lsusb -t"),
+                    Run("ls /dev/ttyUSB*"),
+                    quectelCM_service.start_command(),
+                ],
+            ) for id, node in nodes_quectel_index.items()
+        ]
+        # wait 20s for Quectel Connection Manager to start up
+        wait_quectelCM_ready = PrintJob(
+            "Let QuectelCM start up",
+            scheduler=scheduler,
+            required=init_quectel_nodes,
+            sleep=20,
+            label="sleep 20s for the Quectel Connection Manager to start up"
+        )
+        detach_quectel_nodes = [
+            SshJob(
+                scheduler=scheduler,
+                required=wait_quectelCM_ready,
+                node=node,
+                critical=True,
+                verbose=verbose,
+                label=f"Detach Quectel UE on fit node {id}",
+                commands = [
+                    Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach"),
+                ],
+            ) for id, node in nodes_quectel_index.items()
+        ]
+
 
     ##########
     # Launch the EPC
@@ -156,9 +242,13 @@ def run(*, gateway, slicename,
         ],
     )
     # Launch the eNB
+    if quectel:
+        req = (start_epc, detach_quectel_nodes)
+    else:
+        req = start_epc
     start_enb = SshJob(
         scheduler=scheduler,
-        required=start_epc,
+        required=req,
         node=faraday,
         critical=True,
         verbose=verbose,
@@ -200,8 +290,21 @@ def run(*, gateway, slicename,
             label=f"turn off airplane mode on phone {id}",
             required=start_enb,
             scheduler=scheduler)
-        for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
-
+        for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)
+    ]
+    if quectel:
+        job_start_quectel = [
+            SshJob(
+                scheduler=scheduler,
+                required=(job_start_phones,detach_quectel_nodes),
+                node=node,
+                critical=True,
+                verbose=verbose,
+                label=f"Attach Quectel UE on fit node {id}",
+                command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 wup"),
+            ) for id, node in nodes_quectel_index.items()
+        ]
+    
 
     ##########
     # Update the .dot and .png file for illustration purposes
@@ -256,6 +359,11 @@ def main():
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=default_phones,
                         help='Commercial phones to use; use -p 0 to choose no phone')
+    parser.add_argument("-Q", "--quectel-id", dest='quectel_nodes',
+                        default=default_quectel_nodes,
+                        choices=["32",],
+                        action=ListOfChoices,
+			help="specify as many node ids with Quectel UEs as you want")
 
     parser.add_argument("-v", "--verbose", default=default_verbose,
                         action='store_true', dest='verbose',
@@ -274,6 +382,8 @@ def main():
                         default=default_epc_image)
     parser.add_argument("--enb-image", dest="enb_image",
                         default=default_enb_image)
+    parser.add_argument("--quectel-image", dest="quectel_image",
+                        default=default_quectel_image)
 
 
     args = parser.parse_args()
@@ -304,6 +414,11 @@ def main():
             print(f"Using phone{phone}")
     else:
         print("No phone involved")
+    if args.quectel_nodes:
+        for quectel in args.quectel_nodes:
+            print(f"Using Quectel UE on node {quectel}")
+    else:
+        print("No Quectel UE involved")
 
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
