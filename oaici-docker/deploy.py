@@ -38,7 +38,8 @@ default_dry_run = False
 
 default_load_images = True
 default_epc_image = "oai-ci-cd-u18-epc-latest"
-default_enb_image = "docker-oai-u18-lowlatency-enb-ue"
+#default_enb_image = "docker-oai-u18-lowlatency-enb-ue"
+default_enb_image = "oai-ci-u18-lowlatency-enb-ue-docker-latest"
 
 ##########
 
