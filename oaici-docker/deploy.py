@@ -257,11 +257,18 @@ def run(*, gateway, slicename,
             RunScript("oaici.sh", "start-enb", node_enb),
         ],
     )
-
+    wait_ran_ready = PrintJob(
+        "Let the eNB start up",
+        scheduler=scheduler,
+        required=start_enb,
+        sleep=50,
+        label="sleep 50s for the eNB to start up"
+    )
+    
     ########## Test phone(s) connectivity
 
-    sleeps_ran = (50, 60)
-    phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
+    sleeps_ran = (0, 10)
+    phone_msgs = [f"wait again for {sleep}s before waking up phone{id}"
                   for sleep, id in zip(sleeps_ran, phones)]
     wait_commands = [f"echo {msg}; sleep {sleep}"
                      for msg, sleep in zip(phone_msgs, sleeps_ran)]
@@ -288,7 +295,7 @@ def run(*, gateway, slicename,
                           includes=INCLUDES),
             ],
             label=f"turn off airplane mode on phone {id}",
-            required=start_enb,
+            required=wait_ran_ready,
             scheduler=scheduler)
         for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)
     ]
@@ -296,12 +303,12 @@ def run(*, gateway, slicename,
         job_start_quectel = [
             SshJob(
                 scheduler=scheduler,
-                required=(job_start_phones,detach_quectel_nodes),
+                required=(job_start_phones,wait_ran_ready,detach_quectel_nodes),
                 node=node,
                 critical=True,
                 verbose=verbose,
                 label=f"Attach Quectel UE on fit node {id}",
-                command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 wup"),
+                command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach; sleep 5; python3 ci_ctl_qtel.py /dev/ttyUSB2 wup; sleep 10; ifconfig"),
             ) for id, node in nodes_quectel_index.items()
         ]
     
