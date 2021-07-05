@@ -34,6 +34,7 @@ default_operator_version = 'v1'
 default_nodes = [1, 2, 3, 5, 23]
 default_node_master = 1
 default_node_enb = 23
+default_quectel_nodes = []
 default_phones = [1,]
 
 default_flexran = False
@@ -48,6 +49,7 @@ default_master_image = "kube5g-master-v2.2"
 #default_master_image = "k8base" # now kube5g is installed in this script
 # k8base-v2 now includes Osama's fix for drone app (git clone -b droneapp https://gitlab.eurecom.fr/mosaic5g/store.git)
 default_worker_image = "k8base-v2"
+default_quectel_image = "u20.04-quectel"
 
 ##########
 
@@ -59,14 +61,15 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        disaggregated_cn, operator_version, nodes, node_master, node_enb, phones, flexran,
+        disaggregated_cn, operator_version, nodes, node_master, node_enb, quectel_nodes, phones, flexran,
         drone, verbose, dry_run,
-        load_images, master_image, worker_image):
+        load_images, master_image, worker_image, quectel_image):
     """
     Install K8S on R2lab
 
     Arguments:
         slicename: the Unix login name (slice name) to enter the gateway
+        quectel_nodes: list of indices of quectel UE nodes to use
         phones: list of indices of phones to use
         nodes: a list of node ids to run the scenario on; strings or ints
                   are OK;
@@ -106,6 +109,9 @@ def run(*, gateway, slicename,
     worker_ids = nodes[:]
     worker_ids.remove(node_master)
 
+    quectel_ids = quectel_nodes[:]
+    quectel = len(quectel_ids) > 0
+
     faraday = SshNode(hostname=default_gateway, username=slicename,
                       verbose=verbose,
                       formatter=TimeColonFormatter())
@@ -120,6 +126,13 @@ def run(*, gateway, slicename,
                     username="root",formatter=TimeColonFormatter(),
                     verbose=verbose)
         for id in nodes
+    }
+
+    nodes_quectel_index = {
+        id: SshNode(gateway=faraday, hostname=fitname(id),
+                    username="root",formatter=TimeColonFormatter(),
+                    verbose=verbose)
+        for id in quectel_nodes
     }
 
     worker_index = dict(node_index)
@@ -183,7 +196,76 @@ def run(*, gateway, slicename,
                 ]
             )
         ]
+        if quectel:
+            prepare_quectel = SshJob(
+                scheduler=scheduler,
+                required=green_light,
+                node=faraday,
+                critical=True,
+                verbose=verbose,
+                label = f"Load image {quectel_image} on quectel UE nodes",
+                commands=[
+                    Run("rhubarbe", "usrpoff", *quectel_ids), 
+                    Run("rhubarbe", "load", *quectel_ids, "-i", quectel_image),
+                    Run("rhubarbe", "wait", *quectel_ids),
+                    Run("rhubarbe", "usrpon", *quectel_ids), 
+                ],
+            ),
 
+    ##########
+    if quectel:
+        # wait 30s for Quectel modules show up 
+        wait_quectel_ready = PrintJob(
+            "Let Quectel modules show up",
+            scheduler=scheduler,
+            required=prepare_quectel,
+            sleep=30,
+            label="sleep 30s for the Quectel modules to show up"
+        )
+        # run the Quectel Connection Manager as a service on each Quectel UE node
+        quectelCM_service = Service(
+                command="quectel-CM -s oai.ipv4 -4",
+                service_id="QuectelCM",
+                verbose=verbose,
+        )
+
+        init_quectel_nodes = [
+            SshJob(
+                scheduler=scheduler,
+                required=wait_quectel_ready,
+                node=node,
+    	        critical=True,
+                verbose=verbose,
+                label=f"Init Quectel UE on fit node {id}",
+                commands = [
+                    Run("lsusb -t"),
+                    Run("ls /dev/ttyUSB*"),
+                    quectelCM_service.start_command(),
+                ],
+            ) for id, node in nodes_quectel_index.items()
+        ]
+        # wait 20s for Quectel Connection Manager to start up 
+        wait_quectelCM_ready = PrintJob(
+            "Let QuectelCM start up",
+            scheduler=scheduler,
+            required=init_quectel_nodes,
+            sleep=20,
+            label="sleep 20s for the Quectel Connection Manager to start up"
+        )
+        detach_quectel_nodes = [
+            SshJob(
+                scheduler=scheduler,
+                required=wait_quectelCM_ready,
+                node=node,
+    	        critical=True,
+                verbose=verbose,
+                label=f"Detach Quectel UE on fit node {id}",
+                commands = [
+                    Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach"),
+                ],
+            ) for id, node in nodes_quectel_index.items()
+        ]
+        
     ##########
     # Initialize k8s on the master node
     init_master = SshJob(
@@ -420,12 +502,12 @@ def run(*, gateway, slicename,
         
         ########## Test phone(s) connectivity
 
-        sleeps_ran = (10, 20)
+        sleeps_ran = (20, 25)
         phone_msgs = [f"wait for {sleep}s for eNB to start up before waking up phone{id}"
                       for sleep, id in zip(sleeps_ran, phones)]
         wait_commands = [f"echo {msg}; sleep {sleep}"
                          for msg, sleep in zip(phone_msgs, sleeps_ran)]
-        sleeps_phone = (10, 10)
+        sleeps_phone = (15, 20)
         phone2_msgs = [f"wait for {sleep}s for phone{id} before starting tests"
                        for sleep, id in zip(sleeps_phone, phones)]
         wait2_commands = [f"echo {msg}; sleep {sleep}"
@@ -450,9 +532,22 @@ def run(*, gateway, slicename,
                 label=f"turn off airplane mode on phone {id}",
                 required=phones_requirements,
                 scheduler=scheduler)
-            for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)]
+            for id, wait_command, wait2_command in zip(phones, wait_commands, wait2_commands)
+        ]
 
-
+        if quectel:
+            job_start_quectel = [
+                SshJob(
+	            scheduler=scheduler,
+                    required=(job_start_phones,detach_quectel_nodes),
+                    node=node,
+                    critical=True,
+                    verbose=verbose,
+                    label=f"Attach Quectel UE on fit node {id}",
+                    command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 wup"),
+                ) for id, node in nodes_quectel_index.items()
+	    ]
+        
     ##########
     # Update the .dot and .png file for illustration purposes
     scheduler.check_cycles()
@@ -508,6 +603,10 @@ def main():
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=default_phones,
                         help='Commercial phones to use; use -p 0 to choose no phone')
+    parser.add_argument("-Q", "--quectel-id", dest='quectel_nodes', default=default_quectel_nodes,
+                        choices=["32",],
+                        action=ListOfChoices,
+                        help="specify as many node ids with Quectel UEs as you want")
     parser.add_argument("-O", "--operator-version", default=default_operator_version,
                         choices=("none", "v1", "v2"),
                         help="specify a version for Core Network,"
@@ -536,6 +635,8 @@ def main():
                         default=default_master_image)
     parser.add_argument("--worker-image", dest="worker_image",
                         default=default_worker_image)
+    parser.add_argument("--quectel-image", dest="quectel_image",
+                        default=default_quectel_image)
 
 
     args = parser.parse_args()
@@ -583,6 +684,11 @@ def main():
                 print(f"Using phone{phone}")
         else:
             print("No phone involved")
+        if args.quectel_nodes:
+            for quectel in args.quectel_nodes:
+                print(f"Using Quectel UE on node {quectel}")
+        else:
+            print("No Quectel UE involved")
 
     now = time.strftime("%H:%M:%S")
     print(f"Experiment STARTING at {now}")
