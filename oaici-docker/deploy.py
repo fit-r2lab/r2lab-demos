@@ -308,7 +308,7 @@ def run(*, gateway, slicename,
                 critical=True,
                 verbose=verbose,
                 label=f"Attach Quectel UE on fit node {id}",
-                command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach; sleep 5; python3 ci_ctl_qtel.py /dev/ttyUSB2 wup; sleep 10; ifconfig"),
+                command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach; sleep 5; python3 ci_ctl_qtel.py /dev/ttyUSB2 wup; sleep 20; ifconfig wwan0"),
             ) for id, node in nodes_quectel_index.items()
         ]
     
