@@ -238,8 +238,7 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label=f"Init Quectel UE on fit node {id}",
                 commands = [
-                    Run("lsusb -t"),
-                    Run("ls /dev/ttyUSB*"),
+                    RunScript(find_local_embedded_script("nodes.sh"), "check-quectel-on", includes=INCLUDES),
                     quectelCM_service.start_command(),
                 ],
             ) for id, node in nodes_quectel_index.items()
@@ -250,7 +249,7 @@ def run(*, gateway, slicename,
             scheduler=scheduler,
             required=init_quectel_nodes,
             sleep=20,
-            label="sleep 20s for the Quectel Connection Manager to start up"
+            label="Sleep 20s for the Quectel Connection Manager(s) to start up"
         )
         detach_quectel_nodes = [
             SshJob(
@@ -260,9 +259,7 @@ def run(*, gateway, slicename,
     	        critical=True,
                 verbose=verbose,
                 label=f"Detach Quectel UE on fit node {id}",
-                commands = [
-                    Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach"),
-                ],
+                command = RunScript(find_local_embedded_script("nodes.sh"), "quectel-detach", includes=INCLUDES),
             ) for id, node in nodes_quectel_index.items()
         ]
         
@@ -536,7 +533,7 @@ def run(*, gateway, slicename,
         ]
 
         if quectel:
-            job_start_quectel = [
+            job_attach_quectel = [
                 SshJob(
 	            scheduler=scheduler,
                     required=(job_start_phones,check_kube5g,detach_quectel_nodes),
@@ -544,10 +541,30 @@ def run(*, gateway, slicename,
                     critical=True,
                     verbose=verbose,
                     label=f"Attach Quectel UE on fit node {id}",
-                    command = Run("python3 ci_ctl_qtel.py /dev/ttyUSB2 detach; sleep 5;python3 ci_ctl_qtel.py /dev/ttyUSB2 wup; sleep 20; ifconfig wwan0"),
+                    command = RunScript(find_local_embedded_script("nodes.sh"),
+                                        "quectel-attach", includes=INCLUDES),
                 ) for id, node in nodes_quectel_index.items()
 	    ]
-        
+            # wait 30s for Quectel connection(s) to set up
+            wait_quectel_cx_ready = PrintJob(
+                "Let QuectelCM start up",
+                scheduler=scheduler,
+                required=job_attach_quectel,
+                sleep=5,
+                label="Sleep 30s for the Quectel connection(s) to set up"
+            )
+            test_quectel_cx = [
+                SshJob(
+                    scheduler=scheduler,
+                    required=wait_quectel_cx_ready,
+                    node=node,
+		    verbose=verbose,
+                    label=f"Check the Quectel cx on fit node {id}",
+                    command = RunScript(find_local_embedded_script("nodes.sh"),
+                                        "check-quectel-cx", includes=INCLUDES),
+	        ) for id, node in nodes_quectel_index.items()
+            ]            
+            
     ##########
     # Update the .dot and .png file for illustration purposes
     scheduler.check_cycles()

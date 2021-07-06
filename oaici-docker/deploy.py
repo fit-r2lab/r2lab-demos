@@ -308,7 +308,7 @@ def run(*, gateway, slicename,
                 command = RunScript(find_local_embedded_script("nodes.sh"), "quectel-attach", includes=INCLUDES),
             ) for id, node in nodes_quectel_index.items()
         ]
-        # wait 50s for Quectel connection to set up
+        # wait 30s for Quectel connection to set up
         wait_quectel_cx_ready = PrintJob(
             "Let QuectelCM start up",
             scheduler=scheduler,

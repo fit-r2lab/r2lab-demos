@@ -2063,3 +2063,44 @@ Removing prod-cassandra      ... done
 Removing network prod-oai-private-net
 Removing network prod-oai-public-net
 ```
+___
+# New 4G/5G devices Quectel RM500Q-GL
+
+We have recently added new 4G/5G UEs on R2lab, more precisely some Quectel RM500Q-GL devices. Check the [map of nodes](https://r2lab.inria.fr/hardware.md) to have an up-to-date view of devices attached on each node in R2lab. 
+
+To use one such a UE, you should first load the **quectel** image on the node the Quectel device is attached to, and of course, run 
+
+Then, you need to run the Quectel Connection Manager on this node using another terminal:
+
+```bash
+root@fit32: start-quectelCM
+```
+
+After that, launch a new terminal on the node, wait about 20s and run the following detach command (if the enB is not yet started, just to ensure it will not disturb its init phase).
+
+```bash
+root@fit32: quectel-detach
+```
+
+Once the eNB is up and running, you can attach the Quectel device using the  following command:
+
+```bash
+root@fit32: quectel-attach
+```
+
+Then, wait about 30s and you should see the wwan0 network interface up and running a new route set to use this connection.
+
+You can also check the 4G/5G connection using the following command:
+
+```bash
+root@fit32: check-quectel-cx
+```
+
+
+We also added an option on the **deploy.py** script to handle automatically all the steps described above. Just use the option -Q and precise the R2lab fit nodes that host the Quectel devices you're interested in. For instance the following command will run the demo without phone and using only the Quectel device attached on node fit32.
+
+```bash
+mylaptop: ./deploy.py -p 0 -Q 32
+```
+
+
