@@ -533,10 +533,18 @@ def run(*, gateway, slicename,
         ]
 
         if quectel:
+            # wait 60s for Quectel connection(s) to set up
+            wait_before_attach_quectel = PrintJob(
+                "Wait again 30s before attaching Quectel device(s)",
+                scheduler=scheduler,
+                required=(job_start_phones,check_kube5g,detach_quectel_nodes),
+                sleep=30,
+                label="Sleep 30s before attaching Quectel device(s)"
+            )
             job_attach_quectel = [
                 SshJob(
 	            scheduler=scheduler,
-                    required=(job_start_phones,check_kube5g,detach_quectel_nodes),
+                    required=wait_before_attach_quectel,
                     node=node,
                     critical=True,
                     verbose=verbose,
@@ -547,10 +555,10 @@ def run(*, gateway, slicename,
 	    ]
             # wait 30s for Quectel connection(s) to set up
             wait_quectel_cx_ready = PrintJob(
-                "Let QuectelCM start up",
+                "Let the Quectel connection(s) set up",
                 scheduler=scheduler,
                 required=job_attach_quectel,
-                sleep=5,
+                sleep=30,
                 label="Sleep 30s for the Quectel connection(s) to set up"
             )
             test_quectel_cx = [
