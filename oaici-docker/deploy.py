@@ -310,7 +310,7 @@ def run(*, gateway, slicename,
         ]
         # wait 30s for Quectel connection to set up
         wait_quectel_cx_ready = PrintJob(
-            "Let QuectelCM start up",
+            "Let the Quectel connection(s) set up",
             scheduler=scheduler,
             required=job_attach_quectel,
             sleep=30,
