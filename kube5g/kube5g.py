@@ -558,6 +558,7 @@ def run(*, gateway, slicename,
                     scheduler=scheduler,
                     required=wait_quectel_cx_ready,
                     node=node,
+                    critical=False,
 		    verbose=verbose,
                     label=f"Check the Quectel cx on fit node {id}",
                     command = RunScript(find_local_embedded_script("nodes.sh"),
@@ -623,7 +624,8 @@ def main():
     parser.add_argument("-Q", "--quectel-id", dest='quectel_nodes', default=default_quectel_nodes,
                         choices=["32",],
                         action=ListOfChoices,
-                        help="specify as many node ids with Quectel UEs as you want")
+                        help="specify as many node ids with Quectel UEs as you want;"
+                        " WARNING: only -O v2 option works with Quectel nodes.")
     parser.add_argument("-O", "--operator-version", default=default_operator_version,
                         choices=("none", "v1", "v2"),
                         help="specify a version for Core Network,"
