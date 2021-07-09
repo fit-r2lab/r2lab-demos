@@ -329,6 +329,7 @@ def run(*, gateway, slicename,
             Run("apt install -y python3-pip"),
             Run("pip3 install --upgrade pip"),
             Run("pip3 install ruamel.yaml==0.16.12 colorlog==4.6.2"),
+            Run("sed -i 's/oairan:v1-1.0-1/oairan:v1-1.0-3/g' /root/kube5g/common/config-manager/conf_global_default.yaml"),
             # specify the R2lab specific configuration
             Run("cd /root/kube5g/common/config-manager; ./conf-manager.py -s conf_short_r2lab.yaml"),
             # apply the R2lab CRD
