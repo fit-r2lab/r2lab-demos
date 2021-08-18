@@ -49,7 +49,7 @@ default_master_image = "kube5g-master-v2.2"
 #default_master_image = "k8base" # now kube5g is installed in this script
 # k8base-v2 now includes Osama's fix for drone app (git clone -b droneapp https://gitlab.eurecom.fr/mosaic5g/store.git)
 default_worker_image = "k8base-v2"
-default_quectel_image = "u20.04-quectel"
+default_quectel_image = "quectel-wwan0"
 
 ##########
 
