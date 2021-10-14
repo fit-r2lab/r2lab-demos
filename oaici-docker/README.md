@@ -2090,17 +2090,60 @@ root@fit32: quectel-attach
 
 Then, wait about 30s and you should see the wwan0 network interface up and running a new route set to use this connection.
 
-You can also check the 4G/5G connection using the following command:
+You can check the 4G/5G connection using the following command:
 
 ```bash
 root@fit32: check-quectel-cx
 ```
 
-
-We also added an option on the **deploy.py** script to handle automatically all the steps described above. Just use the option -Q and precise the R2lab fit nodes that host the Quectel devices you're interested in. For instance the following command will run the demo without phone and using only the Quectel device attached on node fit32.
+Note that we have added an option on the **deploy.py** script to handle automatically all the steps described above. Just use the option -Q and precise the R2lab fit nodes that host the Quectel devices you're interested in.  For instance the following command will run the demo without phone (option -P0) and using only the Quectel device attached on node fit32.
 
 ```bash
-mylaptop: ./deploy.py -p 0 -Q 32
+mylaptop: ./deploy.py -P0 -Q32
 ```
+
+
+You could also run a local iperf test on the wireless link. To do this, first add the following route on fit32 and run iperf:
+
+```bash
+root@fit32: route add -net 192.168.61.192/26 wwan0
+root@fit32:~# ip route
+default via 192.168.3.100 dev control 
+12.1.1.0/30 dev wwan0 proto kernel scope link src 12.1.1.2 
+192.168.3.0/24 dev control proto kernel scope link src 192.168.3.32 
+192.168.61.192/26 dev wwan0 scope link 
+root@fit32:~# iperf -B 12.1.1.2 -u -i 1 -s
+```
+Then, on another terminal connect to the **prod-trf-gen** container on the CN host (i.e., fit17 by default):
+
+```bash
+oaici@fit17:~$ docker exec -it prod-trf-gen /bin/bash
+root@4e44085d3d83:/iperf-2.0.5# ping -c 2 12.1.1.2
+PING 12.1.1.2 (12.1.1.2) 56(84) bytes of data.
+64 bytes from 12.1.1.2: icmp_seq=1 ttl=63 time=23.4 ms
+root@4e44085d3d83:/iperf-2.0.5# iperf -c 12.1.1.2 -u -i 1 -t 10 -b 1M
+------------------------------------------------------------
+Client connecting to 12.1.1.2, UDP port 5001
+Sending 1470 byte datagrams, IPG target: 11215.21 us (kalman adjust)
+UDP buffer size:  208 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.61.198 port 38275 connected with 12.1.1.2 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0- 1.0 sec   131 KBytes  1.07 Mbits/sec
+[  3]  1.0- 2.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  2.0- 3.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  3.0- 4.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  4.0- 5.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  5.0- 6.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  6.0- 7.0 sec   129 KBytes  1.06 Mbits/sec
+[  3]  7.0- 8.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  8.0- 9.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  9.0-10.0 sec   128 KBytes  1.05 Mbits/sec
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec
+[  3] Sent 893 datagrams
+[  3] Server Report:
+[  3]  0.0-10.0 sec  1.25 MBytes  1.05 Mbits/sec   0.000 ms 2147481862/2147482755 (0%)
+```
+
 
 
