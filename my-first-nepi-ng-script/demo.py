@@ -3,9 +3,13 @@
 from asynciojobs import Scheduler
 from apssh import SshNode, ColonFormatter
 from apssh import SshJob, Run, RunScript, Pull
+# for the epilogue that runs a command locally
+# from apssh import LocalNode
+import asyncio
+from asynciojobs import Job
 
 gwname = "faraday.inria.fr"
-slice = "inria_r2lab.tutorial"
+slice = "inria_admin"
 
 def main(nodename1, nodename2, *, verbose=True):
 
@@ -74,11 +78,23 @@ def main(nodename1, nodename2, *, verbose=True):
         ],
         required = ( job_prep_send, job_prep_recv),
     )
+    # ideally we would like to write this
+#    job_epilogue = SshJob(
+#        node=LocalNode(),
+#        command=[
+#            RunScript("demo.sh", "epilogue"),
+#        ],
+#        required=(job_run_send, job_run_recv),
+#    )
+    # however RunScript is not yet supported on LocalNodes
+    job_epilogue = Job(asyncio.create_subprocess_shell("demo.sh epilogue"),
+                       required=(job_run_send, job_run_recv))
         
     scheduler = Scheduler(
         job_warmup,
         job_prep_send, job_prep_recv,
         job_run_send, job_run_recv,
+        job_epilogue,
         verbose=verbose
     )
 
@@ -93,4 +109,4 @@ def main(nodename1, nodename2, *, verbose=True):
         scheduler.debrief()
 
 if __name__ == '__main__':
-    main('fit01', 'fit31', verbose=False)
+    main('fit01', 'fit02', verbose=False)
