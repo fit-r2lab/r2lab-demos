@@ -2,12 +2,12 @@
 
 ## reachable from the outside w/ VNC or Screen Sharing
 
-| hostname | IP |
-|----------|
+```
 faraday-macphone1.inria.fr has address 138.96.16.99
 root@faraday ~ (master *) #
 host faraday-macphone2.inria.fr
 faraday-macphone2.inria.fr has address 138.96.16.100
+```
 
 ```
 iptables -t nat -A PREROUTING -d 138.96.16.99/32 -p tcp -m tcp --dport 5900 -j DNAT --to-destination 192.168.4.201:5900
@@ -18,11 +18,11 @@ iptables -t nat -A PREROUTING -d 138.96.16.100/32 -p tcp -m tcp --dport 5900 -j 
 
 ```
 while true; do
- echo ============================== $(date); 
- for i in 200 201 250 251; do 
- ping -c 1 -W 1 192.168.4.$i >& /dev/null && echo "$i : YES" || echo "$i OFF"; 
- done; 
- sleep 10; 
+ echo ============================== $(date);
+ for i in 200 201 250 251; do
+ ping -c 1 -W 1 192.168.4.$i >& /dev/null && echo "$i : YES" || echo "$i OFF";
+ done;
+ sleep 10;
  done
 ```
 
@@ -47,7 +47,7 @@ After an install/upgrade, make sure to check for these manually:
 ### Basic & Convenience
 
 * In the **Settings ⟹ Developer Options** menu:
-* **USB debugging** must be *on* 
+* **USB debugging** must be *on*
 * also make sure to turn *on* the **Stay awake** topic, because it's very hard to unlock the screen through the Screen Sharing utility
 
 ### Cellular networks
@@ -63,14 +63,14 @@ After an install/upgrade, make sure to check for these manually:
 
 * This setting does not survive reboot**
   * app 4G switcher
-  * Set preferred network type -> LTE only 
+  * Set preferred network type -> LTE only
   * verify several times that this mode does not change by relaunching the app 4G switcher
 * profil APN
   * Settings
   * ... more
   * Cellular networks (requires airplane mode OFF)
   * Access point names
-    * Check that r2lab is selected 
+    * Check that r2lab is selected
   	 * Details should be
     	* APN = oai.ipv4
     	* MCC = 208
@@ -78,7 +78,7 @@ After an install/upgrade, make sure to check for these manually:
     	* Bearer = LTE
 
 * Verify also that:
-	* Settings/Wi-Fi Mode is off	
+	* Settings/Wi-Fi Mode is off
 	* Settings/Bluetooth Mode is off
 	* Settings/Data Usage/Cellular Data is on
 
@@ -100,5 +100,4 @@ I tried to get in a position where I could do installs remotely while 4G connect
   * its password
   * the GSF ID
 * at that point the google play website whined because I had not been using that email to reach the google store from the phone itself (the GSF comes from the phone)
-
 
