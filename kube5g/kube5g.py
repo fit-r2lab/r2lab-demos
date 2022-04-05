@@ -205,16 +205,16 @@ def run(*, gateway, slicename,
                 verbose=verbose,
                 label = f"Load image {quectel_image} on quectel UE nodes",
                 commands=[
-                    Run("rhubarbe", "usrpoff", *quectel_ids), 
+                    Run("rhubarbe", "usrpoff", *quectel_ids),
                     Run("rhubarbe", "load", *quectel_ids, "-i", quectel_image),
                     Run("rhubarbe", "wait", *quectel_ids),
-                    Run("rhubarbe", "usrpon", *quectel_ids), 
+                    Run("rhubarbe", "usrpon", *quectel_ids),
                 ],
             ),
 
     ##########
     if quectel:
-        # wait 30s for Quectel modules show up 
+        # wait 30s for Quectel modules show up
         wait_quectel_ready = PrintJob(
             "Let Quectel modules show up",
             scheduler=scheduler,
@@ -243,7 +243,7 @@ def run(*, gateway, slicename,
                 ],
             ) for id, node in nodes_quectel_index.items()
         ]
-        # wait 20s for Quectel Connection Manager to start up 
+        # wait 20s for Quectel Connection Manager to start up
         wait_quectelCM_ready = PrintJob(
             "Let QuectelCM start up",
             scheduler=scheduler,
@@ -262,7 +262,7 @@ def run(*, gateway, slicename,
                 command = RunScript(find_local_embedded_script("nodes.sh"), "quectel-detach", includes=INCLUDES),
             ) for id, node in nodes_quectel_index.items()
         ]
-        
+
     ##########
     # Initialize k8s on the master node
     init_master = SshJob(
@@ -497,7 +497,7 @@ def run(*, gateway, slicename,
             phones_requirements=check_kube5g
 
 
-        
+
         ########## Test phone(s) connectivity
 
         sleeps_ran = (20, 25)
@@ -573,8 +573,8 @@ def run(*, gateway, slicename,
                     command = RunScript(find_local_embedded_script("nodes.sh"),
                                         "check-quectel-cx", includes=INCLUDES),
 	        ) for id, node in nodes_quectel_index.items()
-            ]            
-            
+            ]
+
     ##########
     # Update the .dot and .png file for illustration purposes
     scheduler.check_cycles()
