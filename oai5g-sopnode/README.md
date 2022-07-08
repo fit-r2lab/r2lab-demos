@@ -15,10 +15,16 @@ In this demo, the **oai-demo.py** nepi-ng script is used to prepare 4 fit nodes 
 This demo does not involve radio transmission as the OAI5G RfSimulator will be used instead.
 
 
-_Acknowledgments: Support regarding configuration of the OAI5G functions has been provided by
+**Acknowledgments:** _Support regarding configuration of the OAI5G functions has been provided by
 Sagar Arora at Eurecom <sagar.arora@eurecom.fr>._
 
-## References
+### Software dependencies
+
+Before you can run the script in this directory, make user to install its dependencies
+
+    pip install -r requirements.txt
+
+### References
 
 * [OAI 5G Core Network Deployment using Helm Charts](https://gitlab.eurecom.fr/oai/cn5g/oai-cn5g-fed/-/blob/master/docs/DEPLOY_SA5G_HC.md)
 * [R2lab welcome page](https://r2lab.inria.fr/)
@@ -40,7 +46,9 @@ the following R2lab fit nodes:
 
 Then the script will configure the nodes to use the data interface used by [k8s Multus](https://github.com/k8snetworkplumbingwg/multus-cni) and it will make all the nodes join the k8s master (sopnode-l1.inria.fr by default).
 
-After that, you can log on the master (ssh oai@sopnode-l1.inria.fr) and deploy the OAI5G pods using the **demo-oai** script (under /home/oai/bin) or by running manually the following commands:
+### OAI5G Pods deployment
+
+Now, you can log on the master (ssh oai@sopnode-l1.inria.fr) and deploy the OAI5G pods using the **demo-oai** script (under /home/oai/bin) or by running manually the following commands:
 
 ```bash
 echo "Wait until all fit nodes are in READY state"
@@ -88,11 +96,30 @@ helm --namespace=oai5g install oai-nr-ue oai-nr-ue/
 echo "Wait until the NR-UE pod is READY"
 kubectl wait pod -noai5g --for=condition=Ready --all
 
+```
+
+### Testing
+
+To check logs of the oai-gnb pod:
+
+``` bash 
+
+GNB_POD_NAME=$(kubectl -noai5g get pods -l app.kubernetes.io/name=oai-gnb -o jsonpath="{.items[0].metadata.name}")
+
+kubectl -noai5g logs $GNB_POD_NAME -c gnb
+```
+
+To check logs of the oai-nr-ue pod:
+
+``` bash 
+
 UE_POD_NAME=$(kubectl -noai5g get pods -l app.kubernetes.io/name=oai-nr-ue -o jsonpath="{.items[0].metadata.name}")
 
-echo "Check UE logs"
 kubectl -noai5g logs $UE_POD_NAME -c nr-ue
+```
 
+
+### Cleanup
 
 ```
 To clean up all pods, you can run the **demo-oai-clean** script (under /home/oai/) or run the following:
@@ -100,9 +127,6 @@ To clean up all pods, you can run the **demo-oai-clean** script (under /home/oai
 helm --namespace oai5g ls --short --all | xargs -L1 helm --namespace oai5g delete
 ```
 
-### Software dependencies
 
-Before you can run the script in this directory, make user to install its dependencies
 
-    pip install -r requirements.txt
 
