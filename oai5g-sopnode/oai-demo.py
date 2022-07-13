@@ -32,14 +32,20 @@ from r2lab import r2lab_hostname, ListOfChoices, ListOfChoicesNullReset, find_lo
 # sopnode-w2.inria.fr runs an experimental/devel cluster
 
 default_master = 'sopnode-l1.inria.fr'
+default_image = 'kubernetes'
+
+default_amf = 1
+default_spgwu = 2
+default_gnb = 3
+default_ue = 9
 
 default_gateway  = 'faraday.inria.fr'
 default_slicename  = 'inria_sopnode'
 
-
-def run(*, gateway, slicename, master,
+def run(*, gateway, slicename,
+        master,
         amf, spgwu, gnb, ue,
-        load_images, image="kubernetes",
+        image, load_images,
         verbose, dry_run ):
     """
     add R2lab nodes as workers in a k8s cluster
@@ -120,12 +126,12 @@ def run(*, gateway, slicename, master,
             scheduler=scheduler,
             required=green_light,
             node=node,
-            critical=True,
+            critical=False,
             verbose=verbose,
-            label=f"preparing worker {r2lab_hostname(id)} and joining the k8s cluster",
+            label=f"Reset data interface, ipip tunnels of worker node {r2lab_hostname(id)} and possibly leave {master} k8s cluster",
             command=[
-                Run("nmcli con up data; nmcli dev status; join-tunnel"),
-                Run(f"kube-install.sh join-cluster r2lab@{master}")
+                Run("nmcli con down data; nmcli dev status; leave-tunnel"),
+                Run(f"kube-install.sh leave-cluster r2lab@{master}"),
             ]
         ) for id, node in node_index.items()
     ]
@@ -137,8 +143,11 @@ def run(*, gateway, slicename, master,
             node=node,
             critical=True,
             verbose=verbose,
-            label=f"joining from {r2lab_hostname(id)}",
-            command=Run(f"kube-install.sh join-cluster r2lab@{master}"),
+            label=f"Set data interface and ipip tunnels of worker node {r2lab_hostname(id)} and add it to {master} k8s cluster",
+            command=[
+                Run("nmcli con up data; nmcli dev status; join-tunnel"),
+                Run(f"kube-install.sh join-cluster r2lab@{master}")
+            ]
         ) for id, node in node_index.items()
     ]
 
@@ -157,7 +166,7 @@ def run(*, gateway, slicename, master,
         print(f"RUN KO : {scheduler.why()}")
         scheduler.debrief()
         return False
-    print(f"RUN OK. You can now run on oai@{master} cluster the k8s demo-oai script")
+    print(f"Worker FIT nodes ready. You can now log on oai@{master} cluster and launch the k8s demo-oai script")
     print(80*'*')
 
         
@@ -165,24 +174,32 @@ def main():
     """
     CLI frontend
     """
-    def_amf = 1
-    def_spgwu = 2
-    def_gnb = 3
-    def_ue = 9
         
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument("--amf", default=def_amf,
+    parser.add_argument("--amf", default=default_amf,
                         help="id of the node that runs oai-amf")
 
-    parser.add_argument("--spgwu", default=def_spgwu,
+    parser.add_argument("--spgwu", default=default_spgwu,
                         help="id of the node that runs oai-spgwu")
 
-    parser.add_argument("--gnb", default=def_gnb,
+    parser.add_argument("--gnb", default=default_gnb,
                         help="id of the node that runs oai-gnb")
 
-    parser.add_argument("--ue", default=def_ue,
+    parser.add_argument("--ue", default=default_ue,
                         help="id of the node that runs oai-ue")
+
+    parser.add_argument(
+        "-i", "--image", default=default_image,
+        help="kubernetes image to load on nodes")
+    
+    parser.add_argument(
+        "-m", "--master", default=default_master,
+        help=f"kubernetes master node, default is {default_master}")
+    
+    parser.add_argument(
+        "-s", "--slicename", default=default_slicename,
+        help="slicename used to book FIT nodes, default is {default_slicename}")
 
     parser.add_argument("-l", "--load", dest='load_images',
                         action='store_true', default=False,
@@ -197,10 +214,21 @@ def main():
 
     args = parser.parse_args()
 
-    run(gateway=default_gateway, slicename=default_slicename,
-        master=default_master, amf=args.amf, spgwu=args.spgwu,
+    print(f"**** Running oai5g demo on k8s master {args.master} with {args.slicename} slicename")
+    print(f"Following FIT nodes will be used:")
+    print(f"\t{r2lab_hostname(args.amf)} for oai-amf")
+    print(f"\t{r2lab_hostname(args.spgwu)} for oai-spgwu-tiny")
+    print(f"\t{r2lab_hostname(args.gnb)} for oai-gnb")
+    print(f"\t{r2lab_hostname(args.ue)} for oai-nr-ue")
+    if args.load_images:
+        print(f"with k8s image {args.image} loaded")
+    
+    
+    run(gateway=default_gateway, slicename=args.slicename,
+        master=args.master, amf=args.amf, spgwu=args.spgwu,
         gnb=args.gnb, ue=args.ue, dry_run=args.dry_run,
-        verbose=args.verbose, load_images=args.load_images
+        verbose=args.verbose, load_images=args.load_images,
+        image=args.image
     )
 
 
