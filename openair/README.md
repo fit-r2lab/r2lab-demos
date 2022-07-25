@@ -18,7 +18,7 @@ This script requires python-3.5
 It uses [nepi-ng](https://nepi-ng.inria.fr/), that you can install with
 
 ```
-pip3 install asynciojobs apssh
+pip3 install pandas asynciojobs apssh
 ```
 
 # Resources
@@ -32,11 +32,10 @@ In addition to the defaults for the 3 core nodes, it is advisable to use
 * `fit16` to scramble the **uplink** (it has a UE duplexer)
 
 # Commands
-    oai-scenario.py --load --xterm 11 --xterm 16
 
-or shorter
+For instance, run:
 
-    oai-scenario.py -l -x 11 -x 16
+    oai-scenario.py -l -g 11 -g 16
 
 
 ## scrambler
