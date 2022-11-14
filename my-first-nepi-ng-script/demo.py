@@ -3,8 +3,8 @@
 from asynciojobs import Scheduler
 from apssh import SshNode, ColonFormatter
 from apssh import SshJob, Run, RunScript, Pull
+
 # for the epilogue that runs a command locally
-# from apssh import LocalNode
 import asyncio
 from asynciojobs import Job
 
@@ -16,7 +16,7 @@ def main(nodename1, nodename2, *, verbose=True):
     # show ssh outputs on stdout as they appear
     # together with corresponding hostname
     formatter = ColonFormatter(verbose=verbose)
-    
+
     ########## declare the needed ssh connections
     # our main ssh connection
     gateway = SshNode(hostname = gwname, username = slice,
@@ -30,7 +30,7 @@ def main(nodename1, nodename2, *, verbose=True):
                 formatter = formatter, debug=verbose)
         for nodename in (nodename1, nodename2)]
 
-    ########## 
+    ##########
     job_warmup = SshJob(
         node = gateway,
         # with just Run()
@@ -89,7 +89,7 @@ def main(nodename1, nodename2, *, verbose=True):
     # however RunScript is not yet supported on LocalNodes
     job_epilogue = Job(asyncio.create_subprocess_shell("demo.sh epilogue"),
                        required=(job_run_send, job_run_recv))
-        
+
     scheduler = Scheduler(
         job_warmup,
         job_prep_send, job_prep_recv,
