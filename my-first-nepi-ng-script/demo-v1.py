@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
+"""
+first version that builds all objects from pure Python code
+"""
+
 from asynciojobs import Scheduler
-from apssh import SshNode, ColonFormatter
+from apssh import SshNode, LocalNode, ColonFormatter
 from apssh import SshJob, Run, RunScript, Pull
 
 # for the epilogue that runs a command locally
@@ -78,17 +82,17 @@ def main(nodename1, nodename2, *, verbose=True):
         ],
         required = ( job_prep_send, job_prep_recv),
     )
-    # ideally we would like to write this
-#    job_epilogue = SshJob(
-#        node=LocalNode(),
-#        command=[
-#            RunScript("demo.sh", "epilogue"),
-#        ],
-#        required=(job_run_send, job_run_recv),
-#    )
-    # however RunScript is not yet supported on LocalNodes
-    job_epilogue = Job(asyncio.create_subprocess_shell("demo.sh epilogue"),
-                       required=(job_run_send, job_run_recv))
+
+    # one could also use a raw `Job` instead, but
+    # it's more elegant this way, as all the steps
+    # in the demo are handled in a uniform way in the .sh
+    job_epilogue = SshJob(
+       node=LocalNode(),
+       command=[
+           RunScript("demo.sh", "epilogue"),
+       ],
+       required=(job_run_send, job_run_recv),
+   )
 
     scheduler = Scheduler(
         job_warmup,
@@ -98,10 +102,16 @@ def main(nodename1, nodename2, *, verbose=True):
         verbose=verbose
     )
 
-    scheduler.export_as_dotfile('demo.dot')
-    print("# produce .png file with the following command")
+    # this will work whether you have graphviz installed or not
+    scheduler.export_as_dotfile('demo-v1.dot')
+    print("# you can produce a .png file with the following command")
     print("# install dot with e.g. brew install graphviz on macos")
-    print("dot -Tpng demo.dot -o demo.png")
+    print("dot -Tpng demo-v1.dot -o demo-v1.png")
+    # note that if you do have graphviz installed you can
+    # have the graphic-production phase made by your script itself
+    # by calling this (could be png, or use export_as_graphic for other formats)
+    print("writing graphic scenario in demo-v1.svg")
+    scheduler.export_as_svgfile("demo-v1")
     print(20 * '=')
 
     ok = scheduler.orchestrate()

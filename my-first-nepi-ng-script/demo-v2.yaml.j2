@@ -1,0 +1,89 @@
+# expected jinja variables, set by calling python script
+# {{slice}} - typically 'inria.admin'
+# {{gwname}} - typically 'faraday.inria.fr'
+# {{nodename1}} - typically 'fit01'
+# {{nodename2}} - typically 'fit02'
+# {{verbose}} - typically 'True' or "False"
+
+nodes:
+  - id: faraday
+    hostname: {{gwname}}
+    username: {{slice}}
+    verbose: {{verbose}}
+  - id: sender
+    gateway: faraday
+    hostname: {{nodename1}}
+    username: root
+    verbose: {{verbose}}
+  - id: receiver
+    gateway: faraday
+    hostname: {{nodename2}}
+    username: root
+    verbose: {{verbose}}
+  - id: local
+    localnode: True
+    verbose: {{verbose}}
+
+jobs:
+  - id: warmup
+    node: faraday
+    critical: True
+    verbose: {{verbose}}
+    label: load images
+    commands:
+      - type: Run
+        command: rhubarbe leases --check
+      - type: Run
+        command: rhubarbe on {{nodename1}} {{nodename2}}
+      - type: Run
+        command: rhubarbe wait {{nodename1}} {{nodename2}}
+  - id: prepare-sender
+    node: sender
+    required: warmup
+    commands:
+      - type: RunScript
+        command: demo.sh prepare-sender
+      - type: Run
+        command: ip address show control
+  - id: prepare-receiver
+    node: receiver
+    required: warmup
+    commands:
+      - type: RunScript
+        command: demo.sh prepare-receiver
+  - id: run-sender
+    node: sender
+    required:
+      - prepare-sender
+      - prepare-receiver
+    commands:
+      - type: RunScript
+        command: demo.sh run-sender
+      - type: Pull
+        remotepaths: PREP
+        localpath: PREP-SEND
+      - type: Pull
+        remotepaths: RUN
+        localpath: RUN-SEND
+  - id: run-receiver
+    node: receiver
+    required:
+      - prepare-sender
+      - prepare-receiver
+    commands:
+      - type: RunScript
+        command: demo.sh run-receiver
+      - type: Pull
+        remotepaths: PREP
+        localpath: PREP-RECV
+      - type: Pull
+        remotepaths: RUN
+        localpath: RUN-RECV
+  - id: epiloque
+    node: local
+    required:
+      - run-sender
+      - run-receiver
+    commands:
+      - type: RunScript
+        command: demo.sh epilogue
