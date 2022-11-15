@@ -1,9 +1,10 @@
-# expected jinja variables, set by calling python script
+# the Python script defines and exposes these jinja variables
 # {{slice}} - typically 'inria.admin'
 # {{gwname}} - typically 'faraday.inria.fr'
 # {{nodename1}} - typically 'fit01'
 # {{nodename2}} - typically 'fit02'
 # {{verbose}} - typically 'True' or "False"
+
 
 nodes:
   - id: faraday
@@ -23,6 +24,7 @@ nodes:
   - id: local
     localnode: True
     verbose: {{verbose}}
+
 
 jobs:
   - id: warmup
@@ -65,6 +67,10 @@ jobs:
       - type: Pull
         remotepaths: RUN
         localpath: RUN-SEND
+    # also note that a Push instance would be defined with
+    # - type: Push
+    #   localpaths: file1 file2
+    #   remotepath: destination
   - id: run-receiver
     node: receiver
     required:
@@ -86,4 +92,7 @@ jobs:
       - run-receiver
     commands:
       - type: RunScript
-        command: demo.sh epilogue
+        # this is the same as using
+        # command: demo.sh epilogue
+        local_script: demo.sh
+        args: epilogue

@@ -63,4 +63,5 @@ def main(nodename1, nodename2, *, verbose=True):
         scheduler.debrief()
 
 if __name__ == '__main__':
-    main('fit01', 'fit02', verbose=True)
+    # set verbose to True to see more details
+    main('fit01', 'fit02', verbose=False)

@@ -67,8 +67,13 @@ def main(nodename1, nodename2, *, verbose=True):
         node = node1,
         command = [
             RunScript("demo.sh", "run-sender"),
+            # a Pull instance is made of
+            # remotepaths and localpath (in that order)
             Pull("PREP", "PREP-SEND"),
-            Pull("RUN", "RUN-SEND"),
+            # we could have gien a list for the first arg
+            Pull(["RUN"], "RUN-SEND"),
+            # note that a Push instance would be made of
+            # localpaths and remotepath
         ],
         # start when both nodes are ready
         required = ( job_prep_send, job_prep_recv),
