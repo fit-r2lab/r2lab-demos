@@ -6,7 +6,7 @@ import asyncio
 from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript
-from apssh.formatters import ColonFormatter
+from apssh.formatters import HostFormatter
 
 default_slice = "inria_oai@faraday.inria.fr"
 
@@ -22,7 +22,7 @@ def all_off(slice, verbose, debug):
         gwuser, gwhost = slice, "faraday.inria.fr"
         
     gwnode = SshNode(hostname = gwhost, username = gwuser,
-                     formatter = ColonFormatter(verbose=verbose), debug=debug)
+                     formatter = HostFormatter(verbose=verbose), debug=debug)
 
     scheduler = Scheduler(
         SshJob(

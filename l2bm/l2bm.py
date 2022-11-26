@@ -6,7 +6,7 @@ from pathlib import Path
 from asynciojobs import Job, Scheduler, PrintJob
 
 from apssh import SshNode, SshJob, Run
-from apssh import RunString, RunScript, TimeColonFormatter
+from apssh import RunString, RunScript, TimeHostFormatter
 
 # make sure to pip install r2lab
 from r2lab import ListOfChoices
@@ -53,16 +53,16 @@ def run_scenario(slicename=gateway_username, load_images=load_images,
 
     faraday = SshNode(hostname=default_gateway, username=slicename,
                       verbose=verbose_mode,
-                      formatter=TimeColonFormatter())
+                      formatter=TimeHostFormatter())
 
     node_ovs = SshNode(gateway=faraday, hostname=fitname(node_sender), 
                        username="root",
                        verbose=verbose_mode,
-                       formatter=TimeColonFormatter())
+                       formatter=TimeHostFormatter())
 
     node_index = {
         id: SshNode(gateway=faraday, hostname=fitname(id), 
-                    username="root",formatter=TimeColonFormatter(), 
+                    username="root",formatter=TimeHostFormatter(), 
                     verbose=verbose_mode)
         for id in node_ids
         }

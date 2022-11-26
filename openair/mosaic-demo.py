@@ -17,7 +17,7 @@ from argparse import (ArgumentParser, ArgumentDefaultsHelpFormatter,
 from asynciojobs import Scheduler, PrintJob
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
-from apssh import TimeColonFormatter
+from apssh import TimeHostFormatter
 from apssh import Service
 
 
@@ -87,13 +87,13 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     # what argparse knows as a slice actually is about the gateway (user + host)
     gwuser, gwhost = r2lab_parse_slice(slicename)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
-                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                     formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
 
     hostnames = [r2lab_hostname(x) for x in (cn, ran)]
 
     cnnode, rannode = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 
@@ -169,7 +169,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         # prepare OAI UEs
         for ue in oai_ues:
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
-                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                              formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
             job_warm_ues = [
                 SshJob(
                     node=ue_node,
@@ -220,7 +220,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
         job_start_T_tracer = SshJob(                    # pylint: disable=w0612
             node=SshNode(
                 gateway=gwnode, hostname=r2lab_hostname(T_tracer[0]), username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose),
+                formatter=TimeHostFormatter(verbose=verbose), debug=verbose),
             commands=[
                 Run(f"/root/trace {ran}",
                     x11=True),
@@ -287,7 +287,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
             msg = f"wait for {delay}s for eNB to start up before running UE on node fit{ue}"
             wait_command = f"echo {msg}; sleep {delay}"
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
-                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                              formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
             job_start_ues = [
                 SshJob(
                     node=ue_node,
@@ -305,7 +305,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
 
         for ue in oai_ues:
             ue_node = SshNode(gateway=gwnode, hostname=r2lab_hostname(ue), username='root',
-                              formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                              formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
             msg = f"Wait 60s and then ping faraday gateway from UE on fit{ue}"
             _job_ping_gw_from_ue = [
                 SshJob(
@@ -343,7 +343,7 @@ def run(*,                                # pylint: disable=r0912, r0914, r0915
     for xterm, color in zip(xterms, cycle(colors)):
         xterm_node = SshNode(
             gateway=gwnode, hostname=r2lab_hostname(xterm), username='root',
-            formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         SshJob(
             node=xterm_node,
             command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*",
@@ -423,21 +423,21 @@ def collect(run_name, slicename, cn, ran, oai_ues, verbose, dry_run):
 
     gwuser, gwhost = r2lab_parse_slice(slicename)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
-                     formatter=TimeColonFormatter(verbose=verbose),
+                     formatter=TimeHostFormatter(verbose=verbose),
                      debug=verbose)
 
     functions = ["cn", "ran"]
     hostnames = [r2lab_hostname(x) for x in (cn, ran)]
     node_cn, node_ran = nodes = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
     if oai_ues:
         hostnames_ue = [r2lab_hostname(x) for x in oai_ues]
         nodes_ue = [
             SshNode(gateway=gwnode, hostname=hostname, username='root',
-                    formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                    formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
             for hostname in hostnames_ue]
     else:
         nodes_ue = []

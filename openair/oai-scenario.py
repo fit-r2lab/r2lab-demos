@@ -12,7 +12,7 @@ from asynciojobs import Scheduler, Job, Sequence
 
 from apssh import SshNode, SshJob, Run, RunScript, Pull
 from apssh import LocalNode
-from apssh.formatters import TimeColonFormatter
+from apssh.formatters import TimeHostFormatter
 
 
 # illustrating the r2lab library
@@ -75,7 +75,7 @@ def run(*,
     # what argparse knows as a slice actually is a gateway (user + host)
     gwuser, gwhost = r2lab_parse_slice(slice)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
-                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                     formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
 
     hostnames = hssname, epcname, enbname = [
         r2lab_hostname(x) for x in (hss, epc, enb)]
@@ -85,7 +85,7 @@ def run(*,
 
     hssnode, epcnode, enbnode = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 
@@ -213,7 +213,7 @@ def run(*,
 
     grace = 30 if load_nodes else 10
     grace_delay = SshJob(
-        node=LocalNode(formatter=TimeColonFormatter()),
+        node=LocalNode(formatter=TimeHostFormatter()),
         command=f"echo Allowing grace of {grace} seconds; sleep {grace}",
         required=enb_requirements,
         scheduler=sched,
@@ -281,7 +281,7 @@ def run(*,
     for xterm, color in zip(xterms, itertools.cycle(colors)):
         xterm_node = SshNode(
             gateway=gwnode, hostname=r2lab_hostname(xterm), username='root',
-            formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+            formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         SshJob(
             node=xterm_node,
             command=Run(f"xterm -fn -*-fixed-medium-*-*-*-20-*-*-*-*-*-*-*"
@@ -349,7 +349,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
 
     gwuser, gwhost = r2lab_parse_slice(slice)
     gwnode = SshNode(hostname=gwhost, username=gwuser,
-                     formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                     formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
 
     functions = "hss", "epc", "enb"
 
@@ -358,7 +358,7 @@ def collect(run_name, slice, hss, epc, enb, verbose):
 
     nodes = hssnode, epcnode, enbnode = [
         SshNode(gateway=gwnode, hostname=hostname, username='root',
-                formatter=TimeColonFormatter(verbose=verbose), debug=verbose)
+                formatter=TimeHostFormatter(verbose=verbose), debug=verbose)
         for hostname in hostnames
     ]
 

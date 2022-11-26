@@ -56,7 +56,7 @@ from apssh import SshNode, SshJob, RunScript, Pull
 from apssh import load_agent_keys
 
 # output formats
-from apssh.formatters import TimeColonFormatter, SubdirFormatter
+from apssh.formatters import TimeHostFormatter, SubdirFormatter
 
 # using external shell script like e.g.:
 # angle-measure.sh init-sender channel bandwidth
@@ -254,10 +254,10 @@ def main():
     receivernames, sendernames = r2lab_nodes(args.receivers), r2lab_nodes(args.senders)
 
     # initialize formatter
-    # TimeColonFormatter shows stuff on stdout, with a format like
+    # TimeHostFormatter shows stuff on stdout, with a format like
     # 17-14-24:fit31:actual output from the remote command
     formatter = (
-        TimeColonFormatter(verbose=verbose)
+        TimeHostFormatter(verbose=verbose)
         if args.storage_dir is None \
         else SubdirFormatter(args.storage_dir, verbose=verbose)
         )

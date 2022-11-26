@@ -14,7 +14,7 @@ from asynciojobs import Scheduler, Sequence, PrintJob
 
 from apssh import SshNode, SshJob
 from apssh import Run, RunScript, Pull
-from apssh import TimeColonFormatter
+from apssh import TimeHostFormatter
 
 # make sure to pip install r2lab
 from r2lab import ListOfChoices
@@ -138,13 +138,13 @@ def one_run(wireless_driver,
 
     # the nodes involved
     faraday = SshNode(hostname=default_gateway, username=slicename,
-                      formatter=TimeColonFormatter(), verbose=verbose_ssh)
+                      formatter=TimeHostFormatter(), verbose=verbose_ssh)
 
     # this is a python dictionary that allows to retrieve a node object
     # from an id
     node_index = {
         id: SshNode(gateway=faraday, hostname=fitname(id), username="root",
-                    formatter=TimeColonFormatter(), verbose=verbose_ssh)
+                    formatter=TimeHostFormatter(), verbose=verbose_ssh)
         for id in node_ids
     }
 

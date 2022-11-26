@@ -20,7 +20,7 @@ from asyncssh.logging import set_log_level as asyncssh_set_log_level
 from asynciojobs import Job, Scheduler, PrintJob
 
 from apssh import (LocalNode, SshNode, SshJob, Run, RunString, RunScript,
-                   TimeColonFormatter, Service, Deferred, Capture, Variables)
+                   TimeHostFormatter, Service, Deferred, Capture, Variables)
 
 # make sure to pip install r2lab
 from r2lab import r2lab_hostname, ListOfChoices, ListOfChoicesNullReset, find_local_embedded_script
@@ -57,11 +57,11 @@ def run(*, gateway, slicename, leader, nodes,
 
     faraday = SshNode(hostname=gateway, username=slicename,
                       verbose=verbose,
-                      formatter=TimeColonFormatter())
+                      formatter=TimeHostFormatter())
 
     node_index = {
         id: SshNode(gateway=faraday, hostname=r2lab_hostname(id),
-                    username="root",formatter=TimeColonFormatter(),
+                    username="root",formatter=TimeHostFormatter(),
                     verbose=verbose)
         for id in nodes
     }
