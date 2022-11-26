@@ -5,7 +5,7 @@ first version that builds all objects from pure Python code
 """
 
 from asynciojobs import Scheduler
-from apssh import SshNode, LocalNode, ColonFormatter
+from apssh import SshNode, LocalNode, HostFormatter
 from apssh import SshJob, Run, RunScript, Pull
 
 # for the epilogue that runs a command locally
@@ -19,7 +19,7 @@ def main(nodename1, nodename2, *, verbose=True):
 
     # show ssh outputs on stdout as they appear
     # together with corresponding hostname
-    formatter = ColonFormatter(verbose=verbose)
+    formatter = HostFormatter(verbose=verbose)
 
     ########## declare the needed ssh connections
     # our main ssh connection

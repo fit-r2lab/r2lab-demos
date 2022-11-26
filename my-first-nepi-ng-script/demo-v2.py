@@ -6,7 +6,7 @@ to build the scenario
 """
 
 from asynciojobs import Scheduler
-from apssh import SshNode, ColonFormatter
+from apssh import SshNode, HostFormatter
 from apssh import YamlLoader
 
 # for the epilogue that runs a command locally
