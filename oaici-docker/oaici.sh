@@ -1,5 +1,18 @@
 #!/bin/bash
 
+
+# fitname returns the FIT name from id
+#
+function fitname() {
+    id=$1; shift
+
+    if [ "${id}" -lt 10 ]; then
+	echo -n "fit0$id"
+    else
+	echo -n "fit$id"
+    fi
+}
+
 ####################
 # These are functions used to handle OAICI functions from faraday
 #
@@ -12,8 +25,9 @@
 function init-epc (){
     epc=$1; shift
     enb=$1; shift
-    
-    ssh root@fit$epc \
+
+    fit_epc=$(fitname $epc)
+    ssh root@$fit_epc \
 	    "echo 'Do some network manipulations for containers to talk to each other';
     	    sysctl net.ipv4.conf.all.forwarding=1;
     	    iptables -P FORWARD ACCEPT;
@@ -24,8 +38,10 @@ function init-epc (){
 # * the fit ID (01-37) where to run the EPC, e.g., 17
 function start-epc (){
     epc=$1; shift
-    
-    sshpass -p "linux" ssh oaici@fit$epc \
+
+    fit_epc=$(fitname $epc)
+    echo "****** fit_epc: $fit_epc"
+    sshpass -p "linux" ssh oaici@$fit_epc \
 	    "echo 'Deploy the EPC';
     	    cd openair-epc-fed/docker-compose/inria-oai-mme/;
     	    echo 'docker-compose config --service'; docker-compose config --service;
@@ -43,7 +59,8 @@ function start-epc (){
 function stop-epc (){
     epc=$1; shift
     
-    sshpass -p "linux" ssh oaici@fit$epc \
+    fit_epc=$(fitname $epc)
+    sshpass -p "linux" ssh oaici@$fit_epc \
 	    "echo 'Stop the EPC';
     	    cd openair-epc-fed/docker-compose/inria-oai-mme/;
     	    echo 'docker-compose down'; docker-compose down"
@@ -57,7 +74,8 @@ function init-enb (){
     enb=$1; shift
     epc=$1; shift
     
-    ssh root@fit$enb \
+    fit_enb=$(fitname $enb)
+    ssh root@$fit_enb \
 	    "echo 'Do some network manipulations for containers to talk to each other'; 
 	    sysctl net.ipv4.conf.all.forwarding=1; 
     	    iptables -P FORWARD ACCEPT; 
@@ -69,7 +87,8 @@ function init-enb (){
 function start-enb (){
     enb=$1; shift
     
-    sshpass -p "linux" ssh oaici@fit$enb \
+    fit_enb=$(fitname $enb)
+    sshpass -p "linux" ssh oaici@$fit_enb \
 	    "echo 'Deploy the eNB';
     	    cd ~/openairinterface5g/ci-scripts/yaml_files/inria_enb_mono_fdd;
 	    echo 'docker-compose config --service'; docker-compose config --service;
@@ -81,7 +100,8 @@ function start-enb (){
 function stop-enb (){
     enb=$1; shift
     
-    sshpass -p "linux" ssh oaici@fit$enb \
+    fit_enb=$(fitname $enb)
+    sshpass -p "linux" ssh oaici@$fit_enb \
 	    "echo 'Stop the eNB';
     	    cd ~/openairinterface5g/ci-scripts/yaml_files/inria_enb_mono_fdd;
 	    echo "docker-compose down"; docker-compose down"
@@ -92,7 +112,8 @@ function stop-enb (){
 function logs-mme (){
     epc=$1; shift
 
-    sshpass -p "linux" ssh oaici@fit$epc \
+    fit_epc=$(fitname $epc)
+    sshpass -p "linux" ssh oaici@$fit_epc \
 	    "cd openair-epc-fed/docker-compose/inria-oai-mme/;
     	    echo 'docker logs prod-oai-mme --follow'; docker logs prod-oai-mme --follow"
 }
@@ -102,7 +123,8 @@ function logs-mme (){
 function logs-enb (){
     enb=$1; shift
 
-    sshpass -p "linux" ssh oaici@fit$enb \
+    fit_enb=$(fitname $enb)
+    sshpass -p "linux" ssh oaici@$fit_enb \
             "cd ~/openairinterface5g/ci-scripts/yaml_files/inria_enb_mono_fdd;
             echo 'docker logs prod-enb-mono-fdd --follow';
             docker logs prod-enb-mono-fdd --follow"

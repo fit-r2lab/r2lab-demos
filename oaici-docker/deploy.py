@@ -52,7 +52,7 @@ def fitname(node_id):
     return "fit{:02d}".format(int_id)
 
 def run(*, gateway, slicename,
-        nodes, node_epc, node_enb, quectel_nodes, phones,
+        node_epc, node_enb, quectel_nodes, phones,
         verbose, dry_run, load_images, epc_image, enb_image, quectel_image):
     """
     Launch latest OAICI EPC and eNB Docker images on R2lab
@@ -61,8 +61,6 @@ def run(*, gateway, slicename,
         slicename: the Unix login name (slice name) to enter the gateway
         quectel_nodes: list of indices of quectel UE nodes to use
         phones: list of indices of phones to use
-        nodes: a list of node ids to run the scenario on; strings or ints
-                  are OK;
         node_epc: the node id on which to run the EPC
         node_enb: the node id for the enb, which is connected to B210/eNB-duplexer
 
@@ -70,6 +68,7 @@ def run(*, gateway, slicename,
 
     quectel_ids = quectel_nodes[:]
     quectel = len(quectel_ids) > 0
+    nodes = list((node_epc, node_enb))
 
     faraday = SshNode(hostname=default_gateway, username=slicename,
                       verbose=verbose,
@@ -363,12 +362,6 @@ def main():
     parser.add_argument("-s", "--slicename", default=default_slicename,
                         help="specify an alternate slicename")
 
-    parser.add_argument("-N", "--node-id", dest='nodes', default=default_nodes,
-                        choices=[str(x+1) for x in range(37)],
-                        action=ListOfChoices,
-                        help="specify as many node ids as you want,"
-			" including master and eNB nodes")
-    
     parser.add_argument("-R", "--ran", default=default_node_enb, dest='node_enb',
                         help="specify the id of the node that runs the eNodeB,"
                              " which requires a USRP b210 and 'duplexer for eNodeB")
@@ -380,9 +373,10 @@ def main():
                         action=ListOfChoicesNullReset, type=int, choices=(1, 2, 0),
                         default=default_phones,
                         help='Commercial phones to use; use -p 0 to choose no phone')
+
     parser.add_argument("-Q", "--quectel-id", dest='quectel_nodes',
                         default=default_quectel_nodes,
-                        choices=["32",],
+                        choices=["7","9","17","18","32","34"],
                         action=ListOfChoices,
 			help="specify as many node ids with Quectel UEs as you want")
 
@@ -419,17 +413,9 @@ def main():
     kwds = args.__dict__.copy()
 
     # actually run it
-    print(f"*** Deploy the latest OAICI docker images *** ")
-    print("\tWith the following fit nodes:")
-    for i in args.nodes:
-        if i == args.node_epc:
-            role = "EPC node"
-        elif i == args.node_enb:
-            role = "eNB node"
-        else:
-            role = "Undefined"
-        nodename = fitname(i)
-        print(f"\t{nodename}: {role}")
+    print("*** Deploy following OAICI docker images *** ")
+    print(f"\tEPC: {args.epc_image} on {fitname(args.node_epc)}")
+    print(f"\teNB: {args.enb_image} on {fitname(args.node_enb)}")
     if args.phones:
         for phone in args.phones:
             print(f"Using phone{phone}")
