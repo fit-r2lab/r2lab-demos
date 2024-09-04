@@ -1,0 +1,18 @@
+jupyterlab
+apssh
+r2lab
+ipywidgets
+
+numpy
+pandas
+
+bokeh
+plotly
+chart-studio
+
+ipyvolume
+# this is needed by ipyvolume but appears to be missing from its deps
+ipython_genutils
+# same here, we don't use this explicitly, but somehow
+# the ipyvolume section requires this installed
+ipyvuetify

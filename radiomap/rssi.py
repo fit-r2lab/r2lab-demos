@@ -79,7 +79,7 @@ def rssi_to_3d(rssi_dict):
     Y = np.arange(1, 6, 1, dtype=np.integer)
     X, Y = np.meshgrid(X, Y)
 
-    Z = np.zeros((5, 9), dtype=np.float)
+    Z = np.zeros((5, 9), dtype=float)
     Z[0, 3] = Z[0, 4] = Z[0, 5] = -100 # np.nan
     Z[3, 3] = Z[3, 5] = Z[2, 8] = Z[3, 8] = Z[4, 8] = -100 # np.nan
     T = [ ["None"]*9 for i in range(6) ]
