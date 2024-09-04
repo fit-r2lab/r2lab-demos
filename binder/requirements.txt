@@ -1,11 +1,2 @@
-wheel
-numpy
-pandas
-plotly
-bokeh
-ipyvolume
-matplotlib
-asynciojobs
-asyncssh
-apssh
-r2lab
+# DRY
+-r ../radiomap/requirements.txt
