@@ -310,7 +310,8 @@ def one_run(wireless_driver,
         jobs_window = parallel
 
     # if not in dry-run mode, let's proceed to the actual experiment
-    ok = scheduler.orchestrate(jobs_window=jobs_window)
+    scheduler.jobs_limit = jobs_window
+    ok = scheduler.orchestrate()
     # give details if it failed
     if not ok:
         scheduler.debrief()
