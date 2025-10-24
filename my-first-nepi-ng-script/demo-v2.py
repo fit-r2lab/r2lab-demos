@@ -13,8 +13,9 @@ from apssh import YamlLoader
 import asyncio
 from asynciojobs import Job
 
-gwname = "faraday.inria.fr"
-slice = "inria_admin"
+GWNAME = "faraday.inria.fr"
+SLICE = "inria_admin"
+NODES = ['fit01', 'fit02']
 
 def main(nodename1, nodename2, *, verbose=True):
 
@@ -31,8 +32,8 @@ def main(nodename1, nodename2, *, verbose=True):
     # - the YAML ids (like faraday)
     # which are all in their own namespace
     jinja_variables = dict(
-        slice='inria_admin',
-        gwname='faraday.inria.fr',
+        slice=SLICE,
+        gwname=GWNAME,
         nodename1=nodename1,
         nodename2=nodename2,
         verbose=verbose,
@@ -64,4 +65,4 @@ def main(nodename1, nodename2, *, verbose=True):
 
 if __name__ == '__main__':
     # set verbose to True to see more details
-    main('fit01', 'fit02', verbose=False)
+    main(*NODES, verbose=False)
